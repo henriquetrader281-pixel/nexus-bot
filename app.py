@@ -2,66 +2,44 @@ import streamlit as st
 import google.generativeai as genai
 
 # --- CONFIGURAÇÃO INICIAL ---
-# Tenta carregar a chave dos Secrets do Streamlit
 api_key = st.secrets.get("GEMINI_API_KEY")
 
-st.set_page_config(page_title="Nexus Bot 1.0", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Nexus Bot 1.0", page_icon="🤖")
 
 # --- CONEXÃO COM A IA ---
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # Ajuste para evitar o erro 404: usamos o identificador padrão estável
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # O nome 'gemini-pro' funciona no seu plano gratuito!
+        model = genai.GenerativeModel('gemini-pro')
     except Exception as e:
-        st.error(f"Erro ao configurar a IA: {e}")
+        st.error(f"Erro na configuração: {e}")
 else:
-    st.error("Chave 'GEMINI_API_KEY' não encontrada nos Secrets!")
+    st.error("Chave API não encontrada nos Secrets!")
 
-# --- INTERFACE DO SITE ---
 st.title("🤖 Nexus: Gerador de Posts Shopee")
-st.markdown("---")
 
-col1, col2 = st.columns(2)
-with col1:
-    nome_produto = st.text_input("📦 Nome do Produto:", placeholder="Ex: Mop Giratório")
-with col2:
-    link_video = st.text_input("🔗 Link Direto do Vídeo (.mp4):", placeholder="https://exemplo.com/video.mp4")
+nome_produto = st.text_input("📦 Nome do Produto:")
+link_video = st.text_input("🔗 Link do Vídeo (.mp4):")
 
-# --- LÓGICA DE GERAÇÃO ---
 if st.button("🚀 Gerar Post Completo"):
-    if not nome_produto:
-        st.warning("Por favor, digite o nome do produto.")
-    elif not api_key:
-        st.error("Configure sua API Key nos Secrets primeiro.")
-    else:
+    if nome_produto and api_key:
         try:
-            with st.spinner("🧠 O Nexus está pensando na melhor legenda..."):
-                # Criando o prompt para a IA
-                prompt = f"Crie uma legenda de 3 linhas para o produto '{nome_produto}' focada em vendas no Instagram. Use emojis e hashtags."
+            with st.spinner("🧠 Criando legenda viral..."):
+                prompt = f"Crie uma legenda curta e viral para: {nome_produto}. Use emojis e hashtags."
                 response = model.generate_content(prompt)
                 
-                st.success("✅ Legenda Criada!")
-                st.subheader("📝 Sugestão de Legenda:")
-                st.code(response.text, language="text") # Caixa de texto fácil de copiar
+                st.success("✅ Legenda Gerada!")
+                st.code(response.text) # Caixa para copiar
                 
                 if link_video:
-                    if link_video.endswith(".mp4"):
-                        st.subheader("🎥 Prévia do Vídeo Original:")
-                        st.video(link_video)
-                    else:
-                        st.info("💡 Para ver a prévia aqui, o link precisa terminar em .mp4")
+                    st.video(link_video)
         except Exception as e:
-            st.error(f"Erro técnico na IA: {e}")
-            st.info("Dica: Verifique se sua chave API não tem aspas extras ou espaços.")
+            st.error(f"Erro na IA: {e}")
+            st.info("Recomendo gerar uma NOVA chave no Google AI Studio e colar nos Secrets.")
 
-st.markdown("---")
-st.caption("Nexus Bot v1.0 - Automação Inteligente")
-
-# ---------------------------------------------------------
-# PATCH DE UPDATE (Próxima Etapa: Edição de Vídeo Automática)
-# ---------------------------------------------------------
-# Quando ativarmos a edição, adicionaremos abaixo:
+# --- PATCH DE UPDATE (FUTURO) ---
+# Em breve adicionaremos as linhas abaixo para a edição automática:
 # import moviepy.editor as mp
-# def processar_video(url):
-#     ... lógica de download e "carimbo" de texto no vídeo ...
+# def editar_video():
+#     pass
