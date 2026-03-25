@@ -93,4 +93,14 @@ if 'roteiro_final' in st.session_state:
             if res_12 and hasattr(res_12, 'text'):
                 st.code(res_12.text, language='text')
                 st.success("Pronto! Agora é só seguir as cenas na edição.")
-
+# --- [PATCH 12: ESTRUTURA DE CENAS] ---
+st.divider()
+if 'roteiro_final' in st.session_state:
+    st.subheader("🎬 Estrutura de Cenas (Patch 12)")
+    if st.button("Dividir em Cenas de 3s", key="btn_cenas_p12"):
+        with st.spinner("Organizando cenas..."):
+            prompt_12 = f"Transforme este roteiro em uma lista de cenas de 3 segundos para o editor: {st.session_state['roteiro_final']}"
+            res_12 = model.generate_content(prompt_12)
+            if res_12 and hasattr(res_12, 'text'):
+                st.code(res_12.text, language='text')
+                st.success("Cenas prontas!")
