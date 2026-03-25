@@ -83,7 +83,34 @@ if st.button("Analisar DNA do Vídeo"):
             st.write(analise)
     else:
         st.warning("Por favor, cole algum texto para eu analisar!")
-        # --- 7. [FUTUROS PATCHES] ---
+       # --- [PATCH 10: LÓGICA DO BOTÃO MINERAÇÃO] ---
+# Função para simular a busca de tendências da Shopee/TikTok
+def minerar_top_10():
+    if api_key:
+        prompt_mineracao = """
+        Liste 10 produtos que são tendência absoluta de vendas em 2024 para afiliados (com foco em utilidades domésticas e tecnologia barata).
+        Para cada produto, dê uma nota de 0 a 10 de 'Potencial Viral'.
+        Responda em formato de lista numerada.
+        """
+        response = model.generate_content(prompt_mineracao)
+        return response.text
+    return "Erro: Configure a API Key para minerar dados."
+
+# --- INTEGRANDO COM O BOTÃO DA SUA IMAGEM ---
+# (Certifique-se de que o nome do botão abaixo seja o mesmo do seu código atual)
+
+if st.button("Buscar Top 10 Mais Quentes (Shopee)"):
+    with st.status("Patch de Mineração Ativo: Buscando dados em tempo real...", expanded=True) as status:
+        st.write("Conectando aos servidores de tendência...")
+        dados_quentes = minerar_top_10()
+        st.write("Analisando volume de buscas...")
+        status.update(label="Mineração Concluída!", state="complete", expanded=False)
+    
+    st.markdown("### 🔥 Top 10 Produtos Identificados:")
+    st.info(dados_quentes)
+    
+    # Salva o resultado na memória para o próximo Patch
+    st.session_state['lista_minerada'] = dados_quentes # --- 7. [FUTUROS PATCHES] ---
 # PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
 # PATCH 05: EDITOR DE VÍDEO (MOVIEPY)
 # PATCH 06: DASHBOARD DE LUCRO ESTIMADO
