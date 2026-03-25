@@ -29,7 +29,7 @@ if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"
             st.write("Conectando aos servidores de tendência...")
             
             prompt_mineracao = "Liste 10 produtos que são tendência de vendas para afiliados em 2024. Dê nota de viralização de 0 a 10."
-            response = model.generate_content(prompt_mineracao)
+            response = model = genai.GenerativeModel('gemini-1.5-flash')
             dados_quentes = response.text
             
             st.write("Analisando volume de buscas...")
