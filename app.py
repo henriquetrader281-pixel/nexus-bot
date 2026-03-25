@@ -54,7 +54,36 @@ link_video = st.text_input("Link do Vídeo Minerado:", value="https://www.w3scho
 if link_video:
     st.video(link_video)
 
-# --- 7. [FUTUROS PATCHES] ---
+# --- [PATCH 10: RADAR DE TENDÊNCIA] ---
+# Esta função analisa por que um conteúdo funcionou para replicarmos a lógica
+def analisar_tendencia(texto_viral):
+    if api_key:
+        prompt_trend = f"""
+        Analise a estrutura deste conteúdo viral: "{texto_viral}"
+        1. Qual é o Gancho (Hook) inicial?
+        2. Qual é o desejo ou dor que ele explora?
+        3. Por que as pessoas comentariam nele?
+        Responda de forma curta e técnica para o Nexus Brain.
+        """
+        response = model.generate_content(prompt_trend)
+        return response.text
+    return "Erro: API Key não configurada para análise de tendência."
+
+# --- INTERFACE DO PATCH 10 ---
+st.divider()
+st.subheader("🕵️ Radar de Tendência (Patch 10)")
+input_viral = st.text_area("Cole aqui a descrição ou transcrição de um vídeo VIRAL que você quer copiar:")
+
+if st.button("Analisar DNA do Vídeo"):
+    if input_viral:
+        with st.spinner("Minerando padrões de viralização..."):
+            analise = analisar_tendencia(input_viral)
+            st.session_state['analise_sucesso'] = analise
+            st.info("Padrão de Sucesso Identificado:")
+            st.write(analise)
+    else:
+        st.warning("Por favor, cole algum texto para eu analisar!")
+        # --- 7. [FUTUROS PATCHES] ---
 # PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
 # PATCH 05: EDITOR DE VÍDEO (MOVIEPY)
 # PATCH 06: DASHBOARD DE LUCRO ESTIMADO
