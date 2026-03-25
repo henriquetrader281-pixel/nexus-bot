@@ -3,122 +3,72 @@ import google.generativeai as genai
 
 # --- 1. CONFIGURAÇÕES E SECRETS ---
 api_key = st.secrets.get("GEMINI_API_KEY")
+st.set_page_config(page_title="Nexus Bot: Master", page_icon="🧠", layout="wide")
 
-st.set_page_config(page_title="Nexus Bot: Minerador", page_icon="🔥", layout="wide")
-
-# --- 2. CONEXÃO COM A IA (PATCH DE ESTABILIDADE) ---
+# --- 2. CONEXÃO COM A IA ---
 model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
-        st.error(f"Erro na IA: {e}")
+        st.error(f"Erro na conexão Gemini: {e}")
 
 # --- 3. INTERFACE PRINCIPAL ---
-st.title("🔥 Nexus: Mineração e Estratégia")
-st.sidebar.header("Painel de Controle")
+st.title("🧠 Nexus Brain: Operação Ativa")
+st.sidebar.header("Módulos de Automação")
 
 # --- 4. [PATCH 10: MINERADOR DE PRODUTOS REAL] ---
 st.header("🔎 Mineração de Tendências")
 
-# BOTÃO CORRIGIDO (O ÚNICO QUE DEVE EXISTIR PARA MINERAÇÃO)
 if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"):
     if model:
-        with st.status("Patch de Mineração Ativo: Buscando dados em tempo real...", expanded=True) as status:
-            st.write("Conectando aos servidores de tendência...")
+        with st.status("Minerando tendências...", expanded=True) as status:
+            st.write("Conectando aos servidores...")
+            prompt_min = "Liste 10 produtos virais Shopee 2026 com nota de 0-10."
+            response = model.generate_content(prompt_min)
             
-            prompt_mineracao = "Liste 10 produtos que são tendência de vendas para afiliados em 2024. Dê nota de viralização de 0 a 10."
-            response = model = genai.GenerativeModel('gemini-1.5-flash')
-            # --- CORREÇÃO SEGURANÇA LINHA 33 ---
-if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"):
-    if model:
-        with st.status("Minerando...", expanded=True) as status:
-            response = model.generate_content("Liste 10 produtos virais Shopee 2026 com nota de 0-10.")
-            # A correção é esta verificação abaixo:
+            # Linha 49 corrigida (alinhamento ajustado)
+            st.write("Analisando volume de buscas...")
+            
             if response and hasattr(response, 'text'):
                 st.session_state['lista_minerada'] = response.text
                 status.update(label="Concluído!", state="complete", expanded=False)
-                st.info(st.session_state['lista_minerada'])
             else:
-                status.update(label="Erro na IA", state="error")
-                st.error("A IA não retornou dados. Tente novamente.")
+                st.error("IA não retornou dados.")
     else:
-        st.error("Configure a API Key nos Secrets.")
-            
-            st.write("Analisando volume de buscas...")
-            status.update(label="Mineração Concluída!", state="complete", expanded=False)
-        
-        st.markdown("### 🔥 Top 10 Produtos Identificados:")
-        st.info(dados_quentes)
-        st.session_state['lista_minerada'] = dados_quentes
-    else:
-        st.error("IA Offline: Verifique sua API Key nos Secrets.")
+        st.error("API Key não configurada.")
 
-# --- 5. [PATCH 02: ADAPTADOR DE CONTEÚDO IA] ---
-st.divider()
-st.header("🧠 Inteligência e Legenda")
-nome_produto = st.text_input("Confirme o nome do produto para a IA:", value="Luminária de Pôr do Sol USB")
+if 'lista_minerada' in st.session_state:
+    st.info(st.session_state['lista_minerada'])
 
-if st.button("Gerar Estratégia de Venda"):
-    if model and nome_produto:
-        try:
-            with st.spinner("IA criando estratégia..."):
-                prompt = f"Crie uma legenda de venda curta para {nome_produto} focada em conversão Shopee."
-                response = model.generate_content(prompt)
-                st.code(response.text, language='text')
-        except Exception as e:
-            st.error(f"Erro ao gerar legenda: {e}")
-
-# --- 6. [PATCH 03: VISUALIZAÇÃO DE MÍDIA] ---
-st.header("🎥 Mídia do Produto")
-link_video = st.text_input("Link do Vídeo Minerado:", value="https://www.w3schools.com/html/mov_bbb.mp4")
-if link_video:
-    st.video(link_video)
-
-# --- 7. [PATCH 10: RADAR DE TENDÊNCIA - ANALISADOR] ---
-st.divider()
-st.subheader("🕵️ Radar de Tendência (Analise de Concorrência)")
-
-def analisar_tendencia(texto_viral):
-    if model:
-        prompt_trend = f"""
-        Analise a estrutura deste conteúdo viral: "{texto_viral}"
-        1. Qual é o Gancho (Hook) inicial?
-        2. Qual é o desejo ou dor que ele explora?
-        3. Por que as pessoas comentariam nele?
-        Responda de forma curta e técnica para o Nexus Brain.
-        """
-        response = model.generate_content(prompt_trend)
-        return response.text
-    return "Erro: IA não configurada."
-
-input_viral = st.text_area("Cole aqui a descrição ou transcrição de um vídeo VIRAL que você quer copiar:")
-
-if st.button("Analisar DNA do Vídeo", key="btn_analisar_dna"):
-    if input_viral:
-        with st.spinner("Minerando padrões de viralização..."):
-            analise = analisar_tendencia(input_viral)
-            st.session_state['analise_sucesso'] = analise
-            st.info("Padrão de Sucesso Identificado:")
-            st.write(analise)
-    else:
-        st.warning("Por favor, cole algum texto para eu analisar!")
-# --- PACH 11 NO FINAL DO SCRIPT ---
+# --- 5. [PATCH 11: REMODELAGEM DE ROTEIRO] ---
 st.divider()
 st.header("📝 Remodelagem (Patch 11)")
-prod_para_roteiro = st.text_input("Produto para o Roteiro:", placeholder="Digite o produto escolhido...")
+prod_para_roteiro = st.text_input("Produto para o Roteiro:", placeholder="Digite o produto...")
 
 if st.button("Gerar Roteiro Viral", key="btn_remodelagem_p11"):
     if model and prod_para_roteiro:
-        with st.spinner("Criando roteiro magnético..."):
-            prompt_p11 = f"Crie um roteiro de vídeo curto (30s) para {prod_para_roteiro}. Estrutura: Gancho Curioso + Problema + Solução + CTA."
+        with st.spinner("Criando roteiro..."):
+            prompt_p11 = f"Crie um roteiro de 30s para {prod_para_roteiro}. Hook + Problema + Solução + CTA."
             res_p11 = model.generate_content(prompt_p11)
             if res_p11 and hasattr(res_p11, 'text'):
                 st.session_state['roteiro_final'] = res_p11.text
-                st.success("Roteiro pronto para uso!")
+                st.success("Roteiro pronto!")
                 st.write(st.session_state['roteiro_final'])
-    else:
-        st.warning("Informe o nome do produto para gerar o roteiro.")# PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
-# PATCH 05: EDITOR DE VÍDEO (MOVIEPY)
-# PATCH 06: DASHBOARD DE LUCRO ESTIMADO
+
+# --- 6. [PATCH 12: ESTRUTURA DE CENAS] ---
+if 'roteiro_final' in st.session_state:
+    st.subheader("🎬 Estrutura de Cenas")
+    if st.button("Dividir em Cenas de 3s", key="btn_cenas_p12"):
+        prompt_12 = f"Divida em cenas de 3 segundos para edição: {st.session_state['roteiro_final']}"
+        res_12 = model.generate_content(prompt_12)
+        if res_12 and hasattr(res_12, 'text'):
+            st.code(res_12.text)
+
+# --- 7. [PATCH 03: MÍDIA] ---
+st.divider()
+st.header("🎥 Mídia do Produto")
+link_video = st.text_input("Link do vídeo:", value="https://www.w3schools.com/html/mov_bbb.mp4")
+if link_video:
+    st.video(link_video)
