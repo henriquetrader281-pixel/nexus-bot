@@ -104,6 +104,21 @@ if st.button("Analisar DNA do Vídeo", key="btn_analisar_dna"):
             st.write(analise)
     else:
         st.warning("Por favor, cole algum texto para eu analisar!")
-# PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
+# --- PACH 11 NO FINAL DO SCRIPT ---
+st.divider()
+st.header("📝 Remodelagem (Patch 11)")
+prod_para_roteiro = st.text_input("Produto para o Roteiro:", placeholder="Digite o produto escolhido...")
+
+if st.button("Gerar Roteiro Viral", key="btn_remodelagem_p11"):
+    if model and prod_para_roteiro:
+        with st.spinner("Criando roteiro magnético..."):
+            prompt_p11 = f"Crie um roteiro de vídeo curto (30s) para {prod_para_roteiro}. Estrutura: Gancho Curioso + Problema + Solução + CTA."
+            res_p11 = model.generate_content(prompt_p11)
+            if res_p11 and hasattr(res_p11, 'text'):
+                st.session_state['roteiro_final'] = res_p11.text
+                st.success("Roteiro pronto para uso!")
+                st.write(st.session_state['roteiro_final'])
+    else:
+        st.warning("Informe o nome do produto para gerar o roteiro.")# PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
 # PATCH 05: EDITOR DE VÍDEO (MOVIEPY)
 # PATCH 06: DASHBOARD DE LUCRO ESTIMADO
