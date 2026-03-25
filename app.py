@@ -5,13 +5,13 @@ import google.generativeai as genai
 api_key = st.secrets.get("GEMINI_API_KEY")
 st.set_page_config(page_title="Nexus Bot: Master", page_icon="🧠", layout="wide")
 
-# --- 2. CONEXÃO COM A IA ---
+# --- 2. CONEXÃO COM A IA (CORREÇÃO ERRO 404) ---
 model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # Uso do caminho completo para evitar erro NotFound
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        # CORREÇÃO: Removido prefixo 'models/' que causava o 404
+        model = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Erro na conexão Gemini: {e}")
 
@@ -29,7 +29,6 @@ if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"
             prompt_min = "Liste 10 produtos virais Shopee 2026 com nota de 0-10."
             
             try:
-                # Chamada corrigida
                 response = model.generate_content(prompt_min)
                 st.write("Analisando volume de buscas...")
                 
@@ -62,7 +61,6 @@ if st.button("Gerar Roteiro Viral", key="btn_remodelagem_p11"):
                 st.write(st.session_state['roteiro_final'])
 
 # --- 6. [PATCH 12: ESTRUTURA DE CENAS] ---
-# Removida triplicidade: apenas uma versão funcional aqui
 if 'roteiro_final' in st.session_state:
     st.divider()
     st.subheader("🎬 Estrutura de Cenas (Patch 12)")
@@ -80,3 +78,30 @@ st.header("🎥 Mídia do Produto")
 link_video = st.text_input("Link do vídeo:", value="https://www.w3schools.com/html/mov_bbb.mp4")
 if link_video:
     st.video(link_video)
+
+# --- 8. [PATCH 04, 05 e 06: EXTRAS DE PERFORMANCE] ---
+st.divider()
+col1, col2 = st.columns(2)
+
+with col1:
+    st.header("📥 Downloader (P04)")
+    url_ref = st.text_input("Link para download (TikTok/IG):", key="dl_link")
+    if st.button("Preparar Arquivo"):
+        st.toast("Link enviado para a fila de download!")
+
+with col2:
+    st.header("✍️ Legenda Post (P05)")
+    if st.button("Gerar Legenda p/ Instagram"):
+        if 'roteiro_final' in st.session_state:
+            prompt_05 = f"Crie uma legenda curta com emojis para este roteiro: {st.session_state['roteiro_final']}"
+            res_05 = model.generate_content(prompt_05)
+            st.write(res_05.text)
+        else:
+            st.warning("Gere um roteiro primeiro!")
+
+st.divider()
+st.header("📊 Calculadora de Lucro (P06)")
+venda = st.number_input("Preço de Venda (R$):", value=50.0)
+custo = st.number_input("Custo do Produto + Frete (R$):", value=20.0)
+if st.button("Calcular Margem"):
+    lucro = venda - custo - (venda * 0.15) # Sim
