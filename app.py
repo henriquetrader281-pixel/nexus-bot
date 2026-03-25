@@ -30,7 +30,21 @@ if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"
             
             prompt_mineracao = "Liste 10 produtos que são tendência de vendas para afiliados em 2024. Dê nota de viralização de 0 a 10."
             response = model = genai.GenerativeModel('gemini-1.5-flash')
-            dados_quentes = response.text
+            # --- CORREÇÃO SEGURANÇA LINHA 33 ---
+if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"):
+    if model:
+        with st.status("Minerando...", expanded=True) as status:
+            response = model.generate_content("Liste 10 produtos virais Shopee 2026 com nota de 0-10.")
+            # A correção é esta verificação abaixo:
+            if response and hasattr(response, 'text'):
+                st.session_state['lista_minerada'] = response.text
+                status.update(label="Concluído!", state="complete", expanded=False)
+                st.info(st.session_state['lista_minerada'])
+            else:
+                status.update(label="Erro na IA", state="error")
+                st.error("A IA não retornou dados. Tente novamente.")
+    else:
+        st.error("Configure a API Key nos Secrets.")
             
             st.write("Analisando volume de buscas...")
             status.update(label="Mineração Concluída!", state="complete", expanded=False)
