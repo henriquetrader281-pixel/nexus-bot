@@ -11,7 +11,6 @@ model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # Usando o modelo flash padrão (mais estável para automação)
         model = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Erro na IA: {e}")
@@ -20,20 +19,30 @@ if api_key:
 st.title("🔥 Nexus: Mineração e Estratégia")
 st.sidebar.header("Painel de Controle")
 
-# --- 4. [PATCH 01: MINERADOR DE PRODUTOS] ---
+# --- 4. [PATCH 10: MINERADOR DE PRODUTOS REAL] ---
 st.header("🔎 Mineração de Tendências")
-if st.button("Buscar Top 10 Mais Quentes (Shopee)"):
-    # Espaço reservado para a lógica de busca/scraping
-    st.warning("Patch de Mineração Ativo: Buscando dados em tempo real...")
-    
-    # Exemplo de como os dados aparecerão:
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("📦 Produto: Luminária Projetora USB")
-    with col2:
-        st.success("🔥 Status: Viralizando no TikTok/Shopee")
+
+# BOTÃO CORRIGIDO (O ÚNICO QUE DEVE EXISTIR PARA MINERAÇÃO)
+if st.button("Buscar Top 10 Mais Quentes (Shopee)", key="botao_mineracao_unique"):
+    if model:
+        with st.status("Patch de Mineração Ativo: Buscando dados em tempo real...", expanded=True) as status:
+            st.write("Conectando aos servidores de tendência...")
+            
+            prompt_mineracao = "Liste 10 produtos que são tendência de vendas para afiliados em 2024. Dê nota de viralização de 0 a 10."
+            response = model.generate_content(prompt_mineracao)
+            dados_quentes = response.text
+            
+            st.write("Analisando volume de buscas...")
+            status.update(label="Mineração Concluída!", state="complete", expanded=False)
+        
+        st.markdown("### 🔥 Top 10 Produtos Identificados:")
+        st.info(dados_quentes)
+        st.session_state['lista_minerada'] = dados_quentes
+    else:
+        st.error("IA Offline: Verifique sua API Key nos Secrets.")
 
 # --- 5. [PATCH 02: ADAPTADOR DE CONTEÚDO IA] ---
+st.divider()
 st.header("🧠 Inteligência e Legenda")
 nome_produto = st.text_input("Confirme o nome do produto para a IA:", value="Luminária de Pôr do Sol USB")
 
@@ -45,19 +54,20 @@ if st.button("Gerar Estratégia de Venda"):
                 response = model.generate_content(prompt)
                 st.code(response.text, language='text')
         except Exception as e:
-            st.error(f"IA Offline: {e}")
+            st.error(f"Erro ao gerar legenda: {e}")
 
 # --- 6. [PATCH 03: VISUALIZAÇÃO DE MÍDIA] ---
 st.header("🎥 Mídia do Produto")
 link_video = st.text_input("Link do Vídeo Minerado:", value="https://www.w3schools.com/html/mov_bbb.mp4")
-
 if link_video:
     st.video(link_video)
 
-# --- [PATCH 10: RADAR DE TENDÊNCIA] ---
-# Esta função analisa por que um conteúdo funcionou para replicarmos a lógica
+# --- 7. [PATCH 10: RADAR DE TENDÊNCIA - ANALISADOR] ---
+st.divider()
+st.subheader("🕵️ Radar de Tendência (Analise de Concorrência)")
+
 def analisar_tendencia(texto_viral):
-    if api_key:
+    if model:
         prompt_trend = f"""
         Analise a estrutura deste conteúdo viral: "{texto_viral}"
         1. Qual é o Gancho (Hook) inicial?
@@ -67,14 +77,11 @@ def analisar_tendencia(texto_viral):
         """
         response = model.generate_content(prompt_trend)
         return response.text
-    return "Erro: API Key não configurada para análise de tendência."
+    return "Erro: IA não configurada."
 
-# --- INTERFACE DO PATCH 10 ---
-st.divider()
-st.subheader("🕵️ Radar de Tendência (Patch 10)")
 input_viral = st.text_area("Cole aqui a descrição ou transcrição de um vídeo VIRAL que você quer copiar:")
 
-if st.button("Analisar DNA do Vídeo"):
+if st.button("Analisar DNA do Vídeo", key="btn_analisar_dna"):
     if input_viral:
         with st.spinner("Minerando padrões de viralização..."):
             analise = analisar_tendencia(input_viral)
@@ -83,34 +90,6 @@ if st.button("Analisar DNA do Vídeo"):
             st.write(analise)
     else:
         st.warning("Por favor, cole algum texto para eu analisar!")
-       # --- [PATCH 10: LÓGICA DO BOTÃO MINERAÇÃO] ---
-# Função para simular a busca de tendências da Shopee/TikTok
-def minerar_top_10():
-    if api_key:
-        prompt_mineracao = """
-        Liste 10 produtos que são tendência absoluta de vendas em 2024 para afiliados (com foco em utilidades domésticas e tecnologia barata).
-        Para cada produto, dê uma nota de 0 a 10 de 'Potencial Viral'.
-        Responda em formato de lista numerada.
-        """
-        response = model.generate_content(prompt_mineracao)
-        return response.text
-    return "Erro: Configure a API Key para minerar dados."
-
-# --- INTEGRANDO COM O BOTÃO DA SUA IMAGEM ---
-# (Certifique-se de que o nome do botão abaixo seja o mesmo do seu código atual)
-
-if st.button("Buscar Top 10 Mais Quentes (Shopee)"):
-    with st.status("Patch de Mineração Ativo: Buscando dados em tempo real...", expanded=True) as status:
-        st.write("Conectando aos servidores de tendência...")
-        dados_quentes = minerar_top_10()
-        st.write("Analisando volume de buscas...")
-        status.update(label="Mineração Concluída!", state="complete", expanded=False)
-    
-    st.markdown("### 🔥 Top 10 Produtos Identificados:")
-    st.info(dados_quentes)
-    
-    # Salva o resultado na memória para o próximo Patch
-    st.session_state['lista_minerada'] = dados_quentes # --- 7. [FUTUROS PATCHES] ---
 # PATCH 04: DOWNLOADER AUTOMÁTICO (YT-DLP)
 # PATCH 05: EDITOR DE VÍDEO (MOVIEPY)
 # PATCH 06: DASHBOARD DE LUCRO ESTIMADO
