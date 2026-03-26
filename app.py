@@ -61,30 +61,38 @@ aba_hub, aba_midia, aba_social, aba_lucro = st.tabs([
     "📊 Métricas & ROI"
 ])
 
-# --- ABA 1: HUB DE MINERAÇÃO PRO (GOOGLE TRENDS INTEGRATED) ---
+# --- ABA 1: HUB DE MINERAÇÃO PRO (CORRIGIDO) ---
 with aba_hub:
     st.header("🎯 Mineração com Termômetro Google")
     
     with st.expander("⚙️ Filtros de Precisão de Mercado", expanded=True):
         col_n, col_p, col_r = st.columns(3)
         nicho = col_n.selectbox("Nicho Alvo:", ["Todos", "Cozinha Criativa", "Saúde & Beleza", "Eletrônicos/Tech", "Pet Shop", "Ferramentas Smart"])
-        preco_min, preco_max = col_p.select_slider("Faixa de Preço Sugerida (Venda):", options=[0, 20, 40, 60, 80, 100, 150, 200, 500], value=(30, 80))
+        
+        # --- CORREÇÃO DO ERRO VALUEERROR ---
+        # Garantindo que value=(40, 100) existam na lista options
+        lista_precos = [0, 20, 40, 60, 80, 100, 150, 200, 500]
+        preco_min, preco_max = col_p.select_slider(
+            "Faixa de Preço Sugerida (Venda):", 
+            options=lista_precos, 
+            value=(40, 100) 
+        )
+        
         relevancia = col_r.radio("Prioridade de Busca:", ["🚀 Hype Google (Crescente)", "📈 Volume de Vendas", "📉 Baixa Concorrência"])
 
     st.divider()
 
     if st.button("🚀 Executar Varredura Inteligente Multicanal", use_container_width=True):
-        with st.status("Nexus analisando Google Search + Shopee + Amazon...", expanded=True) as status:
+        with st.status("Nexus analisando Google Search + Marketplaces...", expanded=True) as status:
             prompt_google = f"""
             Aja como um Analista de Big Data Senior em Março de 2026.
             Filtre 10 produtos no nicho {nicho} com preço final entre R$ {preco_min} e R$ {preco_max}.
-            
-            Análise Obrigatória: Identifique o volume de buscas no GOOGLE BRASIL.
+            Identifique o volume de buscas no GOOGLE BRASIL.
             Retorne EXATAMENTE uma tabela Markdown com:
             | Produto | Plataforma Recomendada | Status Google Search | Link de Busca (Direto) |
             | --- | --- | --- | --- |
             No 'Status Google Search', use: 🚀 (Crescente), 📈 (Estável), ⚠️ (Saturando).
-            Force links para Shopee ou Amazon Brasil.
+            Force links de busca para Shopee, Mercado Livre ou Amazon Brasil.
             """
             res = gerar_ia(prompt_google)
             st.session_state['tabela_minerada'] = res
@@ -92,7 +100,7 @@ with aba_hub:
     
     if 'tabela_minerada' in st.session_state:
         st.markdown(st.session_state['tabela_minerada'], unsafe_allow_html=True)
-        st.info("💡 **Dica Nexus:** Foque em produtos com **🚀 Crescente**. Eles têm alto volume de busca orgânica e menos concorrência em anúncios.")
+        st.info(f"✅ Filtro Ativo: {nicho} | R$ {preco_min} - R$ {preco_max}")
 
     # --- VALIDADOR RÁPIDO ---
     st.divider()
@@ -124,4 +132,31 @@ with aba_midia:
             st.session_state['roteiro_final'] = res_roteiro
             st.write(res_roteiro)
 
-# --- ABA 3: AGEND
+# --- ABA 3: AGENDADOR ---
+with aba_social:
+    st.header("📅 Agendador Estratégico")
+    if 'roteiro_final' in st.session_state:
+        col1, col2 = st.columns(2)
+        with col1:
+            rede = st.selectbox("Rede:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
+            hora = st.select_slider("Hora:", options=["09:00", "12:00", "18:00", "21:00"])
+        if st.button("Gerar Legenda Magnética"):
+            st.session_state['legenda_final'] = gerar_ia(f"Crie uma legenda viral para: {st.session_state['roteiro_final']}")
+        
+        if 'legenda_final' in st.session_state:
+            st.text_area("Legenda:", st.session_state['legenda_final'])
+            if st.button("🚀 Confirmar Agendamento"):
+                st.balloons()
+                st.success("Post adicionado à fila!")
+    else:
+        st.warning("⚠️ Gere um roteiro primeiro.")
+
+# --- ABA 4: ROI ---
+with aba_lucro:
+    st.header("📊 Calculadora de Lucro")
+    v = st.number_input("Preço Venda (R$):", value=89.90)
+    c = st.number_input("Custo Total (R$):", value=30.0)
+    taxa = st.selectbox("Canal:", [0.18, 0.22, 0.15], format_func=lambda x: "Shopee" if x==0.18 else ("ML" if x==0.22 else "Amazon"))
+    
+    lucro = v - c - (v * taxa)
+    st.metric("Lucro Líquido", f"R$ {lucro:.2f}", delta=f"{(lucro/v)*100:.1f}% Margem")
