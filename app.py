@@ -1,12 +1,12 @@
 import streamlit as st
 from groq import Groq
+from datetime import datetime
 
 # --- 1. CONFIGURAÇÕES E SECRETS ---
-# Certifique-se de que o nome no Secrets é GROQ_API_KEY
 api_key = st.secrets.get("GROQ_API_KEY")
-st.set_page_config(page_title="Nexus Bot: Groq Turbo", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Nexus Bot: Master", page_icon="🧠", layout="wide")
 
-# --- 2. CONEXÃO COM A IA ---
+# --- 2. CONEXÃO COM A IA (GROQ TURBO) ---
 client = None
 if api_key:
     try:
@@ -16,65 +16,95 @@ if api_key:
 else:
     st.error("API Key da Groq não encontrada nos Secrets.")
 
-# Função mestre para evitar repetição de código
-def gerar_resposta(prompt):
+def gerar_ia(prompt):
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # Modelo potente e gratuito
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
         )
         return completion.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
 
-# --- 3. INTERFACE ---
-st.title("⚡ Nexus Brain: Operação Turbo (Groq)")
+# --- 3. NAVEGAÇÃO POR ABAS ---
+st.title("🧠 Nexus Brain: Central de Comando")
+aba_min, aba_social, aba_lucro = st.tabs(["🔎 Mineração & Roteiro", "📅 Agendador Social (P07/08)", "📊 Métricas & Lucro (P09)"])
 
-# --- 4. [PATCH 10: MINERADOR] ---
-st.header("🔎 Mineração de Tendências")
-if st.button("Buscar Top 10 Mais Quentes", key="btn_min"):
-    if client:
-        with st.status("Minerando em alta velocidade...", expanded=True) as status:
-            res = gerar_resposta("Liste 10 produtos virais Shopee 2026 com nota de 0-10 de potencial de venda.")
+# --- ABA 1: MINERAÇÃO E ROTEIRO ---
+with aba_min:
+    st.header("🔎 Inteligência de Mercado")
+    if st.button("Minerar Top 10 Shopee 2026", key="btn_min_aba1"):
+        with st.status("Varrendo tendências..."):
+            res = gerar_ia("Liste 10 produtos virais Shopee 2026 com nota de potencial de 0-10.")
             st.session_state['lista_minerada'] = res
-            status.update(label="Mineração Concluída!", state="complete", expanded=False)
-    else:
-        st.error("Configure a API Key da Groq primeiro.")
-
-if 'lista_minerada' in st.session_state:
-    st.info(st.session_state['lista_minerada'])
-
-# --- 5. [PATCH 11: ROTEIRO] ---
-st.divider()
-st.header("📝 Remodelagem (Patch 11)")
-prod = st.text_input("Produto alvo:", placeholder="Ex: Luminária Projetora")
-if st.button("Gerar Roteiro Viral", key="btn_p11"):
-    if client and prod:
-        with st.spinner("Criando roteiro magnético..."):
-            res = gerar_resposta(f"Crie um roteiro de 30s para {prod}. Hook + Problema + Solução + CTA.")
-            st.session_state['roteiro_final'] = res
-            st.success("Roteiro Gerado!")
-            st.write(res)
-
-# --- 6. [PATCH 12: CENAS] ---
-if 'roteiro_final' in st.session_state:
+    
+    if 'lista_minerada' in st.session_state:
+        st.info(st.session_state['lista_minerada'])
+    
     st.divider()
-    st.subheader("🎬 Estrutura de Cenas")
-    if st.button("Quebrar em Cenas", key="btn_p12"):
-        res = gerar_resposta(f"Divida esse roteiro em cenas de 3 segundos para edição: {st.session_state['roteiro_final']}")
-        st.code(res)
+    st.header("📝 Criador de Conteúdo")
+    prod = st.text_input("Produto alvo:", placeholder="Ex: Mini Selador Térmico")
+    if st.button("Gerar Roteiro Viral + Cenas"):
+        with st.spinner("O Nexus está redigindo..."):
+            prompt_full = f"Crie um roteiro de 30s para {prod} (Hook, Problema, Solução, CTA) e divida em cenas de 3s para o editor."
+            roteiro = gerar_ia(prompt_full)
+            st.session_state['roteiro_final'] = roteiro
+            st.success("Conteúdo pronto!")
+            st.write(roteiro)
 
-# --- 7. [PATCHES EXTRAS 04, 05, 06] ---
-st.divider()
-col1, col2 = st.columns(2)
-with col1:
-    st.header("📥 Downloader (P04)")
-    st.text_input("Link para baixar:", key="dl")
-    if st.button("Processar Link"): st.toast("Link enviado!")
+# --- ABA 2: AGENDADOR E CONEXÃO (PATCH 07 & 08) ---
+with aba_social:
+    st.header("📅 Agendamento Inteligente")
+    
+    if 'roteiro_final' in st.session_state:
+        col1, col2 = st.columns(2)
+        with col1:
+            rede = st.selectbox("Destino do Post:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
+            horario = st.select_slider("Melhor Horário Sugerido:", options=["09:00", "12:00", "18:00", "21:00"])
+        
+        with col2:
+            legenda_estilo = st.radio("Estilo da Legenda:", ["Urgência", "Curiosidade", "Engraçada"])
+            if st.button("Gerar Legenda p/ Rede Social"):
+                legenda = gerar_ia(f"Crie uma legenda {legenda_estilo} com hashtags para: {st.session_state['roteiro_final']}")
+                st.session_state['legenda_final'] = legenda
 
-with col2:
-    st.header("📊 Lucro (P06)")
-    v = st.number_input("Venda (R$):", value=50.0)
-    c = st.number_input("Custo (R$):", value=20.0)
-    if st.button("Calcular"):
-        st.metric("Lucro Líquido", f"R$ {v-c-(v*0.15):.2f}")
+        if 'legenda_final' in st.session_state:
+            st.text_area("Legenda Gerada:", st.session_state['legenda_final'], height=100)
+
+        if st.button("🚀 Confirmar Agendamento no Nexus", use_container_width=True):
+            st.balloons()
+            st.success(f"Post agendado com sucesso para {rede} às {horario}!")
+            # Simulando a Fila de Postagem
+            if 'fila' not in st.session_state: st.session_state['fila'] = []
+            st.session_state['fila'].append({"Rede": rede, "Hora": horario, "Status": "Aguardando"})
+    else:
+        st.warning("⚠️ Gere um roteiro na aba anterior para habilitar o agendador.")
+
+    if 'fila' in st.session_state:
+        st.divider()
+        st.subheader("📋 Fila de Postagens Ativa")
+        st.table(st.session_state['fila'])
+
+# --- ABA 3: MÉTRICAS E LUCRO (PATCH 09) ---
+with aba_lucro:
+    st.header("📊 Painel de Performance")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Alcance Estimado", "15.700", "+12%")
+    m2.metric("Cliques no Link", "432", "5.2%")
+    m3.metric("Conversão", "2.1%", "+0.4%")
+
+    st.divider()
+    st.subheader("💰 Calculadora de ROI")
+    col_v, col_c = st.columns(2)
+    venda = col_v.number_input("Preço de Venda (R$):", value=79.90)
+    custo = col_c.number_input("Custo + Imposto (R$):", value=35.00)
+    
+    if st.button("Calcular Lucratividade"):
+        # Cálculo: Venda - Custo - Taxa Shopee (estimada 18%)
+        lucro_real = venda - custo - (venda * 0.18)
+        st.metric("Lucro Líquido por Unidade", f"R$ {lucro_real:.2f}", delta=f"Margem: {(lucro_real/venda)*100:.1f}%")
+        
+        if lucro_real > 20:
+            st.success("🔥 Produto Altamente Lucrativo! Escalar postagens.")
+        else:
+            st.warning("⚠️ Margem apertada. Considere aumentar o ticket.")
