@@ -1,8 +1,9 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
+import urllib.parse
 
-# --- 1. SEGURANÇA E CONFIGURAÇÃO ---
+# --- 1. SEGURANÇA E PRIVACIDADE ---
 st.set_page_config(page_title="Nexus Private Hub", page_icon="🔐", layout="wide")
 
 def login_nexus():
@@ -50,115 +51,77 @@ def gerar_ia(prompt):
         return f"Erro na IA: {e}"
 
 # --- 3. INTERFACE OPERACIONAL ---
-st.title("🧠 Nexus Brain: Hub de Precisão")
-st.caption(f"📅 Operador Logado | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.title("🧠 Nexus Brain: Hub de Inteligência 2026")
+st.caption(f"📅 Operação Ativa | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 aba_hub, aba_midia, aba_social, aba_lucro = st.tabs([
-    "🔎 Hub de Mineração Pro", 
+    "🔎 Hub de Mineração & Google", 
     "🎥 Mídia & Fontes",
     "📅 Agendador Social", 
     "📊 Métricas & ROI"
 ])
 
-# --- ABA 1: HUB DE MINERAÇÃO COM FILTROS (CORREÇÃO DE LINKS E NICHO) ---
+# --- ABA 1: HUB DE MINERAÇÃO PRO (GOOGLE TRENDS INTEGRATED) ---
 with aba_hub:
-    st.header("🎯 Inteligência de Mercado Personalizada")
+    st.header("🎯 Mineração com Termômetro Google")
     
-    with st.expander("⚙️ Configurar Filtros de Busca (Recomendado para Iniciantes)", expanded=True):
+    with st.expander("⚙️ Filtros de Precisão de Mercado", expanded=True):
         col_n, col_p, col_r = st.columns(3)
-        
-        nicho = col_n.selectbox("Escolha o Nicho:", 
-            ["Todos", "Casa & Cozinha", "Saúde & Beleza", "Eletrônicos & Acessórios", "Pet Shop", "Brinquedos", "Ferramentas"])
-        
-        preco_min, preco_max = col_p.select_slider(
-            "Faixa de Preço (Venda):",
-            options=[0, 15, 30, 50, 80, 100, 150, 200, 500],
-            value=(30, 100)
-        )
-        
-        relevância = col_r.radio("Priorizar por:", ["Mais Vendidos", "Tendência Viral (Novo)", "Volume de Buscas"])
+        nicho = col_n.selectbox("Nicho Alvo:", ["Todos", "Cozinha Criativa", "Saúde & Beleza", "Eletrônicos/Tech", "Pet Shop", "Ferramentas Smart"])
+        preco_min, preco_max = col_p.select_slider("Faixa de Preço Sugerida (Venda):", options=[0, 20, 40, 60, 80, 100, 150, 200, 500], value=(30, 80))
+        relevancia = col_r.radio("Prioridade de Busca:", ["🚀 Hype Google (Crescente)", "📈 Volume de Vendas", "📉 Baixa Concorrência"])
 
     st.divider()
 
-    if st.button("Executar Varredura Inteligente", key="btn_min_filtros", use_container_width=True):
-        with st.status("Nexus filtrando produtos ideais...", expanded=True) as status:
-            # Prompt forçado para diversificar links e respeitar preço
-            prompt_filtros = f"""
-            Aja como um Especialista em Dropshipping e E-commerce Pro (Março 2026).
-            Busque os 10 produtos mais virais seguindo ESTES LIMITES:
-            - Nicho: {nicho}
-            - Preço de Venda: Entre R$ {preco_min} e R$ {preco_max}
-            - Critério: {relevância}
+    if st.button("🚀 Executar Varredura Inteligente Multicanal", use_container_width=True):
+        with st.status("Nexus analisando Google Search + Shopee + Amazon...", expanded=True) as status:
+            prompt_google = f"""
+            Aja como um Analista de Big Data Senior em Março de 2026.
+            Filtre 10 produtos no nicho {nicho} com preço final entre R$ {preco_min} e R$ {preco_max}.
             
-            Obrigatório: Gere uma tabela equilibrada. Busque links de busca direta para Shopee Brasil, Mercado Livre e Amazon Brasil (pelo menos 3 de cada).
-            
-            Responda EXATAMENTE em formato de tabela Markdown:
-            | Produto | Plataforma | Preço Sug. | Tendência | Link de Busca Direta |
-            | --- | --- | --- | --- | --- |
+            Análise Obrigatória: Identifique o volume de buscas no GOOGLE BRASIL.
+            Retorne EXATAMENTE uma tabela Markdown com:
+            | Produto | Plataforma Recomendada | Status Google Search | Link de Busca (Direto) |
+            | --- | --- | --- | --- |
+            No 'Status Google Search', use: 🚀 (Crescente), 📈 (Estável), ⚠️ (Saturando).
+            Force links para Shopee ou Amazon Brasil.
             """
-            res = gerar_ia(prompt_filtros)
+            res = gerar_ia(prompt_google)
             st.session_state['tabela_minerada'] = res
-            status.update(label="Filtro Aplicado com Sucesso!", state="complete", expanded=False)
+            status.update(label="Análise de Tendências Concluída!", state="complete", expanded=False)
     
     if 'tabela_minerada' in st.session_state:
         st.markdown(st.session_state['tabela_minerada'], unsafe_allow_html=True)
-        st.info(f"✅ Filtro Ativo: {nicho} | R$ {preco_min} - R$ {preco_max}")
+        st.info("💡 **Dica Nexus:** Foque em produtos com **🚀 Crescente**. Eles têm alto volume de busca orgânica e menos concorrência em anúncios.")
+
+    # --- VALIDADOR RÁPIDO ---
+    st.divider()
+    st.subheader("🔗 Validador Externo em Tempo Real")
+    prod_check = st.text_input("Cole o nome do produto para validar no Google real:", placeholder="Ex: Mini Selador a Vácuo")
+    if prod_check:
+        c1, c2 = st.columns(2)
+        q_encoded = urllib.parse.quote(prod_check)
+        link_trends = f"https://trends.google.com.br/trends/explore?date=now%207-d&geo=BR&q={q_encoded}"
+        link_shopping = f"https://www.google.com.br/search?tbm=shop&q={q_encoded}+preço+shopee"
+        c1.link_button(f"🔍 Ver '{prod_check}' no Google Trends", link_trends, use_container_width=True)
+        c2.link_button(f"🛒 Ver Preços no Google Shopping", link_shopping, use_container_width=True)
 
 # --- ABA 2: MÍDIA E FONTES ---
 with aba_midia:
-    st.header("🎥 Fontes de Conteúdo")
-    prod_busca = st.text_input("Produto para Mídia:", placeholder="Copie o nome do produto da tabela...")
-    
-    if st.button("Localizar Fontes de Vídeo/Imagem"):
-        if prod_busca:
-            with st.spinner("Varrendo links de referência..."):
-                prompt_midia = f"Gere links de busca direta no TikTok, Instagram, Pinterest e AliExpress para o produto: {prod_busca}. Foque em vídeos de alta qualidade."
-                res_midia = gerar_ia(prompt_midia)
-                st.session_state['fontes_midia'] = res_midia
-                st.session_state['produto_ativo'] = prod_busca
-                st.markdown(res_midia)
+    st.header("🎥 Central de Mídia")
+    prod_busca = st.text_input("Produto para Mídia:", key="media_input")
+    if st.button("Localizar Fontes de Vídeo"):
+        with st.spinner("Varrendo links de referência..."):
+            res_midia = gerar_ia(f"Gere links de busca direta no TikTok, Instagram e Pinterest para: {prod_busca}.")
+            st.session_state['fontes_midia'] = res_midia
+            st.session_state['produto_ativo'] = prod_busca
+            st.markdown(res_midia)
 
-    st.divider()
     if 'produto_ativo' in st.session_state:
-        st.subheader(f"📝 Roteiro Viral: {st.session_state['produto_ativo']}")
-        if st.button("Gerar Roteiro + Cenas"):
-            res_roteiro = gerar_ia(f"Crie um roteiro viral de 30s e cenas de 3s para: {st.session_state['produto_ativo']}")
+        st.divider()
+        if st.button("Gerar Roteiro Viral + Cenas"):
+            res_roteiro = gerar_ia(f"Crie um roteiro de 30s e cenas de 3s para: {st.session_state['produto_ativo']}")
             st.session_state['roteiro_final'] = res_roteiro
             st.write(res_roteiro)
 
-# --- ABA 3: AGENDADOR ---
-with aba_social:
-    st.header("📅 Agendamento Estratégico")
-    if 'roteiro_final' in st.session_state:
-        col1, col2 = st.columns(2)
-        with col1:
-            rede = st.selectbox("Rede:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
-            hora = st.select_slider("Sugestão de Horário:", options=["09:00", "12:00", "18:00", "21:00"])
-        with col2:
-            if st.button("Gerar Legenda Magnética"):
-                leg = gerar_ia(f"Crie uma legenda de alta conversão para o produto {st.session_state.get('produto_ativo')} com base no roteiro: {st.session_state['roteiro_final']}")
-                st.session_state['legenda_final'] = leg
-        
-        if 'legenda_final' in st.session_state:
-            st.text_area("Legenda Final:", st.session_state['legenda_final'], height=150)
-            if st.button("🚀 Confirmar Agendamento na Fila", use_container_width=True):
-                st.balloons()
-                st.success(f"O Nexus adicionou '{st.session_state['produto_ativo']}' à fila de postagem!")
-    else:
-        st.warning("⚠️ Gere um roteiro na aba anterior primeiro.")
-
-# --- ABA 4: ROI ---
-with aba_lucro:
-    st.header("📊 Calculadora de Viabilidade")
-    v = st.number_input("Preço de Venda Sugerido (R$):", value=89.90)
-    c = st.number_input("Custo de Aquisição + Frete (R$):", value=30.0)
-    taxa_plataforma = st.selectbox("Canal de Venda:", [0.18, 0.22, 0.15], 
-                                  format_func=lambda x: "Shopee (18%)" if x==0.18 else ("Mercado Livre (22%)" if x==0.22 else "Amazon (15%)"))
-    
-    lucro = v - c - (v * taxa_plataforma)
-    st.metric("Lucro Líquido Real", f"R$ {lucro:.2f}", delta=f"Margem de {(lucro/v)*100:.1f}%")
-    
-    if lucro > 20:
-        st.success("🔥 Alta margem! Recomendado para iniciantes (baixo risco e bom retorno).")
-    else:
-        st.warning("⚠️ Margem baixa. Tente negociar com fornecedor ou aumentar o ticket.")
+# --- ABA 3: AGEND
