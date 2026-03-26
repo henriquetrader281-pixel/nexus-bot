@@ -50,113 +50,124 @@ def gerar_ia(prompt):
     except Exception as e:
         return f"Erro na IA: {e}"
 
-# --- 3. INTERFACE OPERACIONAL ---
-st.title("🧠 Nexus Brain: Hub de Inteligência 2026")
-st.caption(f"📅 Operação Ativa | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+# --- 3. LÓGICA AUTO-REFRESH DIÁRIO ---
+hoje = datetime.now().strftime('%d/%m/%Y')
+if "ultima_mineracao_data" not in st.session_state:
+    st.session_state["ultima_mineracao_data"] = None
 
-aba_hub, aba_midia, aba_social, aba_lucro = st.tabs([
-    "🔎 Hub de Mineração & Google", 
+# --- 4. INTERFACE OPERACIONAL ---
+st.title("🧠 Nexus Brain: Hub de Inteligência 2026")
+st.caption(f"📅 Operação Ativa | Operador: {st.session_state.get('email_input', 'Privado')} | Data: {hoje}")
+
+aba_hub, aba_seo, aba_midia, aba_social, aba_lucro = st.tabs([
+    "🔎 Hub de Mineração", 
+    "📈 SEO & Fornecedores",
     "🎥 Mídia & Fontes",
     "📅 Agendador Social", 
-    "📊 Métricas & ROI"
+    "📊 ROI"
 ])
 
-# --- ABA 1: HUB DE MINERAÇÃO PRO (CORRIGIDO) ---
+# --- ABA 1: HUB DE MINERAÇÃO (AUTO-REFRESH) ---
 with aba_hub:
-    st.header("🎯 Mineração com Termômetro Google")
-    
-    with st.expander("⚙️ Filtros de Precisão de Mercado", expanded=True):
-        col_n, col_p, col_r = st.columns(3)
-        nicho = col_n.selectbox("Nicho Alvo:", ["Todos", "Cozinha Criativa", "Saúde & Beleza", "Eletrônicos/Tech", "Pet Shop", "Ferramentas Smart"])
-        
-        # --- CORREÇÃO DO ERRO VALUEERROR ---
-        # Garantindo que value=(40, 100) existam na lista options
+    st.header("🎯 Descoberta de Produtos (Shopee/ML/Amazon)")
+    with st.expander("⚙️ Filtros de Precisão", expanded=True):
+        col_n, col_p = st.columns(2)
+        nicho_global = col_n.selectbox("Nicho Alvo:", ["Todos", "Cozinha Criativa", "Saúde & Beleza", "Eletrônicos/Tech", "Pet Shop", "Ferramentas Smart"])
         lista_precos = [0, 20, 40, 60, 80, 100, 150, 200, 500]
-        preco_min, preco_max = col_p.select_slider(
-            "Faixa de Preço Sugerida (Venda):", 
-            options=lista_precos, 
-            value=(40, 100) 
-        )
-        
-        relevancia = col_r.radio("Prioridade de Busca:", ["🚀 Hype Google (Crescente)", "📈 Volume de Vendas", "📉 Baixa Concorrência"])
+        preco_min, preco_max = col_p.select_slider("Faixa de Preço (Venda):", options=lista_precos, value=(40, 100))
 
     st.divider()
 
-    if st.button("🚀 Executar Varredura Inteligente Multicanal", use_container_width=True):
-        with st.status("Nexus analisando Google Search + Marketplaces...", expanded=True) as status:
-            prompt_google = f"""
-            Aja como um Analista de Big Data Senior em Março de 2026.
-            Filtre 10 produtos no nicho {nicho} com preço final entre R$ {preco_min} e R$ {preco_max}.
-            Identifique o volume de buscas no GOOGLE BRASIL.
-            Retorne EXATAMENTE uma tabela Markdown com:
-            | Produto | Plataforma Recomendada | Status Google Search | Link de Busca (Direto) |
-            | --- | --- | --- | --- |
-            No 'Status Google Search', use: 🚀 (Crescente), 📈 (Estável), ⚠️ (Saturando).
-            Force links de busca para Shopee, Mercado Livre ou Amazon Brasil.
-            """
-            res = gerar_ia(prompt_google)
+    def disparar_mineracao():
+        with st.status("Nexus minerando tendências globais...", expanded=True):
+            prompt = f"Analista 2026: Liste 10 produtos em {nicho_global} (R$ {preco_min}-{preco_max}). Tabela Markdown: Produto, Plataforma, Status Google Search (🚀, 📈, ⚠️) e Link de Busca Direta."
+            res = gerar_ia(prompt)
             st.session_state['tabela_minerada'] = res
-            status.update(label="Análise de Tendências Concluída!", state="complete", expanded=False)
+            st.session_state['ultima_mineracao_data'] = hoje
+            st.toast("Mineração diária concluída automaticamente!")
+
+    if st.session_state["ultima_mineracao_data"] != hoje:
+        disparar_mineracao()
+
+    if st.button("🔄 Atualizar Varredura Manualmente", use_container_width=True):
+        disparar_mineracao()
     
     if 'tabela_minerada' in st.session_state:
-        st.markdown(st.session_state['tabela_minerada'], unsafe_allow_html=True)
-        st.info(f"✅ Filtro Ativo: {nicho} | R$ {preco_min} - R$ {preco_max}")
+        st.markdown(st.session_state['tabela_minerada'])
 
-    # --- VALIDADOR RÁPIDO ---
-    st.divider()
-    st.subheader("🔗 Validador Externo em Tempo Real")
-    prod_check = st.text_input("Cole o nome do produto para validar no Google real:", placeholder="Ex: Mini Selador a Vácuo")
-    if prod_check:
-        c1, c2 = st.columns(2)
-        q_encoded = urllib.parse.quote(prod_check)
-        link_trends = f"https://trends.google.com.br/trends/explore?date=now%207-d&geo=BR&q={q_encoded}"
-        link_shopping = f"https://www.google.com.br/search?tbm=shop&q={q_encoded}+preço+shopee"
-        c1.link_button(f"🔍 Ver '{prod_check}' no Google Trends", link_trends, use_container_width=True)
-        c2.link_button(f"🛒 Ver Preços no Google Shopping", link_shopping, use_container_width=True)
+# --- ABA 2: SEO & FORNECEDORES (PATCH 14 + SUGESTÃO) ---
+with aba_seo:
+    st.header("📈 Inteligência de Busca & Sourcing")
+    st.write("Analise palavras-chave e encontre os melhores caminhos para estoque.")
+    
+    col_s1, col_s2 = st.columns([2, 1])
+    nicho_seo = col_s1.selectbox("Selecione o Nicho para Análise:", ["Cozinha Criativa", "Saúde & Beleza", "Eletrônicos", "Pet Shop", "Utilidades Domésticas"], key="n_seo")
+    
+    if col_s2.button("Mapear Oportunidades", use_container_width=True):
+        with st.spinner(f"Analisando dados de {nicho_seo}..."):
+            prompt_seo = f"""
+            Aja como Especialista SEO/Sourcing 2026. Para o nicho '{nicho_seo}':
+            1. Liste as 5 Palavras-Passe de maior volume no Google Brasil hoje.
+            2. Sugira 3 Títulos de Anúncios magnéticos.
+            3. Indique os 3 melhores tipos de fornecedores (ex: 1688, Fornecedor Local SP, Dropshipping Nacional).
+            Responda em Markdown.
+            """
+            st.session_state['analise_seo'] = gerar_ia(prompt_seo)
 
-# --- ABA 2: MÍDIA E FONTES ---
+    if 'analise_seo' in st.session_state:
+        st.markdown(st.session_state['analise_seo'])
+
+# --- ABA 3: MÍDIA & FONTES ---
 with aba_midia:
     st.header("🎥 Central de Mídia")
-    prod_busca = st.text_input("Produto para Mídia:", key="media_input")
-    if st.button("Localizar Fontes de Vídeo"):
-        with st.spinner("Varrendo links de referência..."):
-            res_midia = gerar_ia(f"Gere links de busca direta no TikTok, Instagram e Pinterest para: {prod_busca}.")
+    prod_busca = st.text_input("Produto para Mídia:", placeholder="Digite o produto selecionado...", key="media_in")
+    
+    if st.button("Localizar Fontes de Criativos"):
+        with st.spinner("Buscando referências visuais..."):
+            res_midia = gerar_ia(f"Links diretos de busca no TikTok, Instagram e Pinterest para o produto: {prod_busca}.")
             st.session_state['fontes_midia'] = res_midia
             st.session_state['produto_ativo'] = prod_busca
             st.markdown(res_midia)
 
+    st.divider()
     if 'produto_ativo' in st.session_state:
-        st.divider()
+        st.subheader(f"📝 Roteiro Estratégico: {st.session_state['produto_ativo']}")
         if st.button("Gerar Roteiro Viral + Cenas"):
-            res_roteiro = gerar_ia(f"Crie um roteiro de 30s e cenas de 3s para: {st.session_state['produto_ativo']}")
+            res_roteiro = gerar_ia(f"Crie um roteiro de 30s e descrição de cenas de 3s para: {st.session_state['produto_ativo']}")
             st.session_state['roteiro_final'] = res_roteiro
             st.write(res_roteiro)
 
-# --- ABA 3: AGENDADOR ---
+# --- ABA 4: AGENDADOR SOCIAL ---
 with aba_social:
-    st.header("📅 Agendador Estratégico")
+    st.header("📅 Agendador de Postagens")
     if 'roteiro_final' in st.session_state:
         col1, col2 = st.columns(2)
-        with col1:
-            rede = st.selectbox("Rede:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
-            hora = st.select_slider("Hora:", options=["09:00", "12:00", "18:00", "21:00"])
-        if st.button("Gerar Legenda Magnética"):
-            st.session_state['legenda_final'] = gerar_ia(f"Crie uma legenda viral para: {st.session_state['roteiro_final']}")
+        rede = col1.selectbox("Plataforma:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
+        hora = col2.select_slider("Horário Sugerido:", options=["09:00", "12:00", "18:00", "21:00"])
+        
+        if st.button("Gerar Legenda com SEO"):
+            st.session_state['legenda_final'] = gerar_ia(f"Crie uma legenda viral com hashtags baseada neste roteiro: {st.session_state['roteiro_final']}")
         
         if 'legenda_final' in st.session_state:
-            st.text_area("Legenda:", st.session_state['legenda_final'])
-            if st.button("🚀 Confirmar Agendamento"):
+            st.text_area("Legenda Final:", st.session_state['legenda_final'], height=150)
+            if st.button("🚀 Confirmar Agendamento na Fila", use_container_width=True):
                 st.balloons()
-                st.success("Post adicionado à fila!")
+                st.success(f"Post de {st.session_state['produto_ativo']} agendado para {rede} às {hora}!")
     else:
-        st.warning("⚠️ Gere um roteiro primeiro.")
+        st.warning("⚠️ Gere um roteiro na aba de Mídia primeiro.")
 
-# --- ABA 4: ROI ---
+# --- ABA 5: ROI (CALCULADORA) ---
 with aba_lucro:
-    st.header("📊 Calculadora de Lucro")
-    v = st.number_input("Preço Venda (R$):", value=89.90)
-    c = st.number_input("Custo Total (R$):", value=30.0)
-    taxa = st.selectbox("Canal:", [0.18, 0.22, 0.15], format_func=lambda x: "Shopee" if x==0.18 else ("ML" if x==0.22 else "Amazon"))
+    st.header("📊 Calculadora de Viabilidade Financeira")
+    c1, c2, c3 = st.columns(3)
+    v = c1.number_input("Preço de Venda (R$):", value=89.90)
+    c = c2.number_input("Custo do Produto (R$):", value=30.0)
+    taxa = c3.selectbox("Taxa do Canal:", [0.18, 0.22, 0.15], format_func=lambda x: f"Taxa {int(x*100)}%")
     
     lucro = v - c - (v * taxa)
-    st.metric("Lucro Líquido", f"R$ {lucro:.2f}", delta=f"{(lucro/v)*100:.1f}% Margem")
+    st.metric("Lucro Líquido por Unidade", f"R$ {lucro:.2f}", delta=f"{(lucro/v)*100:.1f}% Margem")
+    
+    if lucro > 25:
+        st.success("🔥 Produto com ótima margem para escala!")
+    elif lucro < 15:
+        st.warning("⚠️ Margem apertada. Cuidado com o custo de anúncio.")
