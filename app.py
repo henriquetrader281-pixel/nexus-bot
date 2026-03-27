@@ -2,172 +2,132 @@ import streamlit as st
 from groq import Groq
 from datetime import datetime
 import urllib.parse
+import requests
+import pandas as pd
 
-# --- 1. SEGURANÇA E PRIVACIDADE ---
-st.set_page_config(page_title="Nexus Private Hub", page_icon="🔐", layout="wide")
+# --- 1. SETUP & SEGURANÇA (Patches 01-10) ---
+st.set_page_config(page_title="Nexus Ultra: Final Master", page_icon="🔱", layout="wide")
 
 def login_nexus():
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
-
     if not st.session_state["autenticado"]:
         st.markdown("<h1 style='text-align: center;'>🔐 Nexus Private Access</h1>", unsafe_allow_html=True)
-        with st.form("login_form"):
-            email_input = st.text_input("E-mail Autorizado:", placeholder="seu@email.com")
-            senha_input = st.text_input("Senha Mestre:", type="password")
-            submit = st.form_submit_button("Liberar Inteligência", use_container_width=True)
-            
-            if submit:
+        with st.form("login"):
+            e = st.text_input("E-mail Autorizado:")
+            s = st.text_input("Senha Mestre:", type="password")
+            if st.form_submit_button("Liberar Inteligência", use_container_width=True):
                 autorizados = st.secrets.get("ALLOWED_USERS", "").split(",")
-                autorizados = [email.strip() for email in autorizados]
-                if email_input in autorizados and senha_input == st.secrets["NEXUS_PASSWORD"]:
+                if e in [i.strip() for i in autorizados] and s == st.secrets["NEXUS_PASSWORD"]:
                     st.session_state["autenticado"] = True
+                    st.session_state["user_email"] = e
                     st.rerun()
-                else:
-                    st.error("Credenciais Inválidas.")
+                else: st.error("Acesso Negado.")
         return False
     return True
 
-if not login_nexus():
-    st.stop()
+if not login_nexus(): st.stop()
 
-# --- 2. CONEXÃO COM A IA (GROQ) ---
-api_key = st.secrets.get("GROQ_API_KEY")
-client = None
-if api_key:
-    try:
-        client = Groq(api_key=api_key)
-    except Exception as e:
-        st.error(f"Erro na conexão Groq: {e}")
+# --- 2. MOTORES IA & AFILIADOS (Patches 14 & 20) ---
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def gerar_ia(prompt):
     try:
-        completion = client.chat.completions.create(
+        return client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Erro na IA: {e}"
+            messages=[{"role": "user", "content": prompt}]
+        ).choices[0].message.content
+    except Exception as e: return f"Erro na IA: {e}"
 
-# --- 3. LÓGICA AUTO-REFRESH DIÁRIO ---
+def converter_afiliado(url_prod):
+    id_aff = st.secrets.get("SHOPEE_ID", "SEM_ID")
+    return f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(url_prod)}&aff_id={id_aff}"
+
+# --- 3. AUTO-REFRESH (Patch 13) ---
 hoje = datetime.now().strftime('%d/%m/%Y')
-if "ultima_mineracao_data" not in st.session_state:
-    st.session_state["ultima_mineracao_data"] = None
+if "ultima_mineracao_data" not in st.session_state: st.session_state["ultima_mineracao_data"] = None
 
-# --- 4. INTERFACE OPERACIONAL ---
-st.title("🧠 Nexus Brain: Hub de Inteligência 2026")
-st.caption(f"📅 Operação Ativa | Operador: {st.session_state.get('email_input', 'Privado')} | Data: {hoje}")
+# --- 4. INTERFACE (Patches 11-22) ---
+st.title("🔱 Nexus Ultra: Central de Vendas Autônoma")
+st.caption(f"Operador: {st.session_state['user_email']} | Data: {hoje} | Status: Conectado")
 
-aba_hub, aba_seo, aba_midia, aba_social, aba_lucro = st.tabs([
-    "🔎 Hub de Mineração", 
-    "📈 SEO & Fornecedores",
-    "🎥 Mídia & Fontes",
-    "📅 Agendador Social", 
-    "📊 ROI"
-])
+tabs = st.tabs(["🔎 Mineração & Links", "📈 SEO & Sourcing", "🎥 Criativos & Voz IA", "🚀 Postagem (FB/IG/TK)", "📊 Exportar"])
 
-# --- ABA 1: HUB DE MINERAÇÃO (AUTO-REFRESH) ---
-with aba_hub:
-    st.header("🎯 Descoberta de Produtos (Shopee/ML/Amazon)")
-    with st.expander("⚙️ Filtros de Precisão", expanded=True):
-        col_n, col_p = st.columns(2)
-        nicho_global = col_n.selectbox("Nicho Alvo:", ["Todos", "Cozinha Criativa", "Saúde & Beleza", "Eletrônicos/Tech", "Pet Shop", "Ferramentas Smart"])
-        lista_precos = [0, 20, 40, 60, 80, 100, 150, 200, 500]
-        preco_min, preco_max = col_p.select_slider("Faixa de Preço (Venda):", options=lista_precos, value=(40, 100))
+# --- TAB 1: MINERAÇÃO & DEEPLINK (Patch 13 & 20) ---
+with tabs[0]:
+    st.header("🎯 Descoberta de Produtos Virais")
+    col_n, col_p = st.columns(2)
+    nicho = col_n.selectbox("Nicho:", ["Cozinha Criativa", "Saúde & Beleza", "Tech/Eletrônicos", "Pet Shop", "Ferramentas"])
+    lista_precos = [0, 20, 40, 60, 80, 100, 150, 200, 500]
+    preco_min, preco_max = col_p.select_slider("Preço:", options=lista_precos, value=(40, 100))
 
-    st.divider()
-
-    def disparar_mineracao():
-        with st.status("Nexus minerando tendências globais...", expanded=True):
-            prompt = f"Analista 2026: Liste 10 produtos em {nicho_global} (R$ {preco_min}-{preco_max}). Tabela Markdown: Produto, Plataforma, Status Google Search (🚀, 📈, ⚠️) e Link de Busca Direta."
-            res = gerar_ia(prompt)
+    if st.button("🔄 Executar Varredura Inteligente", use_container_width=True) or st.session_state["ultima_mineracao_data"] != hoje:
+        with st.status("Minerando tendências 2026..."):
+            res = gerar_ia(f"Filtre 10 produtos 🚀 em {nicho} (R${preco_min}-{preco_max}). Tabela Markdown: Produto, Status Google (🚀, 📈, ⚠️), Link Shopee Original.")
             st.session_state['tabela_minerada'] = res
             st.session_state['ultima_mineracao_data'] = hoje
-            st.toast("Mineração diária concluída automaticamente!")
+            st.toast("Nexus atualizado para hoje!")
 
-    if st.session_state["ultima_mineracao_data"] != hoje:
-        disparar_mineracao()
-
-    if st.button("🔄 Atualizar Varredura Manualmente", use_container_width=True):
-        disparar_mineracao()
-    
     if 'tabela_minerada' in st.session_state:
         st.markdown(st.session_state['tabela_minerada'])
+        st.divider()
+        st.subheader("🔗 Gerador de Link de Afiliado")
+        link_origem = st.text_input("Cole o Link Shopee aqui:")
+        if link_origem:
+            link_pronto = converter_afiliado(link_origem)
+            st.success(f"Link Afiliado: {link_pronto}")
+            st.session_state['ultimo_link_aff'] = link_pronto
 
-# --- ABA 2: SEO & FORNECEDORES (PATCH 14 + SUGESTÃO) ---
-with aba_seo:
-    st.header("📈 Inteligência de Busca & Sourcing")
-    st.write("Analise palavras-chave e encontre os melhores caminhos para estoque.")
-    
-    col_s1, col_s2 = st.columns([2, 1])
-    nicho_seo = col_s1.selectbox("Selecione o Nicho para Análise:", ["Cozinha Criativa", "Saúde & Beleza", "Eletrônicos", "Pet Shop", "Utilidades Domésticas"], key="n_seo")
-    
-    if col_s2.button("Mapear Oportunidades", use_container_width=True):
-        with st.spinner(f"Analisando dados de {nicho_seo}..."):
-            prompt_seo = f"""
-            Aja como Especialista SEO/Sourcing 2026. Para o nicho '{nicho_seo}':
-            1. Liste as 5 Palavras-Passe de maior volume no Google Brasil hoje.
-            2. Sugira 3 Títulos de Anúncios magnéticos.
-            3. Indique os 3 melhores tipos de fornecedores (ex: 1688, Fornecedor Local SP, Dropshipping Nacional).
-            Responda em Markdown.
-            """
-            st.session_state['analise_seo'] = gerar_ia(prompt_seo)
+# --- TAB 2: SEO & SOURCING (Patch 14) ---
+with tabs[1]:
+    st.header("📈 Estratégia de SEO & Palavras-Passe")
+    if st.button("Analisar Buscas Google 2026"):
+        st.write(gerar_ia(f"Top 5 Palavras-Passe e 3 títulos de anúncios para {nicho} no Google Brasil hoje."))
 
-    if 'analise_seo' in st.session_state:
-        st.markdown(st.session_state['analise_seo'])
-
-# --- ABA 3: MÍDIA & FONTES ---
-with aba_midia:
-    st.header("🎥 Central de Mídia")
-    prod_busca = st.text_input("Produto para Mídia:", placeholder="Digite o produto selecionado...", key="media_in")
-    
-    if st.button("Localizar Fontes de Criativos"):
-        with st.spinner("Buscando referências visuais..."):
-            res_midia = gerar_ia(f"Links diretos de busca no TikTok, Instagram e Pinterest para o produto: {prod_busca}.")
-            st.session_state['fontes_midia'] = res_midia
-            st.session_state['produto_ativo'] = prod_busca
-            st.markdown(res_midia)
-
-    st.divider()
-    if 'produto_ativo' in st.session_state:
-        st.subheader(f"📝 Roteiro Estratégico: {st.session_state['produto_ativo']}")
-        if st.button("Gerar Roteiro Viral + Cenas"):
-            res_roteiro = gerar_ia(f"Crie um roteiro de 30s e descrição de cenas de 3s para: {st.session_state['produto_ativo']}")
-            st.session_state['roteiro_final'] = res_roteiro
-            st.write(res_roteiro)
-
-# --- ABA 4: AGENDADOR SOCIAL ---
-with aba_social:
-    st.header("📅 Agendador de Postagens")
-    if 'roteiro_final' in st.session_state:
-        col1, col2 = st.columns(2)
-        rede = col1.selectbox("Plataforma:", ["Instagram Reels", "TikTok", "YouTube Shorts"])
-        hora = col2.select_slider("Horário Sugerido:", options=["09:00", "12:00", "18:00", "21:00"])
+# --- TAB 3: CRIATIVOS & VOZ (Patch 19 & 17) ---
+with tabs[2]:
+    st.header("🎥 Estúdio de Criativos Viral")
+    p_ativo = st.text_input("Produto alvo do anúncio:", placeholder="Ex: Mini Selador a Vácuo")
+    if p_ativo:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("🔗 Referências")
+            st.link_button("🔥 TikTok (+Views)", f"https://www.tiktok.com/search/video?q={urllib.parse.quote(p_ativo)}")
+            st.link_button("📺 Shorts (+Views)", f"https://www.youtube.com/results?search_query={urllib.parse.quote(p_ativo)}&sp=CAM%253D")
+        with c2:
+            st.subheader("🎙️ Narração & Roteiro")
+            if st.button("🎙️ Gerar Voz IA + Roteiro"):
+                script = gerar_ia(f"Crie um roteiro de 15s para {p_ativo}. Use [LOCUÇÃO] para o áudio e [CENA] para o visual. Inclua música viral.")
+                st.session_state['script_final'] = script
         
-        if st.button("Gerar Legenda com SEO"):
-            st.session_state['legenda_final'] = gerar_ia(f"Crie uma legenda viral com hashtags baseada neste roteiro: {st.session_state['roteiro_final']}")
-        
-        if 'legenda_final' in st.session_state:
-            st.text_area("Legenda Final:", st.session_state['legenda_final'], height=150)
-            if st.button("🚀 Confirmar Agendamento na Fila", use_container_width=True):
+        if 'script_final' in st.session_state:
+            st.markdown(st.session_state['script_final'])
+
+# --- TAB 4: POSTAGEM (Patch 15, 21 & 22) ---
+with tabs[3]:
+    st.header("🚀 Automação de Postagem (Facebook Pilot)")
+    destinos = st.multiselect("Postar em:", ["Facebook Reels", "Grupos FB (Achadinhos)", "Instagram Reels", "TikTok"], default=["Facebook Reels", "Grupos FB (Achadinhos)"])
+    
+    if st.button("🔥 DISPARAR PARA FILA (AUTO-POST)", use_container_width=True):
+        webhook = st.secrets.get("WEBHOOK_POST_URL")
+        if webhook:
+            payload = {
+                "produto": p_ativo,
+                "link": st.session_state.get('ultimo_link_aff'),
+                "copy": st.session_state.get('script_final'),
+                "canais": destinos,
+                "data": hoje
+            }
+            try:
+                requests.post(webhook, json=payload)
                 st.balloons()
-                st.success(f"Post de {st.session_state['produto_ativo']} agendado para {rede} às {hora}!")
-    else:
-        st.warning("⚠️ Gere um roteiro na aba de Mídia primeiro.")
+                st.success("✅ Nexus enviou os dados para o Make.com! Postagem agendada nos horários de pico.")
+            except: st.error("Erro na conexão com o Webhook.")
+        else: st.warning("Configure o WEBHOOK_POST_URL para postar sozinho.")
 
-# --- ABA 5: ROI (CALCULADORA) ---
-with aba_lucro:
-    st.header("📊 Calculadora de Viabilidade Financeira")
-    c1, c2, c3 = st.columns(3)
-    v = c1.number_input("Preço de Venda (R$):", value=89.90)
-    c = c2.number_input("Custo do Produto (R$):", value=30.0)
-    taxa = c3.selectbox("Taxa do Canal:", [0.18, 0.22, 0.15], format_func=lambda x: f"Taxa {int(x*100)}%")
-    
-    lucro = v - c - (v * taxa)
-    st.metric("Lucro Líquido por Unidade", f"R$ {lucro:.2f}", delta=f"{(lucro/v)*100:.1f}% Margem")
-    
-    if lucro > 25:
-        st.success("🔥 Produto com ótima margem para escala!")
-    elif lucro < 15:
-        st.warning("⚠️ Margem apertada. Cuidado com o custo de anúncio.")
+# --- TAB 5: EXPORTAR (Patch 16) ---
+with tabs[4]:
+    st.header("📊 Exportação de Dados")
+    if 'tabela_minerada' in st.session_state:
+        st.download_button("📥 Baixar Relatório Diário (TXT)", st.session_state['tabela_minerada'], file_name=f"nexus_{hoje}.txt")
+    else: st.warning("Sem dados para exportar.")
