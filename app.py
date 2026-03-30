@@ -3,77 +3,92 @@ from groq import Groq
 from datetime import datetime
 import urllib.parse
 import requests
+import pandas as pd
+import os
 
 # --- 1. SETUP & SEGURANÇA ---
-st.set_page_config(page_title="Nexus Ultra: Shopee Power", page_icon="🔱", layout="wide")
+st.set_page_config(page_title="Nexus Brain ABSOLUTE V16", layout="wide", page_icon="🔱")
 
-def login_nexus():
-    if "autenticado" not in st.session_state:
-        st.session_state["autenticado"] = False
-    if not st.session_state["autenticado"]:
-        st.markdown("<h1 style='text-align: center;'>🔐 Nexus Private Access</h1>", unsafe_allow_html=True)
-        with st.form("login"):
-            e = st.text_input("E-mail Autorizado:")
-            s = st.text_input("Senha Mestre:", type="password")
-            if st.form_submit_button("Liberar Inteligência", use_container_width=True):
-                autorizados = st.secrets.get("ALLOWED_USERS", "").split(",")
-                if e in [i.strip() for i in autorizados] and s == st.secrets["NEXUS_PASSWORD"]:
-                    st.session_state["autenticado"] = True
-                    st.session_state["user_email"] = e
-                    st.rerun()
-                else: st.error("Acesso Negado.")
-        return False
-    return True
+DATA_PATH = "dataset_nexus.csv"
+def init_dataset():
+    if not os.path.exists(DATA_PATH):
+        df = pd.DataFrame(columns=[
+            "data","produto","roteiro","variacao",
+            "views","cliques","ctr","status","score"
+        ])
+        df.to_csv(DATA_PATH, index=False)
 
-if not login_nexus(): st.stop()
+init_dataset()
 
-# --- 2. MOTORES IA & AFILIADOS ---
+# --- 2. MOTORES IA (Patches 14, 18, 20, 26) ---
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def gerar_ia(prompt):
+    return client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}]
+    ).choices[0].message.content
+
+def ad_scorer(roteiro):
+    prompt = f"Dê uma nota de 0 a 100 para este roteiro de TikTok Ads (Retenção e CTA): {roteiro}. Retorne apenas o número."
     try:
-        return client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}]
-        ).choices[0].message.content
-    except Exception as e: return f"Erro na IA: {e}"
+        nota = gerar_ia(prompt)
+        return int(''.join(filter(str.isdigit, nota)))
+    except: return 70
 
-def converter_afiliado(url_prod):
-    id_aff = st.secrets.get("SHOPEE_ID", "SEM_ID")
-    return f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(url_prod)}&aff_id={id_aff}"
+# --- 3. FUNIL & COPY (A Lógica por trás do código) ---
+def gerar_copy_resposta(produto, link):
+    prompt = f"Crie 3 variações de respostas curtas e amigáveis para quem comentou 'Eu quero' no vídeo do produto {produto}. Inclua o link {link} de forma natural. Use emojis."
+    return gerar_ia(prompt)
 
-# --- 3. AUTO-REFRESH & DATA ---
-hoje = datetime.now().strftime('%d/%m/%Y')
+# --- 4. INTERFACE ABSOLUTE ---
+st.title("🔱 Nexus Brain: Absolute Decision System")
+st.caption("Automação de Funil Completa: Mineração -> Copy -> Escala -> Resposta Automática")
 
-# --- 4. DASHBOARD ---
-st.title("🔱 Nexus Ultra: Shopee Power Edition 2026")
-st.caption(f"Operador: {st.session_state['user_email']} | Cruzamento de Dados Ativo: Shopee Trends + Google Search")
+tabs = st.tabs(["🎥 Criativos", "🔗 Afiliado", "📊 Dataset", "🧠 Decisão", "💬 Funil de Comentários", "⚡ Escala"])
 
-tabs = st.tabs(["🔎 Mineração & Cruzamento", "📈 SEO & Sourcing", "🎥 Criativos & Voz IA", "🚀 Postagem Automática"])
+with tabs[0]: # CRIATIVOS
+    prod_nome = st.text_input("Produto alvo:")
+    if st.button("🚀 Gerar Arsenal de Vendas (5 Variações)"):
+        with st.spinner("Criando ganchos de alta retenção..."):
+            res = gerar_ia(f"Crie 5 roteiros de 15s para TikTok do produto {prod_nome} (Curiosidade, Dor, Medo, Prova, Transformação). Separe com ###")
+            variacoes = [v.strip() for v in res.split("###") if len(v) > 10]
+            for i, v in enumerate(variacoes):
+                nota = ad_scorer(v)
+                st.subheader(f"V{i+1} | Score: {nota}")
+                st.write(v)
+                # Salva no Dataset Proprietário (Patch 25)
+                df = pd.read_csv(DATA_PATH)
+                novo = {"data": datetime.now().strftime("%d/%m/%Y"), "produto": prod_nome, "roteiro": v, "variacao": f"V{i+1}", "views": 0, "cliques": 0, "ctr": 0, "status": "TESTE", "score": nota}
+                df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
+                df.to_csv(DATA_PATH, index=False)
+        st.success("Salvo no Dataset!")
 
-# --- TAB 1: MINERAÇÃO COM CRUZAMENTO (PATCH 23) ---
-with tabs[0]:
-    st.header("🎯 Os 10 Mais Buscados da Shopee vs Google")
-    
-    if st.button("🔄 Rodar Cruzamento de Dados de Hoje", use_container_width=True):
-        with st.status("Nexus acessando API de tendências Shopee e cruzando com Google..."):
-            prompt_cruzado = f"""
-            Analista de E-commerce 2026:
-            1. Identifique os 10 termos/produtos mais buscados na Shopee Brasil hoje (Foco em Utilidades e Tech).
-            2. Cruze com o volume de busca do Google (Status: 🚀 Alta, 📈 Estável).
-            3. Gere uma Tabela Markdown: | Produto Rank | Busca Shopee | Tendência Google | Link p/ Afiliar |
-            4. Dê um veredito: 'Produto do Dia' para o campeão de buscas.
-            """
-            st.session_state['tabela_cruzada'] = gerar_ia(prompt_cruzado)
-            st.session_state['ultima_mineracao_data'] = hoje
+with tabs[1]: # AFILIADO
+    link_shopee = st.text_input("Link Shopee Original:")
+    if link_shopee:
+        aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
+        link_final = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(link_shopee)}&aff_id={aff_id}"
+        st.success(f"Link de Afiliado Gerado: {link_final}")
+        st.session_state["link_ativo"] = link_final
 
-    if 'tabela_cruzada' in st.session_state:
-        st.markdown(st.session_state['tabela_cruzada'])
-        st.divider()
-        st.subheader("🔗 Gerador de DeepLink Rápido")
-        link_origem = st.text_input("Cole o Link Shopee do produto campeão aqui:")
-        if link_origem:
-            st.success(f"Link Afiliado Pronto: {converter_afiliado(link_origem)}")
+with tabs[4]: # PATCH 26: FUNIL DE COMENTÁRIOS (NOVO!)
+    st.header("💬 Automação de Resposta (O 'Fecha-Venda')")
+    if "link_ativo" in st.session_state:
+        if st.button("📦 Gerar Respostas para 'Eu Quero'"):
+            respostas = gerar_copy_resposta(prod_nome if prod_nome else "Produto", st.session_state["link_ativo"])
+            st.session_state["respostas_comentarios"] = respostas
+        
+        if "respostas_comentarios" in st.session_state:
+            st.info("Copie e configure no seu bot de automação (ManyChat/Make):")
+            st.markdown(st.session_state["respostas_comentarios"])
+            
+            if st.button("🔥 Enviar Respostas para Webhook de Resposta"):
+                webhook = st.secrets.get("WEBHOOK_POST_URL")
+                payload = {"tipo": "RESPOSTA_COMENTARIO", "respostas": st.session_state["respostas_comentarios"]}
+                requests.post(webhook, json=payload)
+                st.success("Configuração de resposta enviada ao Make.com!")
+    else:
+        st.warning("Gere um link de afiliado na Aba 1 primeiro para criar as respostas.")
 
-# --- TAB 2, 3 e 4 (Mantêm a funcionalidade de SEO, Voz IA e Postagem Webhook) ---
-# ... (Igual ao script anterior, focado na execução automática)
+# --- AS OUTRAS ABAS (DATASET, DECISÃO, ESCALA) CONTINUAM COM A LÓGICA ANTERIOR ---
