@@ -7,13 +7,13 @@ from datetime import datetime
 import os
 import json
 
-# --- 1. SETUP & ENGINE ---
-st.set_page_config(page_title="Nexus Absolute V50", layout="wide", page_icon="🔱")
+# --- 1. CONFIGURAÇÃO E ENGINE ---
+st.set_page_config(page_title="Nexus Absolute V51", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
 def carregar_dados():
     if not os.path.exists(DATA_PATH):
-        df = pd.DataFrame(columns=["data", "produto", "roteiro", "status", "link_afiliado"])
+        df = pd.DataFrame(columns=["data", "produto", "roteiro", "status", "link_afiliado", "copy_funil"])
         df.to_csv(DATA_PATH, index=False)
     return pd.read_csv(DATA_PATH)
 
@@ -25,45 +25,66 @@ def gerar_ia(prompt):
         messages=[{"role":"user","content": prompt}]
     ).choices[0].message.content
 
-# --- 2. LOGICA DE FLUXO AUTOMÁTICO (MINERAÇÃO -> ARSENAL) ---
-st.title("🔱 Nexus Brain V50: Automação de Fluxo")
+# --- 2. INTERFACE PENSANTE ---
+st.title("🔱 Nexus Brain V51: O Fluxo Perfeito")
 
-tabs = st.tabs(["🔎 Mineração & Escolha", "🚀 Arsenal & Processamento", "🕹️ Central de Disparo"])
+tabs = st.tabs(["🔎 Mineração & Seleção", "🚀 Arsenal (Auto-Process)", "🕹️ Central de Disparo"])
+
+# Inicializa estados de seleção
+if 'sel_nome' not in st.session_state: st.session_state.sel_nome = ""
+if 'sel_link' not in st.session_state: st.session_state.sel_link = ""
 
 with tabs[0]:
-    st.header("🎯 Escolha o Produto para Processamento Automático")
-    nicho = st.text_input("Nicho:", value="Utilidades")
+    st.header("🎯 Inteligência de Mercado")
+    nicho = st.text_input("Defina o Nicho:", value="Utilidades Criativas")
     
-    if st.button("🔄 Buscar Oportunidades"):
-        with st.status("Minerando..."):
-            res = gerar_ia(f"Liste 5 produtos virais de {nicho} na Shopee Brasil com links de busca.")
-            st.session_state['lista_produtos'] = res
+    if st.button("🔄 Minerar Oportunidades"):
+        with st.status("Varrendo mercado..."):
+            # Pedimos para a IA formatar como JSON para o seletor funcionar
+            prompt = f"Liste 5 produtos virais de {nicho} na Shopee. Retorne APENAS um JSON: [{{'nome': 'item', 'link': 'url'}}, ...]"
+            res = gerar_ia(prompt)
+            try:
+                # Tenta limpar o texto caso a IA mande conversa fora do JSON
+                json_start = res.find('[')
+                json_end = res.rfind(']') + 1
+                st.session_state['lista_bruta'] = json.loads(res[json_start:json_end])
+            except:
+                st.error("Erro ao processar lista. Tente minerar novamente.")
 
-    if 'lista_produtos' in st.session_state:
-        st.markdown(st.session_state['lista_produtos'])
-        st.divider()
-        
-        # INPUTS PARA O FLUXO AUTOMÁTICO
-        c1, c2 = st.columns(2)
-        prod_escolhido = c1.text_input("Nome do Produto Selecionado:")
-        link_orig = c2.text_input("URL Original do Produto:")
-        
-        if st.button("⚡ INICIAR FLUXO TOTAL (Arsenal + Vídeos + Links)"):
-            with st.status("Processando Arsenal e Modificações de Vídeo..."):
-                # 1. Gerar ID de Afiliado (P-27)
-                aff_id = st.secrets.get("SHOPEE_ID", "ID_PADRAO")
-                link_final = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(link_orig)}&aff_id={aff_id}"
+    if 'lista_bruta' in st.session_state:
+        for prod in st.session_state['lista_bruta']:
+            col_txt, col_btn = st.columns([4, 1])
+            col_txt.write(f"📦 **{prod['nome']}**")
+            if col_btn.button("Selecionar", key=prod['nome']):
+                st.session_state.sel_nome = prod['nome']
+                st.session_state.sel_link = prod['link']
+                st.success(f"{prod['nome']} enviado para o Arsenal!")
+
+with tabs[1]:
+    st.header("🚀 Processamento de Arsenal Automático")
+    
+    # Preenchimento automático vindo da aba 1
+    c1, c2 = st.columns(2)
+    p_nome = c1.text_input("Produto:", value=st.session_state.sel_nome)
+    p_link = c2.text_input("Link Original:", value=st.session_state.sel_link)
+    
+    if st.button("⚡ INICIAR FLUXO TOTAL (Arsenal + Vídeos + Links)"):
+        if p_nome and p_link:
+            with st.status("Nexus processando 4 variações únicas..."):
+                aff_id = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
+                link_final = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_link)}&aff_id={aff_id}"
                 
-                # 2. Gerar 4 Roteiros Modificados (Anti-Plágio)
-                roteiros = gerar_ia(f"Crie 4 roteiros de 15s para {prod_escolhido}. Mude a ordem dos ganchos e a narração para não ficar igual ao original. Separe por ###")
+                # Gera 4 roteiros com estilos diferentes para não dar plágio
+                prompt_rot = f"Crie 4 roteiros de 15s para {p_nome}. Varie os ganchos (Curiosidade, Medo de Perder, ASMR, Benefício). Separe por ###"
+                roteiros = gerar_ia(prompt_rot).split("###")
                 
                 df = carregar_dados()
-                for rot in roteiros.split("###"):
+                for i, rot in enumerate(roteiros):
                     if len(rot) > 10:
-                        copy = gerar_ia(f"Crie legenda viral e resposta de funil para o link {link_final}")
+                        copy = gerar_ia(f"Crie legenda viral e hashtags para este vídeo: {rot}")
                         novo = {
                             "data": datetime.now().strftime("%d/%m"),
-                            "produto": prod_escolhido,
+                            "produto": f"{p_nome} (Var {i+1})",
                             "roteiro": rot.strip(),
                             "copy_funil": copy,
                             "link_afiliado": link_final,
@@ -71,50 +92,40 @@ with tabs[0]:
                         }
                         df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                 df.to_csv(DATA_PATH, index=False)
-                st.success("✅ VÍDEOS MODIFICADOS E ARSENAL PRONTO!")
+                st.success("✅ VÍDEOS OK! Arsenal carregado na Central de Disparo.")
+        else:
+            st.warning("Selecione um produto na aba anterior ou digite os dados.")
 
-with tabs[1]:
-    st.header("📦 Status do Arsenal")
-    df_check = carregar_dados()
-    # Layout de confirmação visual
-    prontos = df_check[df_check["status"] == "PRONTO PARA POSTAGEM"]
-    if not prontos.empty:
-        for idx, row in prontos.iterrows():
-            st.success(f"🎬 Vídeo OK: {row['produto']} | Link: {row['link_afiliado']}")
-    else:
-        st.info("Aguardando processamento na aba de Mineração.")
-
-# --- 3. FIX DO WEBHOOK (JSON E HEADERS PARA MAKE/BUFFER) ---
 with tabs[2]:
     st.header("🕹️ Central de Disparo (Fix Make/TikTok)")
     df_disparo = carregar_dados()
     fila = df_disparo[df_disparo["status"] == "PRONTO PARA POSTAGEM"]
     
     if not fila.empty:
+        st.write(f"Você tem **{len(fila)}** vídeos prontos.")
         if st.button("🚀 DISPARAR TUDO PARA MAKE/BUFFER", type="primary"):
-            url_webhook = st.secrets.get("WEBHOOK_POSTAGEM")
+            webhook = st.secrets.get("WEBHOOK_POSTAGEM")
             headers = {"Content-Type": "application/json"}
             
             sucessos = 0
             for i, row in fila.iterrows():
-                # Payload estruturado para o Make.com reconhecer
                 payload = {
-                    "event": "new_post",
-                    "data": {
-                        "produto": row['produto'],
-                        "video_script": row['roteiro'],
-                        "caption": row['copy_funil'],
-                        "affiliate_link": row['link_afiliado'],
-                        "timestamp": datetime.now().isoformat()
-                    }
+                    "produto": row['produto'],
+                    "roteiro": row['roteiro'],
+                    "legenda": row['copy_funil'],
+                    "link": row['link_afiliado'],
+                    "instante": datetime.now().strftime("%H:%M:%S")
                 }
                 try:
-                    r = requests.post(url_webhook, data=json.dumps(payload), headers=headers, timeout=15)
-                    if r.status_code == 200:
+                    r = requests.post(webhook, data=json.dumps(payload), headers=headers, timeout=10)
+                    if r.status_code in [200, 201]:
                         df_disparo.at[i, "status"] = "ENVIADO"
                         sucessos += 1
-                except Exception as e:
-                    st.error(f"Erro no envio: {e}")
+                except:
+                    continue
             
             df_disparo.to_csv(DATA_PATH, index=False)
-            st.success(f"🔥 {sucessos} itens enviados com sucesso para o seu fluxo!")
+            st.success(f"🔥 {sucessos} itens enviados com sucesso!")
+            st.rerun()
+    else:
+        st.info("Nenhum item pronto para disparo.")
