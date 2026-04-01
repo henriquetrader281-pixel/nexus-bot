@@ -1,11 +1,14 @@
 import streamlit as st
 from groq import Groq
-import urllib.parse, requests, os, re, json
+import urllib.parse
+import requests
 import pandas as pd
 from datetime import datetime
+import os
+import re
 
-# --- 1. SETUP ---
-st.set_page_config(page_title="Nexus V61", layout="wide", page_icon="🔱")
+# --- 1. CONFIGURAÇÃO E ENGINE (Mantendo a base V58) ---
+st.set_page_config(page_title="Nexus Absolute V62", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
 def carregar_dados():
@@ -18,74 +21,97 @@ client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
 
 def gerar_ia(prompt):
     try:
-        res = client.chat.completions.create(
+        return client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
             messages=[{"role":"user","content": prompt}]
-        )
-        return res.choices[0].message.content
+        ).choices[0].message.content
     except Exception as e:
-        return f"Erro: {str(e)}"
+        return f"Erro na IA: {e}"
 
 # --- 2. INTERFACE ---
-st.title("🔱 Nexus Brain V61")
+st.title("🔱 Nexus Brain V62: Base Estável + Buffer")
 
-tabs = st.tabs(["🔎 Busca", "🚀 Arsenal", "🕹️ Disparo"])
+tabs = st.tabs(["🔎 Mineração Real-Time", "🚀 Arsenal Automático", "🕹️ Central de Disparo"])
 
-# Estados de sessão
-for k in ['sel_nome', 'sel_link', 'sel_preco', 'res_busca']:
-    if k not in st.session_state: st.session_state[k] = ""
+# Preservando estados de sessão
+for key in ['sel_nome', 'sel_link', 'sel_preco', 'res_busca']:
+    if key not in st.session_state: st.session_state[key] = ""
 
 with tabs[0]:
-    nicho = st.text_input("Nicho:", value="Utilidades Domésticas")
-    if st.button("🔄 Localizar Produtos", use_container_width=True):
-        with st.status("Varrendo..."):
-            p = f"Liste 5 produtos de {nicho}. Use: PRODUTO: [nome] | PRECO: [R$] | URL: [link]"
-            st.session_state.res_busca = gerar_ia(p)
+    st.header("🎯 Sourcing Estratégico")
+    nicho = st.text_input("Defina o Nicho:", value="Utilidades Domésticas")
+    
+    if st.button("🔄 Localizar Oportunidades Agora", use_container_width=True):
+        with st.status("Varrendo mercado..."):
+            prompt = (
+                f"Liste 5 produtos virais de {nicho} na Shopee Brasil. "
+                f"Siga EXATAMENTE este formato: "
+                f"PRODUTO: [nome] | PRECO: [valor] | URL: [link]"
+            )
+            st.session_state.res_busca = gerar_ia(prompt)
     
     if st.session_state.res_busca:
-        items = re.findall(r"PRODUTO:\s*(.*?)\s*\|\s*PRECO:\s*(.*?)\s*\|\s*URL:\s*(https?://\S+)", st.session_state.res_busca)
-        for nome, preco, link in items:
-            c1, c2, c3 = st.columns([3, 1, 1])
-            c1.write(f"📦 {nome}")
-            c2.write(f"💰 {preco}")
-            if c3.button("Selecionar", key=f"s_{nome}"):
-                st.session_state.sel_nome, st.session_state.sel_preco, st.session_state.sel_link = nome, preco, link
-                st.toast("Selecionado!")
+        padrao = r"PRODUTO:\s*(.*?)\s*\|\s*PRECO:\s*(.*?)\s*\|\s*URL:\s*(https?://\S+)"
+        matches = re.findall(padrao, st.session_state.res_busca)
+        
+        if matches:
+            st.markdown("### ✅ Resultados Encontrados:")
+            for nome, preco, link in matches:
+                c1, c2, c3 = st.columns([3, 1, 1])
+                c1.write(f"📦 **{nome}**")
+                c2.write(f"💰 {preco}")
+                if c3.button("Selecionar", key=f"btn_{nome}"):
+                    st.session_state.sel_nome, st.session_state.sel_preco, st.session_state.sel_link = nome, preco, link
+                    st.toast(f"{nome} selecionado!")
 
 with tabs[1]:
-    st.header("🚀 Gerador de Vídeos")
+    st.header("🚀 Arsenal & Copywriting")
+    col1, col2 = st.columns(2)
+    p_n = col1.text_input("Produto:", value=st.session_state.sel_nome)
+    p_l = col2.text_input("Link Original:", value=st.session_state.sel_link)
+    
     if st.button("⚡ GERAR 4 VARIAÇÕES", use_container_width=True):
-        if st.session_state.sel_nome:
-            with st.status("Criando..."):
-                aff = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
-                link_f = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff}"
-                rots = gerar_ia(f"Crie 4 roteiros de 15s para {st.session_state.sel_nome} ({st.session_state.sel_preco}). Separe por ###").split("###")
+        if p_n and p_l:
+            with st.status("IA criando conteúdo..."):
+                aff_id = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
+                link_f = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_l)}&aff_id={aff_id}"
+                
+                roteiros = gerar_ia(f"Crie 4 roteiros de 15s para {p_n} ({st.session_state.sel_preco}). Separe por ###").split("###")
                 
                 df = carregar_dados()
-                for i, r in enumerate(rots):
-                    if len(r.strip()) > 10:
-                        cp = gerar_ia(f"Legenda TikTok viral para: {r}")
-                        novo = pd.DataFrame([{"data": datetime.now().strftime("%d/%m"), "produto": f"{st.session_state.sel_nome} V{i+1}", "preco": st.session_state.sel_preco, "roteiro": r.strip(), "copy_funil": cp.strip(), "link_afiliado": link_f, "status": "PRONTO"}])
-                        df = pd.concat([df, novo], ignore_index=True)
+                for i, rot in enumerate(roteiros):
+                    if len(rot.strip()) > 10:
+                        copy = gerar_ia(f"Crie legenda viral para TikTok: {rot}")
+                        novo_item = pd.DataFrame([{
+                            "data": datetime.now().strftime("%d/%m"),
+                            "produto": f"{p_n} (V{i+1})", "preco": st.session_state.sel_preco,
+                            "roteiro": rot.strip(), "copy_funil": copy.strip(),
+                            "link_afiliado": link_f, "status": "PRONTO"
+                        }])
+                        df = pd.concat([df, novo_item], ignore_index=True)
                 df.to_csv(DATA_PATH, index=False)
-                st.success("✅ Arsenal Pronto!")
+                st.success("🔥 Arsenal pronto!")
 
 with tabs[2]:
-    st.header("🕹️ Disparo Buffer")
+    st.header("🕹️ Disparo (Fila Buffer)")
     df_d = carregar_dados()
     fila = df_d[df_d["status"] == "PRONTO"]
-    st.metric("Fila", len(fila))
+    st.metric("Itens aguardando Buffer", len(fila))
     
     if not fila.empty:
-        if st.button("🚀 ENVIAR TUDO", type="primary"):
-            web = st.secrets.get("WEBHOOK_POSTAGEM")
+        if st.button("🚀 ENVIAR TUDO PARA O BUFFER", type="primary"):
+            webhook = st.secrets.get("WEBHOOK_POSTAGEM")
             for i, row in fila.iterrows():
-                # Texto formatado para o Buffer não recusar
-                msg = f"{row['copy_funil']}\n\nProduto: {row['produto']}\nPreço: {row['preco']}\nLink: {row['link_afiliado']}"
                 try:
-                    res = requests.post(web, json={"text": msg}, timeout=15)
-                    if res.status_code < 300:
-                        df_d.at[i, "status"] = "ENVIADO"
+                    # Upgrade: Texto já vai montado para o campo 'Text' do Buffer
+                    payload = {
+                        "text": f"{row['copy_funil']}\n\nLink no Comentário: {row['link_afiliado']}",
+                        "produto": row['produto'],
+                        "preco": row['preco']
+                    }
+                    requests.post(webhook, json=payload, timeout=15)
+                    df_d.at[i, "status"] = "ENVIADO"
                 except: continue
             df_d.to_csv(DATA_PATH, index=False)
+            st.success("🔥 Enviado com sucesso!")
             st.rerun()
