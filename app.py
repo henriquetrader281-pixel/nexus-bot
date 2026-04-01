@@ -1,26 +1,20 @@
 import streamlit as st
 from groq import Groq
-from datetime import datetime
 import urllib.parse
 import requests
 import pandas as pd
+from datetime import datetime
 import os
 
-# --- 1. SETUP & DATASET ---
-st.set_page_config(page_title="Nexus Absolute V19.0", layout="wide", page_icon="🔱")
+# --- 1. SETUP & DATASET PERSISTENTE ---
+st.set_page_config(page_title="Nexus Absolute V20.1", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
-def init_dataset():
-    if not os.path.exists(DATA_PATH):
-        df = pd.DataFrame(columns=[
-            "data", "produto", "roteiro", "link_final", "status", "score"
-        ])
-        df.to_csv(DATA_PATH, index=False)
+# Garante que o dataset exista e mantenha os dados
+if not os.path.exists(DATA_PATH):
+    df_init = pd.DataFrame(columns=["data", "produto", "roteiro", "link", "status"])
+    df_init.to_csv(DATA_PATH, index=False)
 
-init_dataset()
-
-# --- 2. MOTORES IA & WEBHOOKS ---
-# Usando a chave que você pegou no console.groq.com
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def gerar_ia(prompt):
@@ -29,83 +23,122 @@ def gerar_ia(prompt):
         messages=[{"role": "user", "content": prompt}]
     ).choices[0].message.content
 
-def enviar_para_make(payload):
-    url = st.secrets.get("WEBHOOK_POSTAGEM")
-    if url:
-        try: return requests.post(url, json=payload)
-        except: return None
+# --- 2. INTERFACE ---
+st.title("🔱 Nexus Brain: Absolute System V20.1")
+tabs = st.tabs(["🌎 Termômetro Global", "🎥 Criar Arsenal", "⚡ Automação"])
 
-# --- 3. INTERFACE ---
-st.title("🔱 Nexus Brain: Absolute System V19.0")
-tabs = st.tabs(["🔎 Mineração", "🎥 Criar Arsenal", "📊 Dataset", "⚡ Automação"])
-
-with tabs[0]: 
-    st.header("🎯 Mineração de Baixo Ticket")
+with tabs[0]:
+    st.header("🎯 Inteligência de Mercado (BR & EUA)")
     col1, col2 = st.columns([2, 1])
     with col1:
-        nicho = st.text_input("Qual nicho buscar hoje?", placeholder="ex: Cozinha Criativa")
+        nicho = st.text_input("Nicho Alvo:", placeholder="Ex: Cozinha, Tech, Casa")
     with col2:
-        # BARRA DE PRECIFICAÇÃO (Essencial para sua estratégia)
-        preco_max = st.slider("Preço Máximo (R$):", 5, 100, 47)
-    
-    if st.button("🔄 Escanear Produtos Atuais"):
-        with st.status("Buscando tendências de Abril/2026..."):
-            prompt = f"Sugira 5 produtos virais de {nicho} na Shopee Brasil até R${preco_max}. Retorne em tabela com nome e por que vende."
-            res = gerar_ia(prompt)
-            st.session_state['produtos_sugeridos'] = res
+        v_max = st.slider("Preço Máximo (R$):", 5, 250, 47)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🔥 Quentes no BRASIL", use_container_width=True):
+            res = gerar_ia(f"Liste 5 produtos de {nicho} virais na Shopee Brasil hoje (Abril 2026) até R${v_max}. Retorne em tabela.")
+            st.markdown(res)
+    with c2:
+        if st.button("🇺🇸 Quentes nos EUA", use_container_width=True):
+            res = gerar_ia(f"Liste 5 tendências de {nicho} no TikTok USA hoje (Abril 2026) que custam menos de 20 dólares.")
             st.markdown(res)
 
 with tabs[1]:
-    st.header("🚀 Gerador de Arsenal")
-    p_nome = st.text_input("Nome do Produto Alvo:")
-    p_link = st.text_input("Link da Shopee (Original ou Afiliado):")
+    st.header("🚀 Gerador de Arsenal (Dataset)")
+    p_nome = st.text_input("Nome do Produto:")
+    p_link_original = st.text_input("Link Original da Shopee:")
     
-    if st.button("🔥 Gerar Arsenal de Vídeos"):
-        with st.spinner("IA criando roteiros de alta conversão..."):
-            prompt_roteiro = f"Crie 5 roteiros curtos (estilo TikTok) para vender o produto: {p_nome}. Foque em gatilhos de escassez e preço baixo. Separe os roteiros com '---'."
-            roteiros_raw = gerar_ia(prompt_roteiro)
-            
-            lista_roteiros = [r.strip() for r in roteiros_raw.split("---") if len(r) > 20]
-            
-            # Salva no Dataset
-            df = pd.read_csv(DATA_PATH)
-            for rot in lista_roteiros:
-                novo = {
-                    "data": datetime.now().strftime("%d/%m/%Y"),
-                    "produto": p_nome,
-                    "roteiro": rot,
-                    "link_final": p_link,
-                    "status": "PRONTO",
-                    "score": 10
-                }
-                df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-            df.to_csv(DATA_PATH, index=False)
-            st.success(f"✅ Arsenal criado! {len(lista_roteiros)} roteiros salvos no Dataset.")
-            st.markdown(roteiros_raw)
+    if st.button("🔥 Gerar 5 Roteiros e Link"):
+        if p_nome and p_link_original:
+            with st.spinner("Processando..."):
+                # Lógica de Link de Afiliado
+                my_id = st.secrets.get("SHOPEE_ID", "AGUARDANDO")
+                link_pronto = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_link_original)}&aff_id={my_id}"
+                
+                # Geração de Roteiros
+                prompt = f"Crie 5 roteiros curtos de TikTok para {p_nome}. Estilo 'achadinho' barato. Separe por '---'."
+                roteiros = gerar_ia(prompt).split("---")
+                
+                # Salva no CSV sem apagar o anterior
+                df_atual = pd.read_csv(DATA_PATH)
+                novos_dados = []
+                for r in roteiros:
+                    if len(r) > 10:
+                        novos_dados.append({
+                            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "produto": p_nome,
+                            "roteiro": r.strip(),
+                            "link": link_pronto,
+                            "status": "FILA"
+                        })
+                
+                if novos_dados:
+                    df_novo = pd.concat([df_atual, pd.DataFrame(novos_dados)], ignore_index=True)
+                    df_novo.to_csv(DATA_PATH, index=False)
+                    st.success(f"✅ Link Gerado e 5 Roteiros salvos!")
+                    st.info(f"Link: {link_pronto}")
+        else:
+            st.error("Preencha o nome e o link do produto!")
 
-with tabs[3]:
-    st.header("🕹️ Disparo para TikTok (Buffer)")
-    df_ready = pd.read_csv(DATA_PATH)
-    prontos = df_ready[df_ready["status"] == "PRONTO"]
+with tabs[2]:
+    st.header("🕹️ Controle de Disparo (Buffer)")
+    df_ver = pd.read_csv(DATA_PATH)
+    fila = df_ver[df_ver["status"] == "FILA"]
     
-    if not prontos.empty:
-        st.write(f"Você tem {len(prontos)} vídeos na fila.")
-        if st.button("▶️ ENVIAR PARA O TIKTOK AGORA", type="primary"):
-            item = prontos.iloc[0] # Pega o primeiro da fila
-            
+    st.metric("Vídeos aguardando no Arsenal", len(fila))
+    
+    if not fila.empty:
+        if st.button("▶️ DISPARAR PRÓXIMO PARA O TIKTOK", type="primary"):
+            item = fila.iloc[0]
             payload = {
-                "produto": item["produto"],
-                "texto": f"{item['roteiro']}\n\nLink no Comentário: {item['link_final']}",
-                "data_envio": str(datetime.now())
+                "texto": f"{item['roteiro']}\n\n🛒 Link: {item['link']}",
+                "produto": item["produto"]
             }
             
-            res = enviar_para_make(payload)
-            if res:
-                # Atualiza status para não postar repetido
-                df_ready.loc[prontos.index[0], "status"] = "POSTADO"
-                df_ready.to_csv(DATA_PATH, index=False)
-                st.success(f"🚀 Enviado para o Buffer: {item['produto']}")
+            # Envio para o Webhook do Make
+            resp = requests.post(st.secrets["WEBHOOK_POSTAGEM"], json=payload)
+            
+            if resp.status_code == 200:
+                df_ver.loc[fila.index[0], "status"] = "POSTADO"
+                df_ver.to_csv(DATA_PATH, index=False)
+                st.success(f"🚀 Sucesso! {item['produto']} enviado para o Buffer.")
             else:
-                st.error("Erro ao conectar com o Make. Verifique o Webhook nos Secrets.")
-    else:
-        st.warning("Nenhum roteiro pronto no Arsenal para postar.")
+                st.error("Erro no Webhook. Verifique se o cenário no Make está ativo.")
+    
+    if st.checkbox("Ver Dataset Completo"):
+        st.dataframe(df_ver)
+
+# --- 3. SEÇÃO DE PATCHES (MELHORIAS FUTURAS) ---
+# Adicione suas melhorias nas funções abaixo sem alterar o código acima.
+
+def patch_01():
+    pass
+
+def patch_02():
+    pass
+
+def patch_03():
+    pass
+
+def patch_04():
+    pass
+
+def patch_05():
+    pass
+
+def patch_06():
+    pass
+
+def patch_07():
+    pass
+
+def patch_08():
+    pass
+
+def patch_09():
+    pass
+
+def patch_10():
+    pass
