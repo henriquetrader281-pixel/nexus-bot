@@ -8,7 +8,7 @@ import os
 import re
 
 # --- 1. CONFIGURAÇÃO (Base V58 Estável) ---
-st.set_page_config(page_title="Nexus Absolute V69", layout="wide", page_icon="🔱")
+st.set_page_config(page_title="Nexus Absolute V70", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
 def carregar_dados():
@@ -31,81 +31,83 @@ def gerar_ia(prompt):
         return f"Erro: {e}"
 
 # --- 2. INTERFACE ---
-st.title("🔱 Nexus Brain V69: Estratégia de Ticket")
+st.title("🔱 Nexus Brain V70: Controle Total")
 
-tabs = st.tabs(["🔎 Mineração Por Ticket", "🚀 Arsenal Automático", "🕹️ Central de Disparo"])
+tabs = st.tabs(["🔎 Mineração por Valor", "🚀 Arsenal de Elite", "🕹️ Central de Comando"])
 
 for k in ['sel_nome', 'sel_link', 'sel_preco', 'res_busca']:
     if k not in st.session_state: st.session_state[k] = ""
 
 with tabs[0]:
-    st.header("🎯 Sourcing Inteligente")
+    st.header("🎯 Estratégia de Sourcing")
     c1, c2 = st.columns([2, 1])
     nicho = c1.text_input("Nicho:", value="Utilidades")
-    ticket = c2.selectbox("Ticket Médio:", ["Baixo (Até R$50)", "Médio (R$50-R$150)", "Alto (Acima de R$150)"])
+    ticket = c2.selectbox("Alvo de Preço:", ["Baixo (Até R$50)", "Médio (R$50-R$150)", "Alto (Acima de R$150)"])
     
-    if st.button("🔄 Localizar Oportunidades", use_container_width=True):
-        with st.status(f"Buscando produtos de ticket {ticket}..."):
-            # Prompt reforçado para não quebrar a busca
+    if st.button("🔄 Localizar Produtos Shopee", use_container_width=True):
+        with st.status(f"Buscando produtos {ticket}..."):
             p = (
-                f"Aja como especialista em Shopee Brasil. Liste 5 produtos de {nicho} "
-                f"com preço {ticket}. "
-                f"Responda APENAS: PRODUTO: [nome] | PRECO: [valor] | URL: [link]"
+                f"Aja como especialista em Shopee. Liste 5 produtos de {nicho} "
+                f"com preço {ticket}. Responda APENAS: "
+                f"PRODUTO: [nome] | PRECO: [valor] | URL: [link]"
             )
             st.session_state.res_busca = gerar_ia(p)
     
     if st.session_state.res_busca:
+        # Regex blindada contra quebras de linha
         items = re.findall(r"PRODUTO:\s*(.*?)\s*\|\s*PRECO:\s*(.*?)\s*\|\s*URL:\s*(https?://\S+)", st.session_state.res_busca)
         if items:
             for nome, preco, link in items:
-                # Ícones por valor
                 icon = "🛒" if "Baixo" in ticket else "⭐" if "Médio" in ticket else "💎"
                 col1, col2, col3 = st.columns([3, 1, 1])
                 col1.write(f"{icon} **{nome.strip()}**")
                 col2.write(f"💰 {preco.strip()}")
                 if col3.button("Selecionar", key=f"s_{hash(nome)}"):
                     st.session_state.sel_nome, st.session_state.sel_preco, st.session_state.sel_link = nome.strip(), preco.strip(), link.strip()
-                    st.toast("Selecionado!")
-        else:
-            st.error("Busca quebrou. Tente novamente.")
+                    st.toast("Na agulha!")
 
 with tabs[1]:
-    st.header("🚀 Arsenal de Vendas")
+    st.header("🚀 Arsenal de Conteúdo")
     p_n = st.text_input("Produto:", value=st.session_state.sel_nome)
     p_l = st.text_input("Link:", value=st.session_state.sel_link)
     
-    if st.button("⚡ GERAR 4 VARIAÇÕES", use_container_width=True):
+    if st.button("⚡ CRIAR VARIAÇÕES", use_container_width=True):
         if p_n and p_l:
-            with st.status("IA em ação..."):
+            with st.status("IA gerando materiais..."):
                 aff = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
                 link_f = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_l)}&aff_id={aff}"
-                # FIX: Linha 88 corrigida para não dar SyntaxError
+                # Correção definitiva do erro de sintaxe (f-string fechada)
                 rots = gerar_ia(f"Crie 4 roteiros de 15s para vender {p_n}. Separe por ###").split("###")
                 
                 df = carregar_dados()
                 for i, r in enumerate(rots):
                     if len(r.strip()) > 10:
-                        cp = gerar_ia(f"Legenda viral curta para TikTok: {r}")
-                        # Salvamento blindado
+                        cp = gerar_ia(f"Crie legenda viral curta: {r}")
                         novo = pd.DataFrame([{"data": datetime.now().strftime("%d/%m"), "produto": f"{p_n} V{i+1}", "preco": st.session_state.sel_preco, "roteiro": r.strip(), "copy_funil": cp.strip(), "link_afiliado": link_f, "status": "PRONTO"}])
                         df = pd.concat([df, novo], ignore_index=True)
                 df.to_csv(DATA_PATH, index=False)
-                st.success("🔥 Arsenal pronto!")
+                st.success("🔥 Arsenal preparado!")
 
 with tabs[2]:
-    st.header("🕹️ Central de Disparo")
+    st.header("🕹️ Disparo (Webhooks Diretos)")
     df_d = carregar_dados()
     fila = df_d[df_d["status"] == "PRONTO"]
-    st.metric("Fila", len(fila))
+    st.metric("Aguardando Envio", len(fila))
     
     if not fila.empty:
-        if st.button("🚀 ENVIAR TUDO", type="primary"):
-            web = st.secrets.get("WEBHOOK_POSTAGEM")
+        if st.button("🚀 ENVIAR TUDO", type="primary", use_container_width=True):
+            webhook = st.secrets.get("WEBHOOK_POSTAGEM")
             for i, row in fila.iterrows():
-                # Payload otimizado para o Buffer (Print d5fb71)
-                payload = {"text": f"{row['copy_funil']}\n\nLink: {row['link_afiliado']}"}
+                # Payload "Cru": Se você criar seu sistema, ele recebe tudo separado aqui
+                payload = {
+                    "legenda": row['copy_funil'],
+                    "link": row['link_afiliado'],
+                    "produto": row['produto'],
+                    "preco": row['preco'],
+                    "full_text": f"{row['copy_funil']}\n\n🛒 Compre aqui: {row['link_afiliado']}"
+                }
                 try:
-                    requests.post(web, json=payload, timeout=15)
+                    requests.post(webhook, json=payload, timeout=15)
                     df_d.at[i, "status"] = "ENVIADO"
                 except: continue
             df_d.to_csv(DATA_PATH, index=False)
