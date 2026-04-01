@@ -6,19 +6,18 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# --- 1. SETUP & SISTEMA DE PATCH (Injeção de Colunas) ---
-st.set_page_config(page_title="Nexus Absolute V46.0", layout="wide", page_icon="🔱")
+# --- 1. SETUP & SISTEMA DE PATCH (Injeção de Funcionalidades) ---
+st.set_page_config(page_title="Nexus Absolute V47.0", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
 def aplicar_patches(df):
-    # Patch 46: Garante que o status 'VALIDAÇÃO' e as métricas existam para o disparo
     updates = {
         "copy_funil": "", 
+        "ref_viral": "",        # Patch 18: Referência de vídeo quente
         "postagens_cont": 0, 
         "status": "VALIDAÇÃO",
         "link_afiliado": "",
-        "views": 0,
-        "cliques": 0
+        "views": 0, "cliques": 0, "score_v": 0
     }
     for col, default in updates.items():
         if col not in df.columns:
@@ -34,24 +33,56 @@ def carregar_dados():
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# --- 2. MOTOR DE INTELIGÊNCIA ---
 def gerar_ia(prompt):
     return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user","content": prompt}]).choices[0].message.content
 
-# --- 3. INTERFACE ---
-st.title("🔱 Nexus Brain: Corretor de Disparos")
-tabs = st.tabs(["🌎 Sourcing & ROI", "📣 Marketing & Viral", "🕹️ Central de Postagem", "📊 Score & Validação"])
+# --- 2. INTERFACE ---
+st.title("🔱 Nexus Brain: Sourcing & Marketing")
+tabs = st.tabs(["🔎 Minerador Shopee/TikTok", "💰 ROI", "🚀 Gerador de Funil", "🕹️ Central de Disparo", "📊 Validação"])
 
-# --- TAB 2: GERAÇÃO (Onde o erro pode começar) ---
-with tabs[1]:
-    st.header("🚀 Gerar Arsenal com Sourcing Viral")
-    p_nome = st.text_input("Produto:")
-    p_link = st.text_input("Link Shopee:")
+# --- TAB 1: MINERADOR (O QUE TINHA SUMIDO) ---
+with tabs[0]:
+    st.header("🎯 Minerador de Produtos e Vídeos Quentes")
+    nicho_busca = st.text_input("Nicho para caça (ex: Cozinha, Pet, Tech):", value="Utilidades")
     
-    if st.button("🔥 Gerar e Enviar para Fila"):
-        with st.status("Minerando referências e criando funil..."):
-            ref = gerar_ia(f"Hooks virais para {p_nome} no TikTok.")
-            roteiros = gerar_ia(f"Crie 4 roteiros de 15s baseados em: {ref}. Separe por ###")
+    col_btn1, col_btn2 = st.columns(2)
+    
+    if col_btn1.button("🇧🇷 Minerar Shopee Brasil (Vendas Reais)", use_container_width=True):
+        with st.spinner("Acedendo a dados da Shopee..."):
+            prompt = f"Aja como um especialista em mineração. Liste os 10 produtos mais vendidos de {nicho_busca} na Shopee Brasil. Forneça: Nome, Preço Estimado e o 'Fator Viral'."
+            st.session_state['res_shopee'] = gerar_ia(prompt)
+
+    if col_btn2.button("🔥 Buscar Vídeos Quentes (TikTok References)", use_container_width=True):
+        with st.spinner("Rastreando tendências no TikTok..."):
+            prompt = f"Para o nicho {nicho_busca}, quais os 5 estilos de vídeos que estão a gerar mais visualizações agora? (Ex: ASMR de limpeza, Teste de resistência). Liste ganchos (hooks) reais."
+            st.session_state['res_viral'] = gerar_ia(prompt)
+
+    st.divider()
+    res_c1, res_c2 = st.columns(2)
+    with res_c1:
+        if 'res_shopee' in st.session_state: st.markdown(st.session_state['res_shopee'])
+    with res_c2:
+        if 'res_viral' in st.session_state: st.markdown(st.session_state['res_viral'])
+
+# --- TAB 2: ROI ---
+with tabs[1]:
+    st.header("📊 Calculadora de Viabilidade")
+    v_venda = st.number_input("Preço de Venda (R$):", value=97.0)
+    v_custo = st.number_input("Custo Total (R$):", value=30.0)
+    lucro = v_venda - v_custo - (v_venda * 0.14)
+    st.metric("Lucro Líquido", f"R$ {lucro:.2f}", f"{(lucro/v_venda)*100:.1f}% Margem")
+
+# --- TAB 3: MARKETING (GERAÇÃO COM BASE NO VIRAL) ---
+with tabs[2]:
+    st.header("🚀 Construção do Arsenal de Guerrilha")
+    p_nome = st.text_input("Produto Escolhido:")
+    p_link = st.text_input("Link Shopee Original:")
+    
+    if st.button("🔥 Gerar 4 Roteiros + Funil de Respostas"):
+        with st.status("Processando inteligência de marketing..."):
+            # Aqui ele usa a referência viral buscada na Tab 1
+            ref = st.session_state.get('res_viral', 'Ganchos de curiosidade e unboxing rápido.')
+            roteiros = gerar_ia(f"Baseado nesta tendência viral: {ref}. Crie 4 roteiros de 15s para {p_nome}. Separe por ###")
             
             aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
             link_f = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_link)}&aff_id={aff_id}"
@@ -59,70 +90,8 @@ with tabs[1]:
             df = carregar_dados()
             for rot in roteiros.split("###"):
                 if len(rot) > 10:
-                    copy = gerar_ia(f"Legenda viral para: {rot}")
+                    copy = gerar_ia(f"Crie uma legenda TikTok e uma resposta de funil para quem comentar 'Eu quero' usando o link {link_f}. Roteiro base: {rot}")
                     novo = {
                         "data": datetime.now().strftime("%d/%m"), "produto": p_nome,
-                        "roteiro": rot.strip(), "copy_funil": copy,
-                        "link_afiliado": link_f, "status": "VALIDAÇÃO", "postagens_cont": 0
-                    }
-                    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-            df.to_csv(DATA_PATH, index=False)
-            st.success("Arsenal pronto! Vá para a 'Central de Postagem'.")
-
-# --- TAB 3: CENTRAL DE POSTAGEM (FIX DO DISPARO) ---
-with tabs[2]:
-    st.header("🕹️ Controle de Execução de Vídeo")
-    df_v = carregar_dados()
-    
-    # Filtro rigoroso: Só mostra o que está em VALIDAÇÃO ou ESCALA e ainda não bateu 4 posts
-    fila = df_v[df_v["status"].isin(["VALIDAÇÃO", "ESCALA"])]
-    
-    if not fila.empty:
-        item = fila.iloc[0]
-        st.warning(f"🎬 PRONTO PARA DISPARO: {item['produto']}")
-        
-        c1, c2 = st.columns(2)
-        with c1: st.text_area("Roteiro:", item['roteiro'], height=150)
-        with c2: st.text_area("Copy/Legenda:", item['copy_funil'], height=150)
-        
-        url_webhook = st.secrets.get("WEBHOOK_POSTAGEM")
-        
-        if st.button("▶️ EXECUTAR DISPARO AGORA", type="primary", use_container_width=True):
-            if not url_webhook:
-                st.error("❌ ERRO: WEBHOOK_POSTAGEM não configurado nos Secrets!")
-            else:
-                payload = {
-                    "produto": item['produto'],
-                    "roteiro": item['roteiro'],
-                    "copy": item['copy_funil'],
-                    "link": item['link_afiliado'],
-                    "tentativa": int(item['postagens_cont']) + 1
-                }
-                
-                try:
-                    # Diagnóstico em tempo real
-                    response = requests.post(url_webhook, json=payload, timeout=15)
-                    
-                    if response.status_code == 200:
-                        # Atualiza o banco apenas se o servidor recebeu o vídeo
-                        idx = fila.index[0]
-                        df_v.at[idx, "postagens_cont"] += 1
-                        df_v.at[idx, "data"] = datetime.now().strftime("%d/%m %H:%M")
-                        df_v.to_csv(DATA_PATH, index=False)
-                        st.success(f"✅ VÍDEO ENVIADO! Postagem {df_v.at[idx, 'postagens_cont']}/4")
-                        st.rerun()
-                    else:
-                        st.error(f"❌ O Servidor do Webhook respondeu com ERRO {response.status_code}")
-                        st.write(response.text) # Mostra o erro do servidor
-                except Exception as e:
-                    st.error(f"❌ FALHA DE CONEXÃO: {str(e)}")
-
-# --- TAB 4: VALIDAÇÃO ---
-with tabs[3]:
-    st.header("📊 Validação de Performance")
-    df_val = carregar_dados()
-    edited = st.data_editor(df_val[df_val["status"] == "VALIDAÇÃO"])
-    if st.button("💾 Salvar Métricas"):
-        df_val.update(edited)
-        df_val.to_csv(DATA_PATH, index=False)
-        st.rerun()
+                        "ref_viral": ref[:200], "roteiro": rot.strip(), "copy_funil": copy,
+                        "link_afiliado": link_f, "status": "VALIDAÇÃO", "post
