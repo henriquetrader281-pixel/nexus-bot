@@ -5,8 +5,7 @@ import streamlit as st
 import random
 import os
 
-# Puxamos a função de IA do app principal para economizar tokens e memória
-from app import gerar_ia 
+
 
 DATA_PATH = "dataset_nexus.csv"
 
