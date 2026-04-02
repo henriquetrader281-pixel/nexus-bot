@@ -4,13 +4,14 @@ from datetime import datetime
 import streamlit as st
 import random
 import os
-from groq import Groq # Importamos a Groq direto aqui para evitar a briga com o app.py
+from groq import Groq
 
 DATA_PATH = "dataset_nexus.csv"
 
-# --- FUNÇÃO DE IA INDEPENDENTE (Evita Erro de Importação Circular) ---
-def gerar_ia_update(prompt):
+# --- FUNÇÃO DE IA INTEGRADA NO UPDATE (Para não dar erro de 'not defined') ---
+def gerar_ia_interna(prompt):
     try:
+        # Puxa a chave direto dos secrets do Streamlit
         client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
         res = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
@@ -27,20 +28,24 @@ def aplicar_seo_viral(produto, link_base, nicho):
 
     try:
         aff_id = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
+        
+        # Garante que o arquivo existe antes de ler
         if not os.path.exists(DATA_PATH):
             pd.DataFrame(columns=["data", "produto", "link_afiliado", "copy_funil", "roteiro", "horario_previsto", "status"]).to_csv(DATA_PATH, index=False)
         
         df = pd.read_csv(DATA_PATH)
         novas = []
 
-        # Usamos a função local agora
-        prompt_roteiros = f"Crie 10 roteiros ultra-curtos (3 cenas cada) para TikTok sobre {produto} no nicho {nicho}. Separe por '###'."
-        res_raw = gerar_ia_update(prompt_roteiros)
+        # CHAMADA DA IA USANDO A FUNÇÃO INTERNA QUE ACABAMOS DE CRIAR
+        prompt_roteiros = f"Crie 10 roteiros ultra-curtos (3 cenas cada) para TikTok sobre {produto} no nicho {nicho}. Separe cada um por '###'."
+        res_raw = gerar_ia_interna(prompt_roteiros)
         res_roteiros = res_raw.split("###")
 
         for i in range(10):
             link_track = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(link_base)}&aff_id={aff_id}&sub_id=V{i+1}"
             legenda = f"{random.choice(ganchos)} {produto}! ✨ {' '.join(random.sample(hashtags, 3))}"
+            
+            # Pega o roteiro da lista da IA
             roteiro_final = res_roteiros[i].strip() if i < len(res_roteiros) else "Cena 1: Gancho | Cena 2: Uso | Cena 3: Link"
 
             novas.append({
@@ -53,10 +58,11 @@ def aplicar_seo_viral(produto, link_base, nicho):
                 "status": "PRONTO"
             })
         
-        pd.concat([df, pd.DataFrame(novas)], ignore_index=True).to_csv(DATA_PATH, index=False)
+        df_final = pd.concat([df, pd.DataFrame(novas)], ignore_index=True)
+        df_final.to_csv(DATA_PATH, index=False)
         return True
     except Exception as e:
-        st.error(f"Erro no Update: {e}")
+        st.error(f"Erro no Motor de Escala: {e}")
         return False
 
 def dashboard_performance_simples():
