@@ -8,10 +8,9 @@ from groq import Groq
 
 DATA_PATH = "dataset_nexus.csv"
 
-# --- FUNÇÃO DE IA INTEGRADA NO UPDATE (Para não dar erro de 'not defined') ---
+# --- FUNÇÃO DE IA INTEGRADA NO UPDATE ---
 def gerar_ia_interna(prompt):
     try:
-        # Puxa a chave direto dos secrets do Streamlit
         client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
         res = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
@@ -29,30 +28,43 @@ def aplicar_seo_viral(produto, link_base, nicho):
     try:
         aff_id = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
         
-        # Garante que o arquivo existe antes de ler
         if not os.path.exists(DATA_PATH):
             pd.DataFrame(columns=["data", "produto", "link_afiliado", "copy_funil", "roteiro", "horario_previsto", "status"]).to_csv(DATA_PATH, index=False)
         
         df = pd.read_csv(DATA_PATH)
         novas = []
 
-        # CHAMADA DA IA USANDO A FUNÇÃO INTERNA QUE ACABAMOS DE CRIAR
-        prompt_roteiros = f"Crie 10 roteiros ultra-curtos (3 cenas cada) para TikTok sobre {produto} no nicho {nicho}. Separe cada um por '###'."
+        # --- AJUSTE NO PROMPT PARA IA SER MAIS HUMANA ---
+        prompt_roteiros = f"""
+        Aja como um criador de conteúdo do TikTok. 
+        Crie 10 roteiros curtos (3 cenas cada) para o produto {produto} no nicho {nicho}.
+        IMPORTANTE: Não use negrito (**), não use a palavra 'PRODUTO:' e separe os 10 roteiros apenas por '###'.
+        """
         res_raw = gerar_ia_interna(prompt_roteiros)
         res_roteiros = res_raw.split("###")
 
+        # --- CORREÇÃO DE LIMPEZA DE TEXTO ---
+        # Removemos lixo visual que a IA costuma enviar
+        nome_limpo = produto.replace("*", "").replace("PRODUTO:", "").replace("1.", "").strip()
+
         for i in range(10):
+            # Link otimizado para não dar erro de API
             link_track = f"{link_base}?sp_atk=nexus&utm_source=affiliate&utm_campaign={aff_id}&sub_id=V{i+1}"
-            legenda = f"{random.choice(ganchos)} {produto}! ✨ {' '.join(random.sample(hashtags, 3))}"
             
-            # Pega o roteiro da lista da IA
-            roteiro_final = res_roteiros[i].strip() if i < len(res_roteiros) else "Cena 1: Gancho | Cena 2: Uso | Cena 3: Link"
+            # Montagem da legenda humanizada
+            gancho_sorteado = random.choice(ganchos)
+            tags_sorteadas = ' '.join(random.sample(hashtags, 3))
+            legenda_humanizada = f"{gancho_sorteado} {nome_limpo}! ✨ {tags_sorteadas}"
+            
+            # Pega o roteiro e limpa asteriscos dele também
+            roteiro_raw = res_roteiros[i].strip() if i < len(res_roteiros) else "Cena 1: Gancho | Cena 2: Uso | Cena 3: Link"
+            roteiro_final = roteiro_raw.replace("*", "")
 
             novas.append({
                 "data": datetime.now().strftime("%d/%m"),
-                "produto": f"{produto} [V{i+1}]",
+                "produto": f"{nome_limpo} [V{i+1}]",
                 "link_afiliado": link_track,
-                "copy_funil": legenda,
+                "copy_funil": legenda_humanizada,
                 "roteiro": roteiro_final,
                 "horario_previsto": horarios[i],
                 "status": "PRONTO"
@@ -70,18 +82,13 @@ def dashboard_performance_simples():
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
         
-        # Métricas de Monitoramento
         c1, c2 = st.columns(2)
         c1.metric("📦 Na Fila (PRONTO)", len(df[df["status"]=="PRONTO"]))
         c2.metric("✅ Postados (ENVIADO)", len(df[df["status"]=="ENVIADO"]))
 
         st.subheader("📅 Cronograma de Postagens Diárias")
         
-        # ESTA É A LINHA CHAVE: Selecionamos as colunas que queremos ver
-        # Adicionamos 'horario_previsto' e 'roteiro' para você conferir tudo
         colunas_visiveis = ["data", "horario_previsto", "produto", "status", "copy_funil", "roteiro"]
-        
-        # Exibe as últimas 20 variações geradas
         st.dataframe(df[colunas_visiveis].tail(20), use_container_width=True)
     else:
         st.info("Aguardando a primeira injeção de produtos...")
