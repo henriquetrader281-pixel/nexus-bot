@@ -42,7 +42,7 @@ def aplicar_seo_viral(produto, link_base, nicho):
         res_roteiros = res_raw.split("###")
 
         for i in range(10):
-            link_track = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(link_base)}&aff_id={aff_id}&sub_id=V{i+1}"
+            link_track = f"{link_base}?sp_atk=nexus&utm_source=affiliate&utm_campaign={aff_id}&sub_id=V{i+1}"
             legenda = f"{random.choice(ganchos)} {produto}! ✨ {' '.join(random.sample(hashtags, 3))}"
             
             # Pega o roteiro da lista da IA
