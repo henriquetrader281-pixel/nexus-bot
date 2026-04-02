@@ -1,114 +1,49 @@
 import streamlit as st
 from groq import Groq
-import urllib.parse
-import requests
 import pandas as pd
-from datetime import datetime
 import os
-import re
+import update  # Importa o seu novo módulo de SEO/Escala
 
-# --- 1. CONFIGURAÇÃO (Base V58 Estável) ---
-st.set_page_config(page_title="Nexus Absolute V70", layout="wide", page_icon="🔱")
+st.set_page_config(page_title="Nexus Absolute V72", layout="wide", page_icon="🔱")
 DATA_PATH = "dataset_nexus.csv"
 
-def carregar_dados():
-    if not os.path.exists(DATA_PATH):
-        cols = ["data", "produto", "preco", "roteiro", "status", "link_afiliado", "copy_funil"]
-        pd.DataFrame(columns=cols).to_csv(DATA_PATH, index=False)
-    try: return pd.read_csv(DATA_PATH)
-    except: return pd.DataFrame(columns=["data", "produto", "preco", "roteiro", "status", "link_afiliado", "copy_funil"])
+# Inicializa o banco se não existir
+if not os.path.exists(DATA_PATH):
+    pd.DataFrame(columns=["data", "produto", "preco", "roteiro", "status", "link_afiliado", "copy_funil", "horario_previsto"]).to_csv(DATA_PATH, index=False)
 
 client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
 
 def gerar_ia(prompt):
     try:
-        res = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
-            messages=[{"role":"user","content": prompt}]
-        )
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user","content": prompt}])
         return res.choices[0].message.content
-    except Exception as e:
-        return f"Erro: {e}"
+    except: return "Erro na conexão com a IA."
 
-# --- 2. INTERFACE ---
-st.title("🔱 Nexus Brain V70: Controle Total")
-
-tabs = st.tabs(["🔎 Mineração por Valor", "🚀 Arsenal de Elite", "🕹️ Central de Comando"])
-
-for k in ['sel_nome', 'sel_link', 'sel_preco', 'res_busca']:
-    if k not in st.session_state: st.session_state[k] = ""
+st.title("🔱 Nexus Brain V72: Painel de Controle")
+tabs = st.tabs(["🔎 Mineração", "🚀 Arsenal de Elite", "📊 Performance"])
 
 with tabs[0]:
-    st.header("🎯 Estratégia de Sourcing")
-    c1, c2 = st.columns([2, 1])
-    nicho = c1.text_input("Nicho:", value="Utilidades")
-    ticket = c2.selectbox("Alvo de Preço:", ["Baixo (Até R$50)", "Médio (R$50-R$150)", "Alto (Acima de R$150)"])
+    c1, c2 = st.columns([3, 1])
+    nicho = c1.text_input("Nicho SEO:", value="Utilidades")
+    ticket = c2.selectbox("Ticket:", ["Baixo", "Médio", "Alto"])
     
-    if st.button("🔄 Localizar Produtos Shopee", use_container_width=True):
-        with st.status(f"Buscando produtos {ticket}..."):
-            p = (
-                f"Aja como especialista em Shopee. Liste 5 produtos de {nicho} "
-                f"com preço {ticket}. Responda APENAS: "
-                f"PRODUTO: [nome] | PRECO: [valor] | URL: [link]"
-            )
+    if st.button("🔄 Iniciar Mineração de Escala", use_container_width=True):
+        with st.status("Minerando tendências..."):
+            p = f"Liste 15 produtos de {nicho} com ticket {ticket}. Responda: PRODUTO: [nome] | PRECO: [valor] | URL: [link]"
             st.session_state.res_busca = gerar_ia(p)
-    
-    if st.session_state.res_busca:
-        # Regex blindada contra quebras de linha
-        items = re.findall(r"PRODUTO:\s*(.*?)\s*\|\s*PRECO:\s*(.*?)\s*\|\s*URL:\s*(https?://\S+)", st.session_state.res_busca)
-        if items:
-            for nome, preco, link in items:
-                icon = "🛒" if "Baixo" in ticket else "⭐" if "Médio" in ticket else "💎"
-                col1, col2, col3 = st.columns([3, 1, 1])
-                col1.write(f"{icon} **{nome.strip()}**")
-                col2.write(f"💰 {preco.strip()}")
-                if col3.button("Selecionar", key=f"s_{hash(nome)}"):
-                    st.session_state.sel_nome, st.session_state.sel_preco, st.session_state.sel_link = nome.strip(), preco.strip(), link.strip()
-                    st.toast("Na agulha!")
+            st.write(st.session_state.res_busca)
 
 with tabs[1]:
-    st.header("🚀 Arsenal de Conteúdo")
-    p_n = st.text_input("Produto:", value=st.session_state.sel_nome)
-    p_l = st.text_input("Link:", value=st.session_state.sel_link)
+    st.header("🚀 Gerador de Escala 10x")
+    p_nome = st.text_input("Produto Selecionado:")
+    p_link = st.text_input("Link Original:")
     
-    if st.button("⚡ CRIAR VARIAÇÕES", use_container_width=True):
-        if p_n and p_l:
-            with st.status("IA gerando materiais..."):
-                aff = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
-                link_f = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(p_l)}&aff_id={aff}"
-                # Correção definitiva do erro de sintaxe (f-string fechada)
-                rots = gerar_ia(f"Crie 4 roteiros de 15s para vender {p_n}. Separe por ###").split("###")
-                
-                df = carregar_dados()
-                for i, r in enumerate(rots):
-                    if len(r.strip()) > 10:
-                        cp = gerar_ia(f"Crie legenda viral curta: {r}")
-                        novo = pd.DataFrame([{"data": datetime.now().strftime("%d/%m"), "produto": f"{p_n} V{i+1}", "preco": st.session_state.sel_preco, "roteiro": r.strip(), "copy_funil": cp.strip(), "link_afiliado": link_f, "status": "PRONTO"}])
-                        df = pd.concat([df, novo], ignore_index=True)
-                df.to_csv(DATA_PATH, index=False)
-                st.success("🔥 Arsenal preparado!")
+    if st.button("⚡ GERAR 10 VARIAÇÕES COM SEO", type="primary"):
+        # CHAMA O UPDATE EXTERNO PARA NÃO POLUIR O CÓDIGO FONTE
+        sucesso = update.aplicar_seo_viral(p_nome, p_link, "Sob consulta", nicho)
+        if sucesso:
+            st.success(f"🔥 10 variações de '{p_nome}' injetadas no Agendador com Sub_ID!")
+            st.balloons()
 
 with tabs[2]:
-    st.header("🕹️ Disparo (Webhooks Diretos)")
-    df_d = carregar_dados()
-    fila = df_d[df_d["status"] == "PRONTO"]
-    st.metric("Aguardando Envio", len(fila))
-    
-    if not fila.empty:
-        if st.button("🚀 ENVIAR TUDO", type="primary", use_container_width=True):
-            webhook = st.secrets.get("WEBHOOK_POSTAGEM")
-            for i, row in fila.iterrows():
-                # Payload "Cru": Se você criar seu sistema, ele recebe tudo separado aqui
-                payload = {
-                    "legenda": row['copy_funil'],
-                    "link": row['link_afiliado'],
-                    "produto": row['produto'],
-                    "preco": row['preco'],
-                    "full_text": f"{row['copy_funil']}\n\n🛒 Compre aqui: {row['link_afiliado']}"
-                }
-                try:
-                    requests.post(webhook, json=payload, timeout=15)
-                    df_d.at[i, "status"] = "ENVIADO"
-                except: continue
-            df_d.to_csv(DATA_PATH, index=False)
-            st.rerun()
+    update.dashboard_performance_simples()
