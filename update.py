@@ -69,5 +69,19 @@ def dashboard_performance_simples():
     st.header("📊 Raio-X de Performance")
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
-        st.metric("📦 Fila de Postagem", len(df[df["status"]=="PRONTO"]))
-        st.dataframe(df.tail(10), use_container_width=True)
+        
+        # Métricas de Monitoramento
+        c1, c2 = st.columns(2)
+        c1.metric("📦 Na Fila (PRONTO)", len(df[df["status"]=="PRONTO"]))
+        c2.metric("✅ Postados (ENVIADO)", len(df[df["status"]=="ENVIADO"]))
+
+        st.subheader("📅 Cronograma de Postagens Diárias")
+        
+        # ESTA É A LINHA CHAVE: Selecionamos as colunas que queremos ver
+        # Adicionamos 'horario_previsto' e 'roteiro' para você conferir tudo
+        colunas_visiveis = ["data", "horario_previsto", "produto", "status", "copy_funil", "roteiro"]
+        
+        # Exibe as últimas 20 variações geradas
+        st.dataframe(df[colunas_visiveis].tail(20), use_container_width=True)
+    else:
+        st.info("Aguardando a primeira injeção de produtos...")
