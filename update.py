@@ -82,13 +82,30 @@ def dashboard_performance_simples():
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
         
+        # Métricas
         c1, c2 = st.columns(2)
         c1.metric("📦 Na Fila (PRONTO)", len(df[df["status"]=="PRONTO"]))
         c2.metric("✅ Postados (ENVIADO)", len(df[df["status"]=="ENVIADO"]))
 
         st.subheader("📅 Cronograma de Postagens Diárias")
         
-        colunas_visiveis = ["data", "horario_previsto", "produto", "status", "copy_funil", "roteiro"]
-        st.dataframe(df[colunas_visiveis].tail(20), use_container_width=True)
+        # Colunas que você quer ver (incluindo o link agora)
+        colunas_visiveis = ["data", "horario_previsto", "produto", "link_afiliado", "status", "copy_funil", "roteiro"]
+        
+        # CONFIGURAÇÃO DE COLUNA CLICÁVEL
+        st.data_editor(
+            df[colunas_visiveis].tail(20),
+            column_config={
+                "link_afiliado": st.column_config.LinkColumn(
+                    "Link de Venda",
+                    help="Clique para abrir o produto na Shopee",
+                    validate=r"^https://.*",
+                    display_text="Abrir Produto 🛒" # Texto que aparece no lugar da URL gigante
+                ),
+            },
+            disabled=True, # Mantém apenas visualização, sem editar
+            use_container_width=True,
+            hide_index=True
+        )
     else:
         st.info("Aguardando a primeira injeção de produtos...")
