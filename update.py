@@ -25,7 +25,7 @@ def aplicar_seo_viral(produto, link_base, nicho):
     hashtags = ["#achadinhos", "#shopee", "#viral", "#utilidades", "#comprinhas"]
     horarios = ["08:30", "11:15", "12:45", "15:00", "17:30", "18:50", "20:10", "21:30", "22:45", "23:15"]
 
-    # --- IDENTIFICAÇÃO DE MERCADO (Pronto para Expansão) ---
+    # IDENTIFICAÇÃO DE MERCADO (Separado para expansão futura)
     if "shopee.com.br" in link_base or "shope.ee" in link_base:
         mercado = "Shopee 🟠"
     elif "amazon.com" in link_base:
@@ -35,40 +35,32 @@ def aplicar_seo_viral(produto, link_base, nicho):
     else:
         mercado = "Outro ⚪"
 
-    # Trava temporária: enquanto você foca só em Shopee
     if mercado != "Shopee 🟠":
-        st.warning(f"⚠️ Atenção: O Nexus está em modo 'Shopee Only'. Link de {mercado} detectado.")
-        # Se quiser bloquear de vez, descomente a linha abaixo:
-        # return False
+        st.error(f"❌ Bloqueado: No momento aceitamos apenas Shopee. Detectado: {mercado}")
+        return False
 
     try:
         aff_id = st.secrets.get("SHOPEE_ID", "ID_AFILIADO")
-        
         if not os.path.exists(DATA_PATH):
             pd.DataFrame(columns=["data", "loja", "produto", "link_afiliado", "copy_funil", "roteiro", "horario_previsto", "status"]).to_csv(DATA_PATH, index=False)
         
         df = pd.read_csv(DATA_PATH)
         novas = []
 
-        # Prompt focado em 10 variações (mais rápido e assertivo)
-        prompt_roteiros = f"Aja como TikToker. Crie 10 roteiros curtos para {produto} no nicho {nicho}. Sem negrito, separe por '###'."
+        prompt_roteiros = f"Aja como TikToker. Crie 10 roteiros curtos (3 cenas) para {produto}. Sem negrito, separe por '###'."
         res_raw = gerar_ia_interna(prompt_roteiros)
         res_roteiros = res_raw.split("###")
 
-        nome_limpo = produto.replace("*", "").replace("PRODUTO:", "").strip()
+        nome_limpo = produto.replace("*", "").replace("PRODUTO:", "").replace("1.", "").strip()
 
         for i in range(10):
-            # Gera link de rastreio apenas se for Shopee, senão mantém o original
-            if "Shopee" in mercado:
-                link_final = f"{link_base}?sp_atk=nexus&utm_source=affiliate&utm_campaign={aff_id}&sub_id=V{i+1}"
-            else:
-                link_final = link_base
-
+            link_track = f"{link_base}?sp_atk=nexus&utm_source=affiliate&utm_campaign={aff_id}&sub_id=V{i+1}"
+            
             novas.append({
                 "data": datetime.now().strftime("%d/%m"),
                 "loja": mercado,
                 "produto": f"{nome_limpo} [V{i+1}]",
-                "link_afiliado": link_final,
+                "link_afiliado": link_track,
                 "copy_funil": f"{random.choice(ganchos)} {nome_limpo}! ✨ {' '.join(random.sample(hashtags, 3))}",
                 "roteiro": res_roteiros[i].strip().replace("*", "") if i < len(res_roteiros) else "Cena 1: Gancho | Cena 2: Uso",
                 "horario_previsto": horarios[i],
@@ -82,36 +74,34 @@ def aplicar_seo_viral(produto, link_base, nicho):
         return False
 
 def dashboard_performance_simples():
-    st.header("📊 Raio-X de Performance")
-    if os.path.exists(DATA_PATH):
-        df = pd.read_csv(DATA_PATH)
-        
-        # Interface de Injeção Manual (O que você pediu!)
-        with st.expander("➕ Injetar Produto Manualmente"):
-            col1, col2 = st.columns(2)
-            p_nome = col1.text_input("Nome do Produto")
-            p_link = col2.text_input("Cole o Link da Shopee aqui")
-            p_nicho = st.selectbox("Nicho", ["Utilidades", "Cozinha", "Decoração", "Pets"])
-            if st.button("🚀 Injetar Link Manual"):
-                if p_nome and p_link:
-                    aplicar_seo_viral(p_nome, p_link, p_nicho)
-                    st.success("Produto injetado com sucesso!")
+    st.header("📊 Monitor de Escala Nexus")
+    
+    # --- ÁREA DE INJEÇÃO MANUAL (Arsenal) ---
+    with st.expander("➕ Injetar Link Manual (Shopee Only)"):
+        c1, c2 = st.columns(2)
+        m_nome = c1.text_input("Nome do Produto Manual")
+        m_link = c2.text_input("Cole o Link aqui")
+        if st.button("🚀 Injetar Manualmente"):
+            if m_nome and m_link:
+                if aplicar_seo_viral(m_nome, m_link, "Geral"):
+                    st.success("Produto Injetado!")
                     st.rerun()
 
-        # Tabela de Monitoramento
-        st.subheader("📅 Cronograma de Postagens")
+    if os.path.exists(DATA_PATH):
+        df = pd.read_csv(DATA_PATH)
         if "loja" not in df.columns: df["loja"] = "Shopee 🟠"
-        
-        colunas_ver = ["data", "horario_previsto", "loja", "produto", "status", "link_afiliado"]
+
+        c1, c2 = st.columns(2)
+        c1.metric("📦 Na Fila", len(df[df["status"]=="PRONTO"]))
+        c2.metric("✅ Enviados", len(df[df["status"]=="ENVIADO"]))
+
         st.data_editor(
-            df[colunas_ver].tail(20),
+            df[["data", "horario_previsto", "loja", "produto", "status", "link_afiliado"]].tail(30),
             column_config={
-                "loja": st.column_config.TextColumn("Mercado"),
+                "loja": st.column_config.TextColumn("Mercado", width="small"),
                 "link_afiliado": st.column_config.LinkColumn("Link", display_text="Abrir 🛒")
             },
             disabled=["data", "loja"],
             use_container_width=True,
             hide_index=True
         )
-    else:
-        st.info("Nenhum dado encontrado.")
