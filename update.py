@@ -8,7 +8,6 @@ from groq import Groq
 
 DATA_PATH = "dataset_nexus.csv"
 
-# --- FUNÇÃO DE IA INTEGRADA ---
 def gerar_ia_interna(prompt):
     try:
         client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
@@ -23,9 +22,10 @@ def gerar_ia_interna(prompt):
 def aplicar_seo_viral(produto, link_base, nicho):
     ganchos = ["O segredo de", "Pare tudo e veja este", "Minha melhor compra:", "Item indispensável:"]
     hashtags = ["#achadinhos", "#shopee", "#viral", "#utilidades", "#comprinhas"]
-    horarios = ["08:30", "11:15", "12:45", "15:00", "17:30", "18:50", "20:10", "21:30", "22:45", "23:15"]
+    # 30 horários para suportar a mineração em massa
+    horarios = [f"{h:02d}:{m:02d}" for h in range(8, 23) for m in [0, 30]] 
 
-    # IDENTIFICAÇÃO DE MERCADO (Separado para expansão futura)
+    # --- IDENTIFICAÇÃO DE MERCADO ---
     if "shopee.com.br" in link_base or "shope.ee" in link_base:
         mercado = "Shopee 🟠"
     elif "amazon.com" in link_base:
@@ -35,8 +35,9 @@ def aplicar_seo_viral(produto, link_base, nicho):
     else:
         mercado = "Outro ⚪"
 
+    # Trava de Segurança
     if mercado != "Shopee 🟠":
-        st.error(f"❌ Bloqueado: No momento aceitamos apenas Shopee. Detectado: {mercado}")
+        st.error(f"❌ O Nexus está em modo Shopee. Link de {mercado} bloqueado.")
         return False
 
     try:
@@ -51,7 +52,7 @@ def aplicar_seo_viral(produto, link_base, nicho):
         res_raw = gerar_ia_interna(prompt_roteiros)
         res_roteiros = res_raw.split("###")
 
-        nome_limpo = produto.replace("*", "").replace("PRODUTO:", "").replace("1.", "").strip()
+        nome_limpo = produto.replace("*", "").replace("PRODUTO:", "").strip()
 
         for i in range(10):
             link_track = f"{link_base}?sp_atk=nexus&utm_source=affiliate&utm_campaign={aff_id}&sub_id=V{i+1}"
@@ -63,7 +64,7 @@ def aplicar_seo_viral(produto, link_base, nicho):
                 "link_afiliado": link_track,
                 "copy_funil": f"{random.choice(ganchos)} {nome_limpo}! ✨ {' '.join(random.sample(hashtags, 3))}",
                 "roteiro": res_roteiros[i].strip().replace("*", "") if i < len(res_roteiros) else "Cena 1: Gancho | Cena 2: Uso",
-                "horario_previsto": horarios[i],
+                "horario_previsto": horarios[i % len(horarios)],
                 "status": "PRONTO"
             })
         
@@ -74,34 +75,31 @@ def aplicar_seo_viral(produto, link_base, nicho):
         return False
 
 def dashboard_performance_simples():
-    st.header("📊 Monitor de Escala Nexus")
+    st.header("📊 Raio-X de Performance")
     
-    # --- ÁREA DE INJEÇÃO MANUAL (Arsenal) ---
-    with st.expander("➕ Injetar Link Manual (Shopee Only)"):
-        c1, c2 = st.columns(2)
-        m_nome = c1.text_input("Nome do Produto Manual")
-        m_link = c2.text_input("Cole o Link aqui")
-        if st.button("🚀 Injetar Manualmente"):
+    # ENTRADA MANUAL (O que você pediu para o Arsenal)
+    with st.expander("➕ Injetar Link Manualmente"):
+        col1, col2 = st.columns(2)
+        m_nome = col1.text_input("Nome do Produto")
+        m_link = col2.text_input("Cole o Link da Shopee")
+        if st.button("🚀 Injetar Manual"):
             if m_nome and m_link:
                 if aplicar_seo_viral(m_nome, m_link, "Geral"):
-                    st.success("Produto Injetado!")
+                    st.success("Injetado com sucesso!")
                     st.rerun()
 
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
         if "loja" not in df.columns: df["loja"] = "Shopee 🟠"
 
-        c1, c2 = st.columns(2)
-        c1.metric("📦 Na Fila", len(df[df["status"]=="PRONTO"]))
-        c2.metric("✅ Enviados", len(df[df["status"]=="ENVIADO"]))
-
+        # Tabela com Link Clicável e Coluna de Mercado
         st.data_editor(
             df[["data", "horario_previsto", "loja", "produto", "status", "link_afiliado"]].tail(30),
             column_config={
                 "loja": st.column_config.TextColumn("Mercado", width="small"),
                 "link_afiliado": st.column_config.LinkColumn("Link", display_text="Abrir 🛒")
             },
-            disabled=["data", "loja"],
+            disabled=True,
             use_container_width=True,
             hide_index=True
         )
