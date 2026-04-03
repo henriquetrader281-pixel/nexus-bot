@@ -14,17 +14,16 @@ if "autenticado" not in st.session_state:
 
 def login():
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute Login</h1>", unsafe_allow_html=True)
-    with st.container():
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            senha = st.text_input("Insira a senha de acesso:", type="password")
-            if st.button("Acessar Sistema", use_container_width=True):
-                if senha == "Bru2024!":
-                    st.session_state.autenticado = True
-                    st.rerun()
-                else:
-                    st.error("Senha incorreta. Acesso negado.")
-    st.stop() # Interrompe a execução aqui se não estiver logado
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        senha = st.text_input("Insira a senha de acesso:", type="password")
+        if st.button("Acessar Sistema", use_container_width=True):
+            if senha == "Bru2024!":
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta. Acesso negado.")
+    st.stop()
 
 if not st.session_state.autenticado:
     login()
@@ -36,6 +35,7 @@ if not os.path.exists(DATA_PATH):
 
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = None
 if "sel_link" not in st.session_state: st.session_state.sel_link = None
+if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 
 client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
 
@@ -73,7 +73,7 @@ with tabs[0]:
             else:
                 st.error("Falha na conexão.")
 
-    if "res_busca" in st.session_state:
+    if st.session_state.res_busca:
         linhas = st.session_state.res_busca.split("\n")
         for idx, item in enumerate(linhas):
             if "|" in item and "NOME:" in item:
@@ -81,5 +81,47 @@ with tabs[0]:
                     parts = item.split("|")
                     nome = parts[0].replace("NOME:", "").strip()
                     tend = parts[1].replace("TEND:", "").strip()
-                    calor_val = int(''.join(filter(str.isdigit, parts[2])))
-                    link_orig = parts
+                    calor_str = ''.join(filter(str.isdigit, parts[2]))
+                    calor_val = int(calor_str) if calor_str else 50
+                    link_orig = parts[3].replace("URL:", "").strip()
+
+                    mercado_tag = "Shopee 🟠" if "shopee" in link_orig.lower() else "Outro ⚪"
+
+                    with st.container(border=True):
+                        col1, col2, col3 = st.columns([3, 2, 1])
+                        with col1:
+                            st.write(f"📦 **{nome}**")
+                            st.caption(f"🌍 Tendência: {tend}")
+                            st.markdown(f"🛒 **Mercado:** {mercado_tag}")
+                        with col2:
+                            st.progress(min(calor_val / 100, 1.0))
+                            st.write(f"🌡️ {calor_val}°C")
+                        with col3:
+                            if st.button("Selecionar", key=f"sel_{idx}"):
+                                st.session_state.sel_nome = nome
+                                st.session_state.sel_link = link_orig
+                                st.toast(f"✅ {nome} enviado!")
+                                st.rerun()
+                except:
+                    continue
+
+# --- ABA 1: ARSENAL ---
+with tabs[1]:
+    st.header("🚀 Gerador de Escala 10x")
+    if st.session_state.sel_nome:
+        st.success(f"📦 **Produto Ativo:** {st.session_state.sel_nome}")
+        if st.button("⚡ INJETAR 10 VARIAÇÕES COM SEO", type="primary"):
+            with st.spinner("Processando..."):
+                if update.aplicar_seo_viral(st.session_state.sel_nome, st.session_state.sel_link, nicho):
+                    st.balloons()
+                    st.success("🔥 Injetado no Agendador!")
+    else:
+        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
+
+# --- ABA 2: PERFORMANCE ---
+with tabs[2]:
+    if st.button("Sair do Sistema"):
+        st.session_state.autenticado = False
+        st.rerun()
+    update.dashboard_performance_simples()
+    
