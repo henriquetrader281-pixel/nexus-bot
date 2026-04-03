@@ -28,40 +28,59 @@ with tabs[0]:
     nicho = c1.text_input("Nicho para Scanner:", value="Utilidades Domésticas")
     ticket = c2.selectbox("Ticket:", ["Baixo", "Médio", "Alto"])
     
+    # SCANNER AMPLIADO PARA 30 PRODUTOS
     if st.button("🚀 Escanear Shopee & TikTok Trends", use_container_width=True):
-        with st.status("Consultando tendências globais..."):
-            p = f"""Aja como Analista de E-commerce. Liste 10 produtos de {nicho} ({ticket}). 
-            Retorne EXATAMENTE: PRODUTO: [nome] | TENDENCIA: [% cresc. BR/EUA] | CALOR: [0-100] | URL: [link]"""
+        with st.status("Consultando 30 tendências globais..."):
+            p = f"""Aja como Analista de E-commerce. Liste 30 produtos de {nicho} ({ticket}). 
+            Retorne EXATAMENTE neste formato para cada um: 
+            PRODUTO: [nome] | TENDENCIA: [% cresc. BR/EUA] | CALOR: [0-100] | URL: [link]"""
             st.session_state.res_busca = gerar_ia(p)
 
     if "res_busca" in st.session_state:
         for item in st.session_state.res_busca.split("\n"):
             if "|" in item:
-                parts = item.split("|")
-                nome = parts[0].replace("PRODUTO:", "").strip()
-                tend = parts[1].replace("TENDENCIA:", "").strip()
-                calor = int(''.join(filter(str.isdigit, parts[2])))
-                link_orig = parts[3].replace("URL:", "").strip()
+                try:
+                    parts = item.split("|")
+                    nome = parts[0].replace("PRODUTO:", "").strip()
+                    tend = parts[1].replace("TENDENCIA:", "").strip()
+                    calor_str = ''.join(filter(str.isdigit, parts[2]))
+                    calor = int(calor_str) if calor_str else 50
+                    link_orig = parts[3].replace("URL:", "").strip()
 
-                with st.container(border=True):
-                    col1, col2, col3 = st.columns([3, 2, 1])
-                    with col1:
-                        st.write(f"📦 **{nome}**")
-                        st.caption(f"🌍 Tendência: {tend}")
-                    with col2:
-                        cor = "red" if calor > 80 else "orange"
-                        st.write(f"🌡️ Termômetro: :{cor}[{calor}°C]")
-                        st.progress(calor / 100)
-                    with col3:
-                        if st.button("Selecionar", key=f"sel_{nome}"):
-                            st.session_state.sel_nome = nome
-                            st.session_state.sel_link = link_orig
-                            st.toast("Enviado para o Arsenal!")
+                    # IDENTIFICAÇÃO DE MERCADO VISUAL
+                    if "shopee" in link_orig.lower() or "shope.ee" in link_orig.lower():
+                        mercado_tag = "Shopee 🟠"
+                    elif "amazon" in link_orig.lower():
+                        mercado_tag = "Amazon 🔵"
+                    elif "mercadolivre" in link_orig.lower():
+                        mercado_tag = "M. Livre 🟡"
+                    else:
+                        mercado_tag = "Outro ⚪"
+
+                    with st.container(border=True):
+                        col1, col2, col3 = st.columns([3, 2, 1])
+                        with col1:
+                            st.write(f"📦 **{nome}**")
+                            st.caption(f"🌍 Tendência: {tend}")
+                            # EXIBIÇÃO DO MERCADO ABAIXO DA TENDÊNCIA
+                            st.markdown(f"🛒 **Mercado:** {mercado_tag}") 
+                        with col2:
+                            cor = "red" if calor > 80 else "orange"
+                            st.write(f"🌡️ Termômetro: :{cor}[{calor}°C]")
+                            st.progress(calor / 100)
+                        with col3:
+                            if st.button("Selecionar", key=f"sel_{nome}_{random.randint(0,999)}"):
+                                st.session_state.sel_nome = nome
+                                st.session_state.sel_link = link_orig
+                                st.toast(f"Enviado para o Arsenal! ({mercado_tag})")
+                except:
+                    continue
 
 with tabs[1]:
     st.header("🚀 Gerador de Escala (10 Vídeos)")
     if "sel_nome" in st.session_state:
         st.info(f"Produto Ativo: {st.session_state.sel_nome}")
+        # AQUI O UPDATE.PY JÁ ESTÁ CONFIGURADO PARA BLOQUEAR SE NÃO FOR SHOPEE
         if st.button("⚡ INJETAR 10 VARIAÇÕES COM SEO", type="primary"):
             if update.aplicar_seo_viral(st.session_state.sel_nome, st.session_state.sel_link, nicho):
                 st.success("🔥 Escala 10x injetada no Agendador!")
