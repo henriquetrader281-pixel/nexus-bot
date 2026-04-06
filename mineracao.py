@@ -4,55 +4,61 @@ import re
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia):
     """
-    Motor de Mineração com Tratamento de Erros e Timeouts
+    Motor Nexus V2 - Ultra Estrito para evitar 'Desconhecido'
     """
-    # Verifica se a chave existe antes de tentar usar
     if "GROQ_API_KEY" not in st.secrets:
-        return "❌ Erro: GROQ_API_KEY não configurada nos Secrets do Streamlit."
+        return "Erro: Chave API não configurada."
 
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    
+    # Prompt simplificado para evitar que a IA invente moda
+    prompt = f"""
+    Liste 10 produtos virais de {nicho} na Shopee {mkt_alvo}.
+    Responda APENAS linhas seguindo este modelo exato, sem mais nada:
+    NOME: Nome do Produto | CALOR: 85 | VALOR: 49.90 | TICKET: Baixo | URL: https://shopee.com.br
+    """
+    
     try:
-        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-        
-        prompt = f"""
-        Aja como um analista de E-commerce. Liste 10 produtos virais de {nicho} na {mkt_alvo}.
-        
-        FORMATO OBRIGATÓRIO (UMA LINHA POR PRODUTO):
-        NOME: [nome] | CALOR: [0-100] | VALOR: [R$] | TICKET: [Baixo/Médio/Alto] | URL: [link shopee]
-        
-        Regras de Ticket: Baixo (até 80), Médio (81-250), Alto (acima de 250).
-        """
-        
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.3-70b-versatile",
-            temperature=0.1,
-            timeout=20.0 # Evita que o app fique travado para sempre
+            temperature=0.1
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"⚠️ Ocorreu um erro na API: {str(e)}"
+        return f"Erro na API: {str(e)}"
 
 def formatar_saida_limpa(texto_bruto):
     """
-    Garante que o Scanner leia os dados mesmo com falhas da IA
+    Limpeza Profunda: Remove asteriscos e garante que o app leia os campos.
     """
-    if not texto_bruto or "Erro" in texto_bruto or "⚠️" in texto_bruto:
-        return ""
+    if not texto_bruto: return ""
     
-    linhas = texto_bruto.split('\n')
+    # 1. Remove qualquer asterisco (*) ou hashtag (#) que a IA teime em usar
+    texto_limpo = texto_bruto.replace("*", "").replace("#", "")
+    
+    linhas = texto_limpo.split('\n')
     linhas_finais = []
     
     for linha in linhas:
-        if "|" in linha and "NOME:" in linha:
-            l = linha.replace("**", "").replace("###", "").strip()
+        # Só aceita a linha se tiver o separador '|' e o campo 'NOME:'
+        if "|" in linha and "NOME:" in linha.upper():
+            l = linha.strip()
             
-            # Força o Ticket se ele não existir
+            # Força o nome a ter [SHOPEE] para não ficar vazio
+            if "NOME:" in l.upper() and "[SHOPEE]" not in l.upper():
+                l = l.replace("NOME:", "NOME: [SHOPEE] ")
+            
+            # Se faltar o TICKET, calcula pelo VALOR
             if "TICKET:" not in l.upper():
-                l = l.replace("| URL:", "| TICKET: Médio | URL:")
-            
-            # Força o selo Shopee
-            if "SHOPEE" not in l.upper():
-                l = l.replace("NOME:", "NOME: [SHOPEE]")
+                valor_match = re.search(r'VALOR:\s*([\d.,]+)', l.upper())
+                ticket = "Médio"
+                if valor_match:
+                    try:
+                        v = float(valor_match.group(1).replace(',', '.'))
+                        ticket = "Baixo" if v < 80 else "Médio" if v < 250 else "Alto"
+                    except: pass
+                l = l.replace("| URL:", f"| TICKET: {ticket} | URL:")
                 
             linhas_finais.append(l)
             
