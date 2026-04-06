@@ -7,19 +7,21 @@ import requests
 from datetime import datetime
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Nexus Omega V27", layout="wide", page_icon="🔱")
+st.set_page_config(page_title="Nexus Absolute V82", layout="wide", page_icon="🔱")
 
-# --- SISTEMA DE LOGIN (Mantido) ---
+# --- LOGIN SEGURO VIA SECRETS ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
 def login():
-    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Omega Login</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute Login</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        # Puxa a senha do Secrets (Campo: NEXUS_PASSWORD)
+        senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
         senha = st.text_input("Insira a senha de acesso:", type="password")
         if st.button("Acessar Sistema", use_container_width=True):
-            if senha == "Bru2024!":
+            if senha == senha_mestra:
                 st.session_state.autenticado = True
                 st.rerun()
             else:
@@ -28,112 +30,111 @@ def login():
 
 if not st.session_state.autenticado: login()
 
-# --- INICIALIZAÇÃO DE DADOS & IA ---
-DATA_PATH = "nexus_master_data.csv"
-if not os.path.exists(DATA_PATH):
-    pd.DataFrame(columns=["data", "produto", "status", "vendas", "faturamento", "score"]).to_csv(DATA_PATH, index=False)
+# --- CONEXÕES VIA SECRETS (Groq & Gemini) ---
+try:
+    # Motor 1: Groq (Llama 3.3)
+    client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    
+    # Motor 2: Preparado para Gemini (Configurar GEMINI_API_KEY no Secrets)
+    # Aqui vamos importar e configurar o módulo do Gemini na próxima etapa
+    gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+except Exception as e:
+    st.error("⚠️ Verifique as Chaves de API (Groq/Gemini) nos Secrets do Streamlit.")
 
-client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
-
+# --- MEMÓRIA DE SESSÃO ---
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
+if "motor_ia" not in st.session_state: st.session_state.motor_ia = "Groq"
 
-def gerar_ia(prompt):
-    res = client.chat.completions.create(
+# --- FUNÇÕES DE INTELIGÊNCIA ---
+def gerar_ia_groq(prompt):
+    res = client_groq.chat.completions.create(
         model="llama-3.3-70b-versatile", 
-        messages=[{"role":"system", "content":"Seja direto. Formate exatamente como pedido."},
+        messages=[{"role":"system", "content":"Data Miner Mode: Apenas dados puros e ícones."},
                   {"role":"user","content": prompt}]
     )
     return res.choices[0].message.content
 
+def gerar_ia_gemini(prompt):
+    """Espaço reservado para a lógica .py do Gemini que vamos programar"""
+    # Quando o script do Gemini estiver pronto, ele entrará aqui
+    return "Motor Gemini aguardando integração do arquivo .py..."
+
 # --- INTERFACE PRINCIPAL ---
-st.title("🔱 Nexus Absolute: Command Center")
+st.title("🔱 Nexus Absolute: Multi-Engine Intelligence")
 
-tabs = st.tabs(["🔎 Scanner 30x", "⚔️ Arsenal 10x", "🔥 Radar Global", "🎥 Estúdio IA", "💰 Financeiro"])
+# Seletor de Cérebro (Para usarmos o Gemini na programação avançada depois)
+st.sidebar.title("⚙️ Configurações")
+st.session_state.motor_ia = st.sidebar.selectbox("Motor de IA Ativo:", ["Groq", "Gemini (Beta)"])
 
-# --- ABA 0: SCANNER (COM ÍCONES E VALORES) ---
+tabs = st.tabs(["🔎 Scanner 30x", "⚔️ Arsenal 10x", "🔥 Radar Global", "🎥 Estúdio IA", "💰 Dashboard"])
+
+# --- ABA 0: SCANNER (Sincronizado com Secrets) ---
 with tabs[0]:
-    st.header("🔎 Monitor de Tendências High-Ticket")
+    st.header("🔎 Scanner de Tendências")
     c1, c2, c3 = st.columns([2, 1, 1])
-    nicho = c1.text_input("Nicho:", value="Utilidades Domésticas")
-    ticket_sel = c2.selectbox("Ticket:", ["R$ 29 - R$ 97", "R$ 97 - R$ 297", "R$ 297+"])
+    nicho = c1.text_input("Nicho:", value="Cozinha Criativa")
+    ticket = c2.selectbox("Ticket:", ["Baixo", "Médio", "Alto"])
     
-    if st.button("🚀 Iniciar Scanner Full Data", use_container_width=True):
-        with st.status("Minerando e Calculando Crescimento..."):
-            p = f"Liste 30 produtos de {nicho} na Shopee BR. Formato: NOME: [n] | CALOR: [0-100] | VALOR: [R$] | CRESC: [%] | URL: [link]"
-            st.session_state.res_busca = gerar_ia(p)
+    if st.button("🚀 Iniciar Mineração", use_container_width=True):
+        with st.status(f"Minerando via {st.session_state.motor_ia}..."):
+            prompt = f"Liste 30 produtos de {nicho} na Shopee BR. Formato: NOME: [n] | CALOR: [0-100] | VALOR: [R$] | CRESC: [%] | URL: [link]"
+            
+            if st.session_state.motor_ia == "Groq":
+                st.session_state.res_busca = gerar_ia_groq(prompt)
+            else:
+                st.session_state.res_busca = gerar_ia_gemini(prompt)
+            st.rerun()
 
     if st.session_state.res_busca:
-        for idx, item in enumerate(st.session_state.res_busca.split("\n")):
-            if "|" in item:
+        for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
+            if "|" in linha and "NOME:" in linha:
                 try:
-                    parts = item.split("|")
-                    nome = parts[0].replace("NOME:", "").strip()
-                    calor = int(''.join(filter(str.isdigit, parts[1])))
-                    valor = parts[2].replace("VALOR:", "").strip()
-                    cresc = parts[3].replace("CRESC:", "").strip()
-                    link = parts[4].replace("URL:", "").strip()
+                    p = linha.split("|")
+                    nome = p[0].split("NOME:")[1].strip()
+                    calor = int(''.join(filter(str.isdigit, p[1])))
+                    valor = p[2].split("VALOR:")[1].strip()
+                    cresc = p[3].split("CRESC:")[1].strip()
+                    link_orig = p[4].split("URL:")[1].strip()
                     
                     with st.container(border=True):
                         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                         with col1:
                             st.write(f"📦 **{nome}**")
-                            st.caption(f"💰 Ticket: {valor} | 📈 Crescimento: {cresc}")
+                            st.caption(f"💰 Ticket: {valor} | 📈 Cresc: {cresc}")
                         with col2:
                             st.write(f"🌡️ {calor}°C")
                             st.progress(min(calor/100, 1.0))
                         with col3:
-                            st.write("🚀 **Status**")
-                            st.markdown("🔥 `ESCALANDO`" if calor > 70 else "✅ `ESTÁVEL`")
+                            st.markdown("🔥 `EXPLOSÃO`" if calor > 80 else "✅ `ESTÁVEL`")
                         with col4:
                             if st.button("Selecionar", key=f"sel_{idx}"):
                                 st.session_state.sel_nome = nome
-                                st.session_state.sel_link = link
-                                st.toast(f"✅ {nome} no Arsenal!")
+                                st.session_state.sel_link = link_orig
+                                st.toast(f"✅ {nome} carregado!")
                 except: continue
 
-# --- ABA 1: ARSENAL (5 VARIAÇÕES) ---
+# --- ABA 1: ARSENAL (Munição de Copy) ---
 with tabs[1]:
-    st.header("⚔️ Arsenal de Vendas")
+    st.header("⚔️ Arsenal de Escala 10x")
     if st.session_state.sel_nome:
         st.success(f"Alvo Selecionado: {st.session_state.sel_nome}")
-        if st.button("🔥 DISPARAR 5 VARIAÇÕES"):
-            with st.spinner("Gerando Munição..."):
-                prompt = f"Crie 5 roteiros TikTok (Curiosidade, Dor, Medo, Prova, Transformação) para {st.session_state.sel_nome}. Separe com ###"
-                variacoes = [v.strip() for v in gerar_ia(prompt).split("###") if len(v) > 10]
-                for i, v in enumerate(variacoes):
-                    with st.container(border=True):
-                        st.subheader(f"V{i+1}")
-                        st.write(v)
-                        if st.button(f"Usar V{i+1}", key=f"u_{i}"):
-                            st.session_state.copy_ativa = v
-                            st.toast("Copiado para o Estúdio!")
-    else: st.warning("Selecione no Scanner.")
+        if st.button("🔥 DISPARAR 10 VARIAÇÕES"):
+            prompt_ars = f"Crie 10 roteiros de 15s para {st.session_state.sel_nome}. Separe com ###"
+            variacoes = [v.strip() for v in gerar_ia_groq(prompt_ars).split("###") if len(v) > 10]
+            for i, v in enumerate(variacoes):
+                with st.container(border=True):
+                    st.write(f"**V{i+1}**")
+                    st.write(v)
+    else: st.warning("Selecione um produto no Scanner.")
 
-# --- ABA 2: RADAR GLOBAL (EUA vs BR) ---
-with tabs[2]:
-    c_eua, c_br = st.columns(2)
-    with c_eua:
-        st.subheader("🇺🇸 Radar EUA")
-        if st.button("🔍 Escanear USA"): st.info(gerar_ia("5 produtos virais TikTok USA."))
-    with c_br:
-        st.subheader("🇧🇷 Termômetro BR")
-        if st.button("🔥 Trends Brasil"): st.success(gerar_ia("5 buscas quentes Shopee BR."))
-
-# --- ABA 3: ESTÚDIO IA (GERAÇÃO DE MÍDIA) ---
+# --- ABA 3: ESTÚDIO (Conectado ao Secrets) ---
 with tabs[3]:
     st.header("🎥 Estúdio de Mídia")
-    prod_f = st.text_input("Produto:", value=st.session_state.sel_nome)
-    copy_f = st.text_area("Roteiro:", value=st.session_state.get("copy_ativa", ""))
-    if st.button("🚀 Produzir Mídia (Make.com)"):
+    if st.button("🚀 Produzir Mídia via Webhook"):
         webhook = st.secrets.get("WEBHOOK_POST_URL")
+        aff_id = st.secrets.get("SHOPEE_ID")
         if webhook:
-            requests.post(webhook, json={"trigger": "MIDIA", "prod": prod_f, "copy": copy_f})
-            st.success("Enviado para Lyria 3 & Nano Banana 2!")
-
-# --- ABA 4: FINANCEIRO ---
-with tabs[4]:
-    st.header("💰 Ganhos")
-    df = pd.read_csv(DATA_PATH)
-    st.metric("Faturamento Total", f"R$ {df['faturamento'].sum():,.2f}")
-    st.dataframe(df, use_container_width=True)
+            link_final = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff_id}"
+            requests.post(webhook, json={"prod": st.session_state.sel_nome, "link": link_final})
+            st.success("Ordem enviada!")
