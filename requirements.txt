@@ -1,7 +1,4 @@
 streamlit
-moviepy==1.0.3
-google-generativeai
-requests
 groq
 google-generativeai
 pandas
@@ -9,3 +6,4 @@ requests
 tiktok-uploader
 opencv-python
 pillow
+moviepy
