@@ -6,7 +6,7 @@ import urllib.parse
 import requests
 from datetime import datetime
 
-# --- 1. CONEXÃO MODULAR (Linhas 10-20) ---
+# --- 1. CONEXÃO MODULAR ---
 try:
     import gemini_engine as gemini
     import producao_midia as midia
@@ -19,12 +19,12 @@ except ImportError:
 # --- 2. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Nexus Absolute V100", layout="wide", page_icon="🔱")
 
-# --- 3. DATABASE (Linhas 25-30) ---
+# --- 3. DATABASE ---
 DATA_PATH = "nexus_master_data.csv"
 if not os.path.exists(DATA_PATH):
     pd.DataFrame(columns=["data", "produto", "status", "views", "cliques", "vendas", "faturamento", "copy", "link"]).to_csv(DATA_PATH, index=False)
 
-# --- 4. SISTEMA DE LOGIN (Linhas 35-50) ---
+# --- 4. SISTEMA DE LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -43,7 +43,7 @@ def login():
 
 if not st.session_state.autenticado: login()
 
-# --- 5. MOTORES DE IA (Linhas 55-75) ---
+# --- 5. MOTORES DE IA ---
 client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 for key in ["res_busca", "sel_nome", "sel_link", "copy_ativa"]:
@@ -65,7 +65,7 @@ st.session_state.motor_ia = st.sidebar.selectbox("Cérebro Ativo:", ["Groq", "Ge
 
 tabs = st.tabs(["🔎 Scanner", "⚔️ Arsenal 10x", "🔥 Radar", "🎥 Estúdio", "📊 Performance"])
 
-# --- ABA 0: SCANNER CORRIGIDO (Linhas 85-115) ---
+# --- ABA 0: SCANNER CORRIGIDO ---
 with tabs[0]:
     st.header("🔎 Scanner de Tendências")
     nicho = st.text_input("Nicho alvo:", value="Cozinha")
@@ -75,21 +75,19 @@ with tabs[0]:
         st.rerun()
 
     if st.session_state.res_busca:
-        linhas = [l.strip() for l in st.session_state.res_busca.split('\n') if "|" in l]
+        # Linha de Correção ativa
+        limpo = st.session_state.res_busca.replace("**", "").replace("Aqui está", "").strip()
+        linhas = [l.strip() for l in limpo.split('\n') if "|" in l]
+        
+        if not linhas:
+            st.warning("⚠️ O formato da IA desalinhou. Execute o script correcao.py ou tente outro nicho.")
+        
         for idx, linha in enumerate(linhas):
             try:
                 parts = [p.strip() for p in linha.split("|")]
                 nome = parts[0].split("NOME:")[1].strip() if "NOME:" in parts[0] else parts[0]
                 calor = int(''.join(filter(str.isdigit, parts[1])))
                 link_orig = parts[4].split("URL:")[1].strip() if "URL:" in parts[4] else "https://shopee.com.br"
-               
-if st.session_state.res_busca:
-    # Nova Linha de Correção: Remove espaços, asteriscos e frases de saudação da IA
-    limpo = st.session_state.res_busca.replace("**", "").replace("Aqui está", "").strip()
-    linhas = [l.strip() for l in limpo.split('\n') if "|" in l]
-    
-    if not linhas:
-        st.warning("⚠️ O formato da IA desalinhou. Execute o script correcao.py ou tente outro nicho.")
                 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([3, 2, 1])
@@ -100,9 +98,10 @@ if st.session_state.res_busca:
                         st.session_state.sel_nome = nome
                         st.session_state.sel_link = link_orig
                         st.toast(f"✅ {nome} capturado!")
-            except: continue
+            except:
+                continue
 
-# --- ABA 1: ARSENAL (Linhas 125-140) ---
+# --- ABA 1: ARSENAL ---
 with tabs[1]:
     if st.session_state.sel_nome:
         st.success(f"🎯 Alvo: {st.session_state.sel_nome}")
@@ -116,7 +115,7 @@ with tabs[1]:
                             st.session_state.copy_ativa = v
                             st.toast("Roteiro enviado ao Estúdio!")
 
-# --- ABA 3: ESTÚDIO & AGENDADOR (Linhas 155-175) ---
+# --- ABA 3: ESTÚDIO & AGENDADOR ---
 with tabs[3]:
     st.header("🎥 Estúdio de Mídia")
     prod_f = st.text_input("Produto:", value=st.session_state.sel_nome)
@@ -126,7 +125,6 @@ with tabs[3]:
         aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
         link_deep = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff_id}"
         
-        # LIGAÇÃO COM MÓDULO AGENDADOR (Linha 165)
         if MODULOS_OK:
             status = agenda.salvar_na_fila(prod_f, copy_f, link_deep)
             st.success(status)
@@ -134,8 +132,11 @@ with tabs[3]:
         else:
             st.warning("Módulos offline. Enviando via Webhook...")
             webhook = st.secrets.get("WEBHOOK_POST_URL")
-            requests.post(webhook, json={"prod": prod_f, "copy": copy_f, "link": link_deep})
-            st.success("Enviado ao Webhook com sucesso!")
+            if webhook:
+                requests.post(webhook, json={"prod": prod_f, "copy": copy_f, "link": link_deep})
+                st.success("Enviado ao Webhook com sucesso!")
+            else:
+                st.error("Webhook não configurado nos secrets.")
 
 # --- ABA 4: PERFORMANCE ---
 with tabs[4]:
