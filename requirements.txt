@@ -4,3 +4,8 @@ google-generativeai
 requests
 groq
 google-generativeai
+pandas
+requests
+tiktok-uploader
+opencv-python
+pillow
