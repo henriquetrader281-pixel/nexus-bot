@@ -25,7 +25,7 @@ def login():
 
 if not st.session_state.autenticado: login()
 
-# --- 2. ESTADO DA SESSÃO (Recuperando o que foi perdido) ---
+# --- 2. ESTADO DA SESSÃO ---
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
@@ -39,7 +39,7 @@ motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (Restaurado com Colunas de Calor/Preço) ---
+# --- ABA 0: SCANNER (Versão Corrigida para evitar 'Desconhecido') ---
 with tabs[0]:
     st.header(f"Mineração Direcionada: {mkt_alvo}")
     if st.button(f"🔥 Iniciar Varredura {mkt_alvo}", use_container_width=True):
@@ -48,22 +48,30 @@ with tabs[0]:
             st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
     
     if st.session_state.res_busca:
-        # Recuperando a lógica de exibição em cards da V71
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
             if "|" in linha:
                 try:
-                    partes = {p.split(':')[0].strip(): p.split(':')[1].strip() for p in linha.split('|')}
-                    nome = partes.get("NOME", "Desconhecido")
-                    calor = int(partes.get("CALOR", "0"))
-                    valor = partes.get("VALOR", "R$ 0")
-                    link = partes.get("URL", "#")
+                    # Limpeza inteligente para capturar os dados mesmo com símbolos da IA
+                    partes_brutas = linha.split('|')
+                    dados = {}
+                    for p in partes_brutas:
+                        if ":" in p:
+                            k, v = p.split(':', 1)
+                            dados[k.replace("*", "").strip().upper()] = v.replace("*", "").strip()
+
+                    nome = dados.get("NOME", "Desconhecido")
+                    # Extrai apenas números do calor
+                    calor_raw = dados.get("CALOR", "0")
+                    calor = int(''.join(filter(str.isdigit, calor_raw)) or 0)
+                    valor = dados.get("VALOR", "Consulte")
+                    link = dados.get("URL", "#")
 
                     with st.container(border=True):
                         c1, c2, c3 = st.columns([2, 1, 1])
                         c1.write(f"📦 **{nome}**")
                         c1.caption(f"💰 Preço Médio: {valor}")
-                        c2.progress(calor/100)
+                        c2.progress(min(max(calor/100, 0.0), 1.0))
                         c2.write(f"🌡️ {calor}°C")
                         if c3.button("Selecionar", key=f"btn_{idx}"):
                             st.session_state.sel_nome = nome
@@ -71,15 +79,14 @@ with tabs[0]:
                             st.toast(f"{nome} selecionado!")
                 except: continue
 
-# --- ABA 1: ARSENAL (Restaurado da V71 - Injeção de 10 Variações) ---
+# --- ABA 1: ARSENAL ---
 with tabs[1]:
     st.header("🚀 Arsenal de Vendas")
     if st.session_state.sel_nome:
         st.success(f"Produto Ativo: {st.session_state.sel_nome}")
         if st.button("⚡ Gerar 10 Variações de Copy Viral"):
-            # Chama a IA para criar as variações (Recuperado da V9)
             prompt_v = f"Crie 10 roteiros de 15s para {st.session_state.sel_nome} focados no {mkt_alvo}. Separe com ###"
-            res_ia = miny.minerar_produtos(nicho, mkt_alvo, motor_ia) # Reusando motor para rapidez
+            res_ia = miny.minerar_produtos(nicho, mkt_alvo, motor_ia) 
             variacoes = [v.strip() for v in res_ia.split("###") if len(v) > 10]
             for i, v in enumerate(variacoes):
                 with st.container(border=True):
@@ -90,18 +97,18 @@ with tabs[1]:
     else:
         st.warning("Selecione um produto no Scanner.")
 
-# --- ABA 2: RADAR (Restaurado da V22-V26 - Global vs Nacional) ---
+# --- ABA 2: RADAR ---
 with tabs[2]:
     st.header("🌍 Inteligência Radar")
     c_eua, c_br = st.columns(2)
     with c_eua:
         if st.button("🇺🇸 Scanner TikTok USA"):
-            st.info("Buscando produtos virais nos EUA...") # Conectar ao seu radar_engine se disponível
+            st.info("Buscando produtos virais nos EUA...")
     with c_br:
         if st.button("🇧🇷 Trends Shopee/ML"):
             st.success("Analizando tendências brasileiras...")
 
-# --- ABA 3: ESTÚDIO (Restaurado com Deep Link) ---
+# --- ABA 3: ESTÚDIO ---
 with tabs[3]:
     st.header("🎥 Estúdio de Mídia")
     prod_f = st.text_input("Produto:", value=st.session_state.sel_nome)
