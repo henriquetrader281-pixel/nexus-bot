@@ -4,18 +4,21 @@ import re
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia):
     """
-    Motor Nexus V2 - Ultra Estrito para evitar 'Desconhecido'
+    Motor Nexus - Gera a lista garantindo que cada produto esteja em sua própria linha.
     """
     if "GROQ_API_KEY" not in st.secrets:
-        return "Erro: Chave API não configurada."
+        return "Erro: Chave API GROQ_API_KEY não encontrada nos Secrets."
 
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # Prompt simplificado para evitar que a IA invente moda
     prompt = f"""
-    Liste 10 produtos virais de {nicho} na Shopee {mkt_alvo}.
-    Responda APENAS linhas seguindo este modelo exato, sem mais nada:
-    NOME: Nome do Produto | CALOR: 85 | VALOR: 49.90 | TICKET: Baixo | URL: https://shopee.com.br
+    Aja como um minerador de produtos virais da Shopee Brasil.
+    Liste 10 produtos para o nicho {nicho}.
+    
+    REGRAS CRÍTICAS:
+    1. Escreva UM produto por linha.
+    2. Use EXATAMENTE este formato:
+    NOME: [nome] | CALOR: [80-99] | VALOR: [preço] | TICKET: [Baixo/Médio/Alto] | URL: https://shopee.com.br
     """
     
     try:
@@ -30,35 +33,32 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia):
 
 def formatar_saida_limpa(texto_bruto):
     """
-    Limpeza Profunda: Remove asteriscos e garante que o app leia os campos.
+    Limpa o texto e FORÇA a quebra de linha onde houver a palavra 'NOME:'
+    Isso corrige o erro de aparecer tudo grudado.
     """
-    if not texto_bruto: return ""
+    if not texto_bruto:
+        return ""
     
-    # 1. Remove qualquer asterisco (*) ou hashtag (#) que a IA teime em usar
-    texto_limpo = texto_bruto.replace("*", "").replace("#", "")
+    # Remove asteriscos e lixo
+    texto = texto_bruto.replace("**", "").replace("#", "").strip()
     
-    linhas = texto_limpo.split('\n')
+    # FORÇA uma quebra de linha antes de cada 'NOME:' caso a IA mande tudo grudado
+    texto = texto.replace("NOME:", "\nNOME:")
+    
+    linhas = texto.split('\n')
     linhas_finais = []
     
     for linha in linhas:
-        # Só aceita a linha se tiver o separador '|' e o campo 'NOME:'
         if "|" in linha and "NOME:" in linha.upper():
             l = linha.strip()
             
-            # Força o nome a ter [SHOPEE] para não ficar vazio
-            if "NOME:" in l.upper() and "[SHOPEE]" not in l.upper():
-                l = l.replace("NOME:", "NOME: [SHOPEE] ")
+            # Adiciona [SHOPEE] se não tiver
+            if "[SHOPEE]" not in l.upper():
+                l = l.replace("NOME:", "NOME: [SHOPEE]")
             
-            # Se faltar o TICKET, calcula pelo VALOR
+            # Garante que o TICKET exista para o seletor não bugar
             if "TICKET:" not in l.upper():
-                valor_match = re.search(r'VALOR:\s*([\d.,]+)', l.upper())
-                ticket = "Médio"
-                if valor_match:
-                    try:
-                        v = float(valor_match.group(1).replace(',', '.'))
-                        ticket = "Baixo" if v < 80 else "Médio" if v < 250 else "Alto"
-                    except: pass
-                l = l.replace("| URL:", f"| TICKET: {ticket} | URL:")
+                l = l.replace("| URL:", "| TICKET: Médio | URL:")
                 
             linhas_finais.append(l)
             
