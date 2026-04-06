@@ -11,7 +11,6 @@ try:
     import gemini_engine as gemini
     import producao_midia as midia
     import agendador as agenda
-    import radar_engine as radar
     MODULOS_OK = True
 except ImportError:
     MODULOS_OK = False
@@ -19,15 +18,14 @@ except ImportError:
 # --- 2. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Nexus Absolute V100", layout="wide", page_icon="🔱")
 
-# --- 3. DATABASE ATUALIZADO ---
+# --- 3. DATABASE ---
 DATA_PATH = "nexus_master_data.csv"
 if not os.path.exists(DATA_PATH):
-    # Criando com as novas colunas: valor e ticket
     pd.DataFrame(columns=[
-        "data", "produto", "valor", "ticket", "status", "views", "cliques", "vendas", "faturamento", "copy", "link"
+        "data", "produto", "valor", "ticket", "marketplace", "status", "views", "cliques", "vendas", "faturamento", "copy", "link"
     ]).to_csv(DATA_PATH, index=False)
 
-# --- 4. SISTEMA DE LOGIN ---
+# --- 4. LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -49,7 +47,6 @@ if not st.session_state.autenticado: login()
 # --- 5. MOTORES DE IA ---
 client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Inicialização de estados (Adicionados sel_valor e sel_ticket)
 for key in ["res_busca", "sel_nome", "sel_link", "copy_ativa", "sel_valor", "sel_ticket"]:
     if key not in st.session_state: st.session_state[key] = ""
 
@@ -63,24 +60,34 @@ def gerar_ia(prompt, system_msg="Seja direto e focado em conversão."):
         )
         return res.choices[0].message.content
 
-# --- 6. INTERFACE PRINCIPAL ---
+# --- 6. SIDEBAR (CONFIGURAÇÃO DE BUSCA) ---
 st.sidebar.title("⚙️ Nexus Core")
 st.session_state.motor_ia = st.sidebar.selectbox("Cérebro Ativo:", ["Groq", "Gemini"])
 
+# NOVO: SELETOR DE MARKETPLACE
+mkt_alvo = st.sidebar.radio(
+    "🎯 Marketplace Alvo:",
+    ["Shopee", "Mercado Livre", "Amazon"],
+    index=0 # Inicialmente Shopee
+)
+
 tabs = st.tabs(["🔎 Scanner", "⚔️ Arsenal 10x", "🔥 Radar", "🎥 Estúdio", "📊 Performance"])
 
-# --- ABA 0: SCANNER (COM PREÇO E TICKET) ---
+# --- ABA 0: SCANNER DIRECIONADO ---
 with tabs[0]:
-    st.header("🔎 Scanner de Tendências")
+    st.header(f"🔎 Scanner de Tendências ({mkt_alvo})")
     nicho = st.text_input("Nicho alvo:", value="Cozinha")
-    if st.button("🚀 Minerar Produtos", use_container_width=True):
-        # Prompt atualizado para forçar o Ticket e Valor
-        p = f"Liste 20 produtos de {nicho}. Formato exato: NOME: [n] | CALOR: [0-100] | VALOR: [R$] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-        st.session_state.res_busca = gerar_ia(p, "Retorne apenas a lista separada por pipes. Não saude, não comente.")
+    
+    if st.button(f"🚀 Minerar na {mkt_alvo}", use_container_width=True):
+        # Prompt agora inclui o Marketplace selecionado para busca direcionada
+        p = f"Liste 20 produtos virais de {nicho} que estão vendendo muito na {mkt_alvo} Brasil. " \
+            f"Formato exato: NOME: [n] | CALOR: [0-100] | VALOR: [R$] | TICKET: [Baixo/Médio/Alto] | URL: [link real ou simulado da {mkt_alvo}]"
+        
+        st.session_state.res_busca = gerar_ia(p, f"Você é um analista de tendências especialista em {mkt_alvo}. Retorne apenas a lista.")
         st.rerun()
 
     if st.session_state.res_busca:
-        limpo = st.session_state.res_busca.replace("**", "").replace("Aqui está", "").strip()
+        limpo = st.session_state.res_busca.replace("**", "").strip()
         linhas = [l.strip() for l in limpo.split('\n') if "|" in l]
         
         for idx, linha in enumerate(linhas):
@@ -90,13 +97,13 @@ with tabs[0]:
                 calor = int(''.join(filter(str.isdigit, parts[1])))
                 valor = parts[2].split("VALOR:")[1].strip() if "VALOR:" in parts[2] else parts[2]
                 ticket = parts[3].split("TICKET:")[1].strip() if "TICKET:" in parts[3] else "Médio"
-                link_orig = parts[4].split("URL:")[1].strip() if "URL:" in parts[4] else "https://shopee.com.br"
+                link_orig = parts[4].split("URL:")[1].strip() if "URL:" in parts[4] else "#"
                 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([3, 2, 1])
                     with c1:
                         st.write(f"📦 **{nome}**")
-                        st.caption(f"💰 {valor} | 🏷️ Ticket: {ticket}")
+                        st.caption(f"💰 {valor} | 🏷️ {ticket} | 🏢 {mkt_alvo}")
                     with c2:
                         st.progress(min(calor/100, 1.0))
                         st.write(f"🌡️ {calor}°C")
@@ -106,32 +113,25 @@ with tabs[0]:
                             st.session_state.sel_link = link_orig
                             st.session_state.sel_valor = valor
                             st.session_state.sel_ticket = ticket
-                            st.toast(f"✅ {nome} capturado!")
-            except:
-                continue
+                            st.session_state.sel_mkt = mkt_alvo
+                            st.toast(f"✅ Capturado da {mkt_alvo}!")
+            except: continue
 
-# --- ABA 3: ESTÚDIO (INTEGRADO COM AGENDADOR) ---
+# --- ABA 3: ESTÚDIO (AGENDAMENTO COM MKT) ---
 with tabs[3]:
     st.header("🎥 Estúdio de Mídia")
     prod_f = st.text_input("Produto:", value=st.session_state.sel_nome)
-    st.caption(f"Valor: {st.session_state.sel_valor} | Ticket: {st.session_state.sel_ticket}")
-    copy_f = st.text_area("Roteiro:", value=st.session_state.copy_ativa, height=150)
     
     if st.button("🚀 Agendar e Produzir"):
-        aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
-        link_deep = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff_id}"
-        
-        if MODULOS_OK:
-            # Enviando todos os dados para o agendador
-            status = agenda.salvar_na_fila(prod_f, copy_f, link_deep, st.session_state.sel_valor, st.session_state.sel_ticket)
-            st.success(status)
-            midia.gerar_video_ia(prod_f, copy_f)
+        # Lógica de Deep Link baseada no Marketplace
+        if st.session_state.get("sel_mkt") == "Shopee":
+            aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
+            link_final = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff_id}"
         else:
-            st.warning("Módulos de produção offline. Verifique os ficheiros.")
+            # Para Amazon/ML, usa o link direto ou seu encurtador
+            link_final = st.session_state.sel_link
 
-# --- ABA 4: PERFORMANCE (VISUALIZAÇÃO COMPLETA) ---
-with tabs[4]:
-    st.header("📊 Painel de Performance")
-    if os.path.exists(DATA_PATH):
-        df = pd.read_csv(DATA_PATH)
-        st.dataframe(df, use_container_width=True)
+        if MODULOS_OK:
+            status = agenda.salvar_na_fila(prod_f, st.session_state.copy_ativa, link_final, st.session_state.sel_valor, st.session_state.sel_mkt)
+            st.success(status)
+            midia.gerar_video_ia(prod_f, st.session_state.copy_ativa)
