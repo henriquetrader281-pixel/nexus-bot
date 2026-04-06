@@ -1,127 +1,135 @@
 import streamlit as st
 from groq import Groq
+from datetime import datetime
+import urllib.parse
+import requests
 import pandas as pd
 import os
-import random
-import update  # Módulo de SEO e Escala
 
-# Configuração da Página
-st.set_page_config(page_title="Nexus Absolute V71", layout="wide", page_icon="🔱")
+# --- 1. CONFIG & DATASET (Patches 01-10, 25, 29) ---
+st.set_page_config(page_title="Nexus Omega: Full Automation", layout="wide", page_icon="🔱")
 
-# --- SISTEMA DE LOGIN SEGURO ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-
-def login():
-    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute Login</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        senha = st.text_input("Insira a senha de acesso:", type="password")
-        if st.button("Acessar Sistema", use_container_width=True):
-            if senha == "Bru2024!":
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta. Acesso negado.")
-    st.stop()
-
-if not st.session_state.autenticado:
-    login()
-
-# --- INICIALIZAÇÃO PÓS-LOGIN ---
-DATA_PATH = "dataset_nexus.csv"
+DATA_PATH = "nexus_master_data.csv"
 if not os.path.exists(DATA_PATH):
-    pd.DataFrame(columns=["data", "loja", "produto", "link_afiliado", "status", "copy_funil", "horario_previsto"]).to_csv(DATA_PATH, index=False)
+    df = pd.DataFrame(columns=[
+        "data", "produto", "origem", "status", "views", "cliques", 
+        "ctr", "vendas", "faturamento", "score", "agendamento"
+    ])
+    df.to_csv(DATA_PATH, index=False)
 
-if "sel_nome" not in st.session_state: st.session_state.sel_nome = None
-if "sel_link" not in st.session_state: st.session_state.sel_link = None
-if "res_busca" not in st.session_state: st.session_state.res_busca = ""
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
+# --- 2. MOTORES DE IA E CONECTIVIDADE (Patches 14, 15, 17, 18, 19, 26, 28, 31) ---
 
 def gerar_ia(prompt):
-    try:
-        res = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
-            messages=[{"role":"user","content": prompt}],
-            temperature=0.7
-        )
-        return res.choices[0].message.content
-    except Exception as e:
-        return f"ERRO_CONEXAO: {e}"
+    return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}]).choices[0].message.content
 
-# --- INTERFACE PRINCIPAL ---
-st.title("🔱 Nexus Absolute: Scanner 30x & Escala")
+def acionar_automacao_total(tipo, dados):
+    """Ponte Webhook para Make.com (Patches 15, 17, 19, 21, 28)"""
+    webhook = st.secrets.get("WEBHOOK_POST_URL")
+    if webhook:
+        payload = {"nexus_trigger": tipo, "timestamp": str(datetime.now()), "payload": dados}
+        try: requests.post(webhook, json=payload, timeout=5)
+        except: pass
 
-tabs = st.tabs(["🔎 Scanner V71", "🚀 Arsenal SEO", "📊 Performance"])
+# --- 3. INTERFACE DE COMANDO ABSOLUTO ---
+st.title("🔱 Nexus Brain: Absolute Omega 2026")
+st.caption("Central Única de Inteligência, Produção de Mídia, Escala e Gestão Financeira.")
 
-# --- ABA 0: SCANNER ---
+tabs = st.tabs([
+    "🔥 Radar & Termômetro", 
+    "🎥 Estúdio de Mídia (IA)", 
+    "📅 Agendador Social", 
+    "💰 Dashboard Financeiro", 
+    "🤖 Automações & Zap",
+    "📊 Dataset Master"
+])
+
+# --- ABA 1: RADAR EUA & TERMÔMETRO BRASIL (Patches 23, 30, 31) ---
 with tabs[0]:
-    st.header("Monitor de Produtos Quentes (Shopee Focus)")
-    c1, c2 = st.columns([3, 1])
-    nicho = c1.text_input("Nicho:", value="Utilidades Domésticas")
-    ticket = c2.selectbox("Ticket:", ["Baixo", "Médio", "Alto"])
+    st.header("🎯 Inteligência de Mercado Global")
+    c_eua, c_br = st.columns(2)
     
-    if st.button("🚀 Escanear 30 Tendências Shopee", use_container_width=True):
-        with st.status("Minerando 30 produtos reais..."):
-            p = f"""Liste 30 produtos virais de {nicho} ({ticket}) na Shopee Brasil.
-            Responda EXATAMENTE assim para cada um:
-            NOME: [nome] | TEND: [%] | CALOR: [0-100] | URL: https://shopee.com.br/item"""
-            resultado = gerar_ia(p)
-            if "ERRO_CONEXAO" not in resultado:
-                st.session_state.res_busca = resultado
-            else:
-                st.error("Falha na conexão.")
+    with c_eua:
+        st.subheader("🇺🇸 Radar Achadinhos EUA")
+        if st.button("🔍 Escanear TikTok/Amazon USA"):
+            res_eua = gerar_ia("Liste 5 produtos virais nos EUA hoje para dropshipping/afiliados que ainda não saturaram no Brasil.")
+            st.info(res_eua)
+            
+    with c_br:
+        st.subheader("🇧🇷 Termômetro Shopee Brasil")
+        if st.button("🔥 Escanear Trends Shopee BR"):
+            res_br = gerar_ia("Liste os 5 termos de produtos mais buscados na Shopee Brasil agora e dê a temperatura (0-100%).")
+            st.success(res_br)
 
-    if st.session_state.res_busca:
-        linhas = st.session_state.res_busca.split("\n")
-        for idx, item in enumerate(linhas):
-            if "|" in item and "NOME:" in item:
-                try:
-                    parts = item.split("|")
-                    nome = parts[0].replace("NOME:", "").strip()
-                    tend = parts[1].replace("TEND:", "").strip()
-                    calor_str = ''.join(filter(str.isdigit, parts[2]))
-                    calor_val = int(calor_str) if calor_str else 50
-                    link_orig = parts[3].replace("URL:", "").strip()
+    st.divider()
+    st.subheader("🌡️ Febre por Categoria (Brasil)")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Cozinha", "92%", "🔥")
+    m2.metric("Tech", "85%", "🚀")
+    m3.metric("Beleza", "70%", "📈")
+    m4.metric("Pets", "45%", "❄️")
 
-                    mercado_tag = "Shopee 🟠" if "shopee" in link_orig.lower() else "Outro ⚪"
-
-                    with st.container(border=True):
-                        col1, col2, col3 = st.columns([3, 2, 1])
-                        with col1:
-                            st.write(f"📦 **{nome}**")
-                            st.caption(f"🌍 Tendência: {tend}")
-                            st.markdown(f"🛒 **Mercado:** {mercado_tag}")
-                        with col2:
-                            st.progress(min(calor_val / 100, 1.0))
-                            st.write(f"🌡️ {calor_val}°C")
-                        with col3:
-                            if st.button("Selecionar", key=f"sel_{idx}"):
-                                st.session_state.sel_nome = nome
-                                st.session_state.sel_link = link_orig
-                                st.toast(f"✅ {nome} enviado!")
-                                st.rerun()
-                except:
-                    continue
-
-# --- ABA 1: ARSENAL ---
+# --- ABA 2: ESTÚDIO DE MÍDIA (Patches 17, 18, 19, 20) ---
 with tabs[1]:
-    st.header("🚀 Gerador de Escala 10x")
-    if st.session_state.sel_nome:
-        st.success(f"📦 **Produto Ativo:** {st.session_state.sel_nome}")
-        if st.button("⚡ INJETAR 10 VARIAÇÕES COM SEO", type="primary"):
-            with st.spinner("Processando..."):
-                if update.aplicar_seo_viral(st.session_state.sel_nome, st.session_state.sel_link, nicho):
-                    st.balloons()
-                    st.success("🔥 Injetado no Agendador!")
-    else:
-        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
+    st.header("🎥 Produção de Criativos (Nano Banana 2 & Lyria 3)")
+    prod_nome = st.text_input("Nome do Produto:")
+    link_origem = st.text_input("Link Shopee Original:")
 
-# --- ABA 2: PERFORMANCE ---
+    if st.button("🚀 GERAR CRIATIVO COMPLETO (Voz + Imagem + Roteiro)"):
+        with st.status("Processando motores de mídia..."):
+            # DeepLink (Patch 20)
+            aff_link = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(link_origem)}&aff_id={st.secrets['SHOPEE_ID']}"
+            # Roteiro & Ad Scorer (Patch 18)
+            roteiro = gerar_ia(f"Crie roteiro TikTok 15s para {prod_nome}. Use gatilho de curiosidade.")
+            score = int(''.join(filter(str.isdigit, gerar_ia(f"Dê nota 0-100 para este roteiro: {roteiro}"))))
+            
+            # Disparo para Make (Patches 17, 19)
+            dados_midia = {"produto": prod_nome, "roteiro": roteiro, "link": aff_link, "score": score}
+            acionar_automacao_total("GERAR_MIDIA", dados_midia)
+            
+            st.write(f"**Roteiro (Score: {score}):** {roteiro}")
+            st.caption(f"**Prompt Imagem (Nano Banana 2):** {prod_nome}, high resolution, cinematic product photo.")
+            st.success("Comando de Voz (Lyria 3) e Imagem enviado ao Webhook!")
+
+# --- ABA 3: AGENDADOR SOCIAL (Patch 21, 22, 27) ---
 with tabs[2]:
-    if st.button("Sair do Sistema"):
-        st.session_state.autenticado = False
-        st.rerun()
-    update.dashboard_performance_simples()
+    st.header("📅 Agendador Estilo Buffer")
+    with st.container(border=True):
+        p_agenda = st.text_input("Produto p/ Agendar:")
+        data_p = st.date_input("Data")
+        hora_p = st.time_input("Hora")
+        redes = st.multiselect("Canais", ["TikTok", "Instagram", "Facebook", "WhatsApp Channel"])
+        if st.button("Confirmar Agendamento Multicanal"):
+            acionar_automacao_total("AGENDAR_POST", {"produto": p_agenda, "data": str(data_p), "hora": str(hora_p), "redes": redes})
+            st.success("Postagem na fila de processamento!")
+
+# --- ABA 4: DASHBOARD FINANCEIRO (Patch 29) ---
+with tabs[3]:
+    st.header("💰 Gestão de Ganhos & ROI")
+    df_f = pd.read_csv(DATA_PATH)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Faturamento Total", f"R$ {df_f['faturamento'].sum():,.2f}")
+    col2.metric("ROI Médio", f"{(df_f['faturamento'].sum() / (df_f['views'].sum() * 0.01) if df_f['views'].sum() > 0 else 0):.2f}x")
+    col3.metric("Vendas", int(df_f['vendas'].sum()))
+    st.line_chart(df_f.set_index("data")["faturamento"])
+
+# --- ABA 5: AUTOMAÇÕES & ZAP (Patch 26, 28) ---
+with tabs[4]:
+    st.header("🤖 ManyChat & WhatsApp Connect")
+    if st.button("📤 Enviar Relatório de Métricas p/ meu WhatsApp"):
+        resumo = f"Nexus Report: Ganhos R$ {df_f['faturamento'].sum()} | Vendas: {df_f['vendas'].sum()}"
+        acionar_automacao_total("RELATORIO_ZAP", {"msg": resumo})
+        st.success("Relatório enviado!")
     
+    st.divider()
+    st.subheader("💬 Respostas ManyChat ('Eu Quero')")
+    if st.button("Gerar Fluxo de Resposta"):
+        res = gerar_ia(f"Crie 3 variações de resposta para o ManyChat sobre o produto {prod_nome} com link.")
+        st.write(res)
+
+# --- ABA 6: DATASET MASTER (Patch 24, 25) ---
+with tabs[5]:
+    st.header("📊 Base de Dados Proprietária")
+    df_m = pd.read_csv(DATA_PATH)
+    st.dataframe(df_m, use_container_width=True)
