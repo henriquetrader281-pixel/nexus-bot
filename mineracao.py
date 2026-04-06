@@ -1,22 +1,41 @@
+import streamlit as st
+from groq import Groq
+
 def minerar_produtos(nicho, mkt_alvo, motor_ia):
     """
-    Função atualizada para aceitar os 3 parâmetros vindos do app.py
+    Chama a IA para minerar produtos com base nos parâmetros.
     """
-    # Aqui vai o seu código de mineração...
-    # Exemplo de retorno para não travar o app:
-    return [f"Produto Viral 1 para {nicho}", f"Produto Viral 2 em {mkt_alvo}"]
-    def formatar_saida_limpa(texto_bruto):
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    
+    prompt = f"""
+    Aja como um especialista em E-commerce. 
+    Liste 10 produtos virais de {nicho} para vender no {mkt_alvo}.
+    
+    USE EXATAMENTE ESTE FORMATO PARA CADA PRODUTO:
+    NOME: [nome] | CALOR: [0-100] | VALOR: [preço] | TICKET: [baixo/médio] | URL: [link]
     """
-    Remove ruídos da IA (como asteriscos, frases de introdução) 
-    para que o Scanner consiga ler os dados corretamente.
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        return f"Erro na mineração: {str(e)}"
+
+# ESTA FUNÇÃO TEM QUE ESTAR FORA (SEM ESPAÇOS NO INÍCIO DA LINHA)
+def formatar_saida_limpa(texto_bruto):
+    """
+    Limpa o texto para o Scanner do app.py conseguir ler.
     """
     if not texto_bruto:
         return ""
     
-    # Remove negritos e textos comuns que a IA coloca e que quebram o código
+    # Remove negritos e limpa espaços
     limpo = texto_bruto.replace("**", "").replace("Aqui está a lista:", "").strip()
     
-    # Se a IA colocar introduções antes da lista, tentamos limpar
+    # Garante que comece no primeiro produto
     if "NOME:" in limpo:
         pos = limpo.find("NOME:")
         limpo = limpo[pos:]
