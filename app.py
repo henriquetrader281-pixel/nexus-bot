@@ -1,97 +1,77 @@
 import streamlit as st
 from groq import Groq
-import pandas as pd
-import os
+from datetime import datetime
 import urllib.parse
 import requests
-from datetime import datetime
+import pandas as pd
+import os
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Nexus Omega V23", layout="wide", page_icon="🔱")
+# --- 1. CONFIG & DATASET (Core & Patches 25, 29) ---
+st.set_page_config(page_title="Nexus Omega: Full Automation", layout="wide", page_icon="🔱")
 
-# --- SISTEMA DE LOGIN (Mantido o seu original) ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-
-def login():
-    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Omega Login</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        senha = st.text_input("Insira a senha de acesso:", type="password")
-        if st.button("Acessar Sistema", use_container_width=True):
-            if senha == "Bru2024!":
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
-    st.stop()
-
-if not st.session_state.autenticado:
-    login()
-
-# --- INICIALIZAÇÃO DE DADOS & IA ---
-DATA_PATH = "dataset_nexus.csv"
+DATA_PATH = "nexus_master_data.csv"
 if not os.path.exists(DATA_PATH):
-    pd.DataFrame(columns=[
+    df = pd.DataFrame(columns=[
         "data", "produto", "origem", "status", "views", "cliques", 
-        "ctr", "vendas", "faturamento", "score", "copy"
-    ]).to_csv(DATA_PATH, index=False)
+        "ctr", "vendas", "faturamento", "score", "agendamento", "copy"
+    ])
+    df.to_csv(DATA_PATH, index=False)
 
-client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Variáveis de sessão para navegação entre Abas
-if "sel_nome" not in st.session_state: st.session_state.sel_nome = None
-if "sel_link" not in st.session_state: st.session_state.sel_link = None
+# Variáveis de Sessão para Seleção de Produto
+if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
+if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 
-# --- MOTORES DE AUTOMAÇÃO (Patches 15, 18, 20) ---
+# --- 2. MOTORES DE IA E CONECTIVIDADE ---
+
 def gerar_ia(prompt):
-    res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user","content": prompt}])
-    return res.choices[0].message.content
+    return client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}]).choices[0].message.content
 
-def ad_scorer(copy):
-    prompt = f"Aja como copywriter. Dê nota 0-100 para este roteiro TikTok: {copy}. Retorne apenas o número."
-    try:
-        nota = gerar_ia(prompt)
-        return int(''.join(filter(str.isdigit, nota)))
-    except: return 75
-
-def acionar_webhook(tipo, payload):
-    url = st.secrets.get("WEBHOOK_POST_URL")
-    if url:
-        try: requests.post(url, json={"trigger": tipo, "payload": payload}, timeout=5)
+def acionar_automacao_total(tipo, dados):
+    webhook = st.secrets.get("WEBHOOK_POST_URL")
+    if webhook:
+        payload = {"nexus_trigger": tipo, "timestamp": str(datetime.now()), "payload": dados}
+        try: requests.post(webhook, json=payload, timeout=5)
         except: pass
 
-# --- INTERFACE PRINCIPAL ---
-st.title("🔱 Nexus Omega: Scanner & Arsenal")
+def ad_scorer(roteiro):
+    nota = gerar_ia(f"Dê nota 0-100 para este roteiro TikTok: {roteiro}. Retorne apenas o número.")
+    return int(''.join(filter(str.isdigit, nota))) if any(c.isdigit() for c in nota) else 70
+
+# --- 3. INTERFACE DE COMANDO ---
+st.title("🔱 Nexus Brain: Absolute Omega 2026")
 
 tabs = st.tabs([
     "🔎 Scanner 30x", 
-    "⚔️ Arsenal de Vendas", 
+    "⚔️ Arsenal de Vendas",
     "🔥 Radar & Termômetro", 
-    "📅 Agendador Social",
-    "💰 Dashboard Financeiro"
+    "🎥 Estúdio de Mídia (IA)", 
+    "📅 Agendador Social", 
+    "💰 Dashboard Financeiro", 
+    "📊 Dataset Master"
 ])
 
-# --- ABA 0: SCANNER 30X (Sua estrutura original com melhorias) ---
+# --- ABA 0: SCANNER 30X (O QUE FALTAVA) ---
 with tabs[0]:
-    st.header("Monitor de Tendências Shopee")
+    st.header("🔎 Scanner de Tendências Massivo")
     c1, c2, c3 = st.columns([2, 1, 1])
-    nicho = c1.text_input("Nicho alvo:", value="Utilidades")
-    ticket_val = c2.selectbox("Faixa de Preço:", ["Baixo (R$10-50)", "Médio (R$50-150)", "Alto (+R$150)"])
+    nicho = c1.text_input("Nicho alvo:", "Utilidades Domésticas")
+    ticket = c2.selectbox("Ticket Médio:", ["Baixo", "Médio", "Alto"])
     
-    if st.button("🚀 Iniciar Scanner 30x", use_container_width=True):
-        with st.status("Minerando produtos com alto potencial..."):
-            prompt_scan = f"Liste 30 produtos virais de {nicho} com ticket {ticket_val} na Shopee Brasil. Formato: NOME: [nome] | CALOR: [0-100] | URL: [link_original]"
-            st.session_state.res_busca = gerar_ia(prompt_scan)
+    if st.button("🚀 Iniciar Varredura 30x", use_container_width=True):
+        with st.status("Minerando..."):
+            res = gerar_ia(f"Liste 30 produtos de {nicho} na Shopee Brasil. Formato: NOME: [nome] | CALOR: [0-100] | URL: [link]")
+            st.session_state.res_busca = res
 
     if "res_busca" in st.session_state:
         for item in st.session_state.res_busca.split("\n"):
             if "|" in item:
                 try:
-                    parts = item.split("|")
-                    nome = parts[0].replace("NOME:", "").strip()
-                    calor = int(''.join(filter(str.isdigit, parts[1])))
-                    link_orig = parts[2].replace("URL:", "").strip()
+                    p = item.split("|")
+                    nome = p[0].replace("NOME:", "").strip()
+                    calor = int(''.join(filter(str.isdigit, p[1])))
+                    link = p[2].replace("URL:", "").strip()
                     
                     with st.container(border=True):
                         col1, col2, col3 = st.columns([3, 2, 1])
@@ -99,72 +79,79 @@ with tabs[0]:
                         col2.progress(min(calor/100, 1.0))
                         if col3.button("Selecionar", key=f"sel_{nome}"):
                             st.session_state.sel_nome = nome
-                            st.session_state.sel_link = link_orig
-                            st.success(f"{nome} enviado para o Arsenal!")
-                            st.rerun()
+                            st.session_state.sel_link = link
+                            st.toast(f"✅ {nome} pronto para o Arsenal!")
                 except: continue
 
-# --- ABA 1: ARSENAL DE VENDAS (Aba de Criação de Mídia) ---
+# --- ABA 1: ARSENAL DE VENDAS (5 VARIAÇÕES) ---
 with tabs[1]:
-    st.header("⚔️ Arsenal: Gerador de Criativos 10x")
+    st.header("⚔️ Arsenal de Copies & Ganchos")
     if st.session_state.sel_nome:
-        st.subheader(f"Produto Ativo: {st.session_state.sel_nome}")
-        
-        if st.button("⚡ INJETAR ARSENAL (5 VARIAÇÕES + MEDIA PROMPTS)"):
-            with st.spinner("Gerando roteiros, scores e prompts..."):
-                prompt_copy = f"Crie 5 roteiros de 15s para {st.session_state.sel_nome} (Curiosidade, Dor, Medo, Prova, Transformação). Separe com ###"
-                variacoes = [v.strip() for v in gerar_ia(prompt_copy).split("###") if len(v) > 10]
+        st.info(f"Produto Selecionado: {st.session_state.sel_nome}")
+        if st.button("🔥 GERAR 5 VARIAÇÕES VIRAIS"):
+            with st.spinner("Criando munição..."):
+                prompt = f"Crie 5 roteiros TikTok de 15s para {st.session_state.sel_nome} (Ângulos: Curiosidade, Dor, Medo, Prova, Transformação). Separe com ###"
+                variacoes = [v.strip() for v in gerar_ia(prompt).split("###") if len(v) > 10]
                 
-                # Link Afiliado (Patch 20)
-                aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
-                link_aff = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(st.session_state.sel_link)}&aff_id={aff_id}"
-
                 for i, v in enumerate(variacoes):
                     score = ad_scorer(v)
-                    tipo = ["Curiosidade", "Dor", "Medo", "Prova", "Transformação"][i]
                     with st.container(border=True):
-                        st.write(f"**V{i+1} - {tipo} | Score: {score}/100**")
+                        st.subheader(f"V{i+1} | Score: {score}")
                         st.write(v)
-                        st.caption(f"🎨 **Prompt Nano Banana 2:** {st.session_state.sel_nome}, hyper-realistic, tiktok trend style.")
-                        
-                        ca, cb = st.columns(2)
-                        if ca.button(f"🎬 Produzir Mídia V{i+1}", key=f"prod_{i}"):
-                            acionar_webhook("GERAR_MIDIA", {"copy": v, "prod": st.session_state.sel_nome, "link": link_aff, "tipo": tipo})
-                            st.toast("Enviado para Lyria 3 e Nano Banana 2!")
-                        
-                        if cb.button(f"📅 Agendar V{i+1}", key=f"age_{i}"):
-                            # Salva no Dataset Master
-                            df = pd.read_csv(DATA_PATH)
-                            novo = {"data": datetime.now().strftime("%d/%m"), "produto": st.session_state.sel_nome, "origem": tipo, "status": "AGENDADO", "score": score, "copy": v}
-                            pd.concat([df, pd.DataFrame([novo])]).to_csv(DATA_PATH, index=False)
-                            st.success("Adicionado à fila de postagem!")
+                        if st.button(f"Usar V{i+1} no Estúdio", key=f"use_{i}"):
+                            st.session_state.copy_ativa = v
+                            st.session_state.score_ativo = score
+                            st.success("Enviado para Aba 'Estúdio de Mídia'!")
     else:
-        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
+        st.warning("Selecione um produto no Scanner primeiro.")
 
-# --- ABA 2: RADAR & TERMÔMETRO (Inteligência EUA/BR) ---
+# --- ABA 2: RADAR & TERMÔMETRO (Mantido) ---
 with tabs[2]:
     st.header("🎯 Inteligência de Mercado Global")
     c_eua, c_br = st.columns(2)
     with c_eua:
         st.subheader("🇺🇸 Radar Achadinhos EUA")
-        if st.button("🔍 Escanear TikTok USA"):
-            st.info(gerar_ia("Liste 5 produtos virais no TikTok USA hoje que ainda não saturaram no Brasil."))
+        if st.button("🔍 Escanear TikTok/Amazon USA"):
+            st.info(gerar_ia("Liste 5 produtos virais nos EUA hoje."))
     with c_br:
         st.subheader("🇧🇷 Termômetro Shopee Brasil")
-        if st.button("🔥 Trends Shopee BR"):
-            st.success(gerar_ia("Quais os 5 termos de produtos mais buscados na Shopee Brasil agora?"))
+        if st.button("🔥 Escanear Trends Shopee BR"):
+            st.success(gerar_ia("5 termos mais buscados na Shopee BR agora."))
 
-# --- ABA 4: DASHBOARD FINANCEIRO (Gestão de ROI) ---
+# --- ABA 3: ESTÚDIO DE MÍDIA (IA) (Mantido + Score) ---
+with tabs[3]:
+    st.header("🎥 Produção de Criativos (IA)")
+    p_estudio = st.text_input("Nome:", value=st.session_state.sel_nome)
+    l_estudio = st.text_input("Link:", value=st.session_state.sel_link)
+    copy_estudio = st.text_area("Roteiro:", value=st.session_state.get("copy_ativa", ""))
+
+    if st.button("🚀 DISPARAR PRODUÇÃO COMPLETA"):
+        with st.status("Acionando motores..."):
+            aff_link = f"https://shope.ee/api/v1/deeplink?url={urllib.parse.quote(l_estudio)}&aff_id={st.secrets.get('SHOPEE_ID')}"
+            dados = {"produto": p_estudio, "roteiro": copy_estudio, "link": aff_link}
+            acionar_automacao_total("GERAR_MIDIA", dados)
+            st.success("Enviado para Lyria 3 e Nano Banana 2 via Webhook!")
+
+# --- ABA 4: AGENDADOR SOCIAL (Mantido) ---
 with tabs[4]:
-    st.header("💰 Dashboard Financeiro")
+    st.header("📅 Agendador")
+    p_agenda = st.text_input("Produto:", value=st.session_state.sel_nome)
+    data_p = st.date_input("Data")
+    hora_p = st.time_input("Hora")
+    if st.button("Confirmar Agendamento"):
+        acionar_automacao_total("AGENDAR_POST", {"prod": p_agenda, "data": str(data_p)})
+        st.success("Agendado!")
+
+# --- ABA 5: DASHBOARD FINANCEIRO (Mantido) ---
+with tabs[5]:
+    st.header("💰 Gestão de Ganhos")
     df_f = pd.read_csv(DATA_PATH)
-    if not df_f.empty:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Vendas Totais", len(df_f[df_f['status'] == "VENDA"]))
-        col2.metric("Score Médio Copies", f"{df_f['score'].mean():.1f}")
-        col3.metric("Status", "Operacional 🟢")
-        st.dataframe(df_f)
-    
-    if st.button("Sair do Sistema"):
-        st.session_state.autenticado = False
-        st.rerun()
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Faturamento", f"R$ {df_f['faturamento'].sum():,.2f}")
+    col2.metric("Vendas", int(df_f['vendas'].sum()))
+    st.line_chart(df_f.set_index("data")["faturamento"])
+
+# --- ABA 6: DATASET MASTER (Mantido) ---
+with tabs[6]:
+    st.header("📊 Base de Dados Master")
+    st.dataframe(pd.read_csv(DATA_PATH), use_container_width=True)
