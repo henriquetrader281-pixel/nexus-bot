@@ -1,57 +1,33 @@
-import streamlit as st
+# --- DENTRO DO BOTAO GERAR LEGENDA ---
+with st.spinner("Limpando ruído e gerando copy de impacto..."):
+    # Isolamos apenas o nome essencial
+    produto_limpo = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
 
-def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio de Edição Nexus | Retenção & AIDA 🔱")
+    prompt_blindado = f"""
+    CONTEXTO: Você é um Diretor de Conversão.
+    PRODUTO ATUAL: {produto_limpo}
+
+    TAREFA: Gere APENAS a legenda AIDA e o Roteiro de Retenção para ESTE produto.
     
-    # 1. VERIFICAÇÃO DE SEGURANÇA (Dentro da função)
-    if "sel_nome" not in st.session_state or not st.session_state.sel_nome:
-        st.warning("⚠️ Nenhum produto selecionado! Vá ao SCANNER e clique em 'Selecionar'.")
-        return # Para a execução aqui se não houver produto
+    REGRAS CRÍTICAS:
+    1. PROIBIDO listar outros produtos da sessão.
+    2. PROIBIDO repetir dados como 'CALOR' ou 'TICKET'.
+    3. FOCO TOTAL no método AIDA (Atenção, Interesse, Desejo, Ação).
+    4. O tom deve ser de 'Achadinho Viral'.
 
-    # Se chegou aqui, temos um produto!
-    produto_bruto = st.session_state.sel_nome
-    # Limpa o nome para o Gemini focar só no objeto (Ex: Peneira de Arroz)
-    produto_foco = produto_bruto.split('|')[0].replace("NOME:", "").strip()
+    FORMATO DE SAÍDA:
+    🚨 [ATENÇÃO]: (Gancho que para o scroll)
+    💡 [INTERESSE]: (Por que ele precisa disso?)
+    ✨ [DESEJO]: (A transformação na rotina)
+    🛒 [AÇÃO]: (Chamada para o link)
+    """
 
-    # --- BLOCO AIDA (CONVERSÃO) ---
-    with st.container(border=True):
-        st.markdown(f"#### 🎯 Estratégia de Venda: {produto_foco}")
-        
-        if st.button("🔥 GERAR LEGENDA AIDA + LINK BLINDADO", use_container_width=True):
-            with st.spinner("Gemini Plus isolando produto e criando copy de impacto..."):
-                
-                prompt_aida = f"""
-                Ignore listas. Foque APENAS no produto: {produto_foco}.
-                Crie uma legenda AIDA (Atenção, Interesse, Desejo, Ação).
-                - Use gatilhos de retenção.
-                - Sem dados técnicos.
-                - Curto e viral.
-                """
-                
-                copy_gerada = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
-                
-                # Blindagem do Link (ID: 18316451024)
-                link_original = st.session_state.get('sel_link', 'https://shopee.com.br')
-                link_limpo = link_original.split('?')[0].split('|')[0].strip()
-                if "https" not in link_limpo: link_limpo = f"https://shopee.com.br/search?keyword={produto_foco.replace(' ', '+')}"
-                
-                link_final = f"{link_limpo}?smtt=18316451024"
-                st.session_state.copy_final_pronta = f"{copy_gerada.strip()}\n\n🛒 **LINK COM DESCONTO:** {link_final}"
+    # Chama a IA com o prompt restrito
+    resposta_ia = miny.minerar_produtos(prompt_blindado, "Shopee", motor_ia)
+    
+    # Blindagem do Link (Consertando o erro do https? que apareceu no seu print)
+    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
+    link_final = link_raw.split('?')[0].split('|')[0].strip()
+    link_afiliado = f"{link_final}?smtt=18316451024"
 
-        if "copy_final_pronta" in st.session_state:
-            st.text_area("Munição de Elite:", value=st.session_state.copy_final_pronta, height=200)
-            if st.button("📋 Copiar para Postagem"):
-                st.toast("Copiado!")
-
-    st.divider()
-
-    # --- BLOCO RETENÇÃO (EDIÇÃO VÍDEO) ---
-    st.markdown("#### ⚡ Radar de Retenção e Edição")
-    if st.button("🧠 BUSCAR ESTRATÉGIA DE VÍDEO VIRAL", use_container_width=True):
-        with st.spinner("Analisando padrões de retenção..."):
-            prompt_video = f"Crie um roteiro de 15 segundos para {produto_foco}. Foque em 3s de Hook agressivo e 12s de demonstração satisfatória."
-            st.session_state.roteiro_video = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
-
-    if "roteiro_video" in st.session_state:
-        with st.expander("🎥 MAPA DE CORTES (CAPCUT)", expanded=True):
-            st.markdown(st.session_state.roteiro_video)
+    st.session_state.copy_final_pronta = f"{resposta_ia}\n\n🔗 **LINK EXCLUSIVO:** {link_afiliado}"
