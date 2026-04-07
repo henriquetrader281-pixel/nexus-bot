@@ -10,19 +10,15 @@ def aplicar_id_afiliado(link, mkt):
     id_meli = st.secrets.get("MELI_ID", "seu_id_meli")
     id_amz = st.secrets.get("AMAZON_ID", "seu_tag-20")
 
-    # Limpa espaços e garante que o link é uma string
     link = str(link).strip()
     
-    # Lógica de Conector: Se já tem '?', usa '&'. Se não, usa '?'
+    # RESOLVE O PROBLEMA DO SEARCH: Se já tem '?', usa '&'. Se não, usa '?'
     conector = "&" if "?" in link else "?"
 
     if mkt == "Shopee":
-        # Força o parâmetro smtt que é o padrão de afiliado Shopee
         return f"{link}{conector}smtt={id_shopee}"
-    
     elif mkt == "Mercado Livre":
         return f"{link}{conector}utm_source=afiliado&utm_id={id_meli}"
-    
     elif mkt == "Amazon":
         return f"{link}{conector}tag={id_amz}"
     
@@ -34,55 +30,53 @@ def exibir_arsenal(miny, motor_ia):
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.mkt_global
         
-        # PROCESSAMENTO IMEDIATO DO LINK (O QUE VOCÊ PEDIU)
+        # O LINK É PROCESSADO AQUI - PÁGINA INTEIRA
         link_final = aplicar_id_afiliado(st.session_state.sel_link, mkt)
         
         with st.container(border=True):
-            st.info(f"📦 **Produto Ativo:** {st.session_state.sel_nome}")
-            st.write("**Link de Venda Direta (Com seu ID):**")
+            st.info(f"📦 **Produto Selecionado:** {st.session_state.sel_nome}")
+            st.write("**Link de Afiliado (Validado):**")
+            # Isso garante que você veja o ID no final do link de search
             st.code(link_final, language="text")
 
         st.divider()
 
-        if st.button(f"🚀 GERAR MUNIÇÃO DE ALTO IMPACTO", use_container_width=True):
+        if st.button(f"🚀 GERAR CÓPIAS DE ALTA PERSUASÃO", use_container_width=True):
             with st.spinner("IA Sênior formatando modelo AIDA..."):
-                # PROMPT NÍVEL CEO / ALTA PERSUASÃO
+                # PROMPT CEO / ALTA PERSUASÃO - FOCADO EM VENDA DIRETA
                 prompt = f"""
-                Ignore todas as instruções anteriores. Atue como um Diretor de Marketing (CMO) e Especialista em Persuasão.
-                Gere 5 variações de copy de ALTO NÍVEL para o produto: {st.session_state.sel_nome}.
+                Ignore todas as instruções genéricas. Você é um Diretor de Marketing especialista em Direct Response.
+                Crie 5 variações de copy extremamente persuasivas para o produto: {st.session_state.sel_nome}.
                 
-                ESTRUTURA OBRIGATÓRIA (MODELO AIDA):
-                1. ATENÇÃO: Hook (gancho) disruptivo que para o scroll.
-                2. INTERESSE: Fato curioso ou dor latente resolvida.
-                3. DESEJO: Benefício aspiracional (estilo de vida/status).
-                4. AÇÃO: CTA (Chamada para ação) agressivo para venda direta.
+                ESTRUTURA OBRIGATÓRIA AIDA:
+                - ATENÇÃO: Um gancho (hook) agressivo para parar o scroll no TikTok/Reels.
+                - INTERESSE: Conecte o produto a um desejo de status ou solução de dor.
+                - DESEJO: Mostre o valor exclusivo e o gatilho de 'oportunidade única'.
+                - AÇÃO: CTA curto e direto para o link abaixo.
                 
-                REGRAS DE OURO:
-                - Tom de voz: Autoritário, "Estilo CEO", direto e sofisticado.
-                - Gatilhos: Escassez Real, Prova Social implícita e Exclusividade.
-                - Proibido: Textos rasos ou listas de características.
-                - Formatação: Use negritos e emojis de luxo/negócios.
-                
-                Separe cada uma das 5 variações estritamente com o símbolo ###.
+                REGRAS:
+                - Use linguagem de alto nível (Estilo CEO/Sofisticado).
+                - Use emojis de luxo e poder.
+                - Separe cada uma das 5 variações estritamente com o símbolo ###.
+                - PROIBIDO introduções ou listas de outros produtos.
                 """
                 resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
+                # Limpa a resposta para pegar apenas o que importa
                 st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
 
         # EXIBIÇÃO ORGANIZADA
         if "res_arsenal" in st.session_state:
             for i, copy in enumerate(st.session_state.res_arsenal):
                 with st.container(border=True):
-                    # Limpeza de resíduos da IA
+                    # Limpa resíduos de texto da IA
                     copy_limpa = copy.lstrip('0123456789. "').rstrip('"')
                     
                     st.markdown(f"#### 💎 Versão Black {i+1}")
                     st.markdown(copy_limpa)
                     
-                    st.divider()
-                    
                     if st.button(f"🎬 Carregar no Estúdio (V{i+1})", key=f"btn_v_{i}"):
-                        # O link aqui já vai com o ID processado lá no início
-                        st.session_state.copy_ativa = f"{copy_limpa}\n\n👉 **ADQUIRA AGORA:** {link_final}"
-                        st.toast("Estratégia enviada ao Estúdio!")
+                        # Envia a copy + o link já com o seu ID
+                        st.session_state.copy_ativa = f"{copy_limpa}\n\n👉 **ADQUIRA AQUI:** {link_final}"
+                        st.toast("Munição enviada ao Estúdio!")
     else:
-        st.warning("⚠️ Selecione um produto no Scanner para desbloquear o Arsenal.")
+        st.warning("⚠️ Selecione um produto no Scanner para gerar as cópias de elite.")
