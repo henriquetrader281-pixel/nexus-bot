@@ -5,6 +5,7 @@ import urllib.parse
 from datetime import datetime
 import mineracao as miny # O novo módulo que criamos
 
+# --- FUNÇÃO DE MELHORIA: UPDATE DE LINHA (REUTILIZÁVEL) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "📦", "Mercado Livre": "🏪", "Amazon": "🛒"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -13,12 +14,17 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         c1, c2, c3 = st.columns([2, 1, 1])
         c1.write(f"{ico} **{nome}**")
         c1.caption(f"💰 {valor} | 🎫 {ticket} | 🏷️ {mkt_alvo}")
-        c2.progress(min(max(calor/100, 0.0), 1.0))
-        c2.write(f"🌡️ {calor}°C")
-        if c3.button("Selecionar", key=f"btn_{idx}"):
+        
+        # Trava de segurança para o calor (Max 100)
+        calor_limpo = min(max(int(calor), 0), 99)
+        c2.progress(calor_limpo/100)
+        c2.write(f"🌡️ {calor_limpo}°C")
+        
+        if c3.button("Selecionar", key=f"btn_{idx}_{mkt_alvo}"):
             st.session_state.sel_nome = nome
             st.session_state.sel_link = link
             st.toast(f"Selecionado: {nome}")
+
 # --- 1. CONFIGURAÇÃO E LOGIN ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
@@ -47,76 +53,57 @@ if "copy_ativa" not in st.session_state: st.session_state.copy_ativa = ""
 
 # --- 3. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Configurações")
-# O seletor que manda no app todo:
 mkt_alvo = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
 nicho = st.sidebar.text_input("Nicho Ativo:", "Cozinha Criativa")
 motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (ATUALIZADA COM MERCADO LIVRE/AMAZON) ---
+# --- ABA 0: SCANNER (ATUALIZADA) ---
 with tabs[0]:
-    # Título dinâmico que muda conforme o Marketplace escolhido
     st.header(f"🔍 Scanner Nexus: {mkt_alvo}")
     
+    # SELETORES RÁPIDOS DE MARKETPLACE (ESTILO IMAGEM)
+    c_mkt1, c_mkt2, c_mkt3 = st.columns(3)
+    if c_mkt1.button("🧡 Shopee", use_container_width=True): mkt_alvo = "Shopee"
+    if c_mkt2.button("💛 Mercado Livre", use_container_width=True): mkt_alvo = "Mercado Livre"
+    if c_mkt3.button("💙 Amazon", use_container_width=True): mkt_alvo = "Amazon"
+
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Quantidade de itens:", [15, 30, 45], index=1)
         st.caption(f"Foco: {nicho}")
 
-    # O botão agora indica o Marketplace específico
     if st.button(f"🔥 Iniciar Varredura na {mkt_alvo}", use_container_width=True):
-        with st.spinner(f"IA minerando {qtd_produtos} produtos na {mkt_alvo}..."):
+        with st.spinner(f"IA minerando tendências na {mkt_alvo}..."):
             resultado = miny.minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=qtd_produtos)
             st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
     
     if st.session_state.res_busca:
         st.divider()
-        filtro_ticket = st.multiselect(
-            "Visualizar Tickets:", 
-            ["Baixo", "Médio", "Alto"], 
-            default=["Baixo", "Médio", "Alto"]
-        )
+        filtro_ticket = st.multiselect("Visualizar Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
             if "|" in linha and "NOME" in linha.upper():
                 try:
-                    partes = {}
-                    for p in linha.split('|'):
-                        if ":" in p:
-                            chave, valor = p.split(':', 1)
-                            k = chave.replace("*", "").strip().upper()
-                            v = valor.replace("*", "").strip()
-                            partes[k] = v
-
+                    # Extração de dados da linha
+                    partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha.split('|') if ':' in p}
+                    
                     ticket_atual = partes.get("TICKET", "Médio")
                     if ticket_atual in filtro_ticket:
-                        nome = partes.get("NOME", "Produto Sem Nome")
-                        calor_str = partes.get("CALOR", "0")
-                        calor_num = "".join(filter(str.isdigit, calor_str))
-                        calor = int(calor_num) if calor_num else 0
-                        
-                        valor = partes.get("VALOR", "Consulte")
-                        link = partes.get("URL", "#")
-
-                        with st.container(border=True):
-                            c1, c2, c3 = st.columns([2, 1, 1])
-                            # Ícone muda conforme o Marketplace
-                            icone = "📦" if mkt_alvo == "Shopee" else "🏪" if mkt_alvo == "Mercado Livre" else "🛒"
-                            c1.write(f"{icone} **{nome}**")
-                            c1.caption(f"💰 {valor} | 🎫 Ticket: {ticket_atual} | 🏷️ {mkt_alvo}")
-                            
-                            prog_calor = min(max(calor/100, 0.0), 1.0)
-                            c2.progress(prog_calor)
-                            c2.write(f"🌡️ {calor}°C")
-                            
-                            if c3.button("Selecionar", key=f"btn_{idx}"):
-                                st.session_state.sel_nome = nome
-                                st.session_state.sel_link = link
-                                st.toast(f"{nome} da {mkt_alvo} selecionado!")
-                except:
-                    continue
+                        # CHAMADA DA FUNÇÃO DE UPDATE DE LINHA (MELHORIA)
+                        calor_val = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
+                        renderizar_card_produto(
+                            idx, 
+                            partes.get("NOME", "Produto"), 
+                            partes.get("VALOR", "Sob consulta"), 
+                            int(calor_val) if calor_val else 0,
+                            ticket_atual,
+                            partes.get("URL", "#"),
+                            mkt_alvo
+                        )
+                except: continue
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:
