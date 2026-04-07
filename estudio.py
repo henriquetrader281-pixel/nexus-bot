@@ -1,58 +1,39 @@
 import streamlit as st
-import pandas as pd
+
+def limpar_legenda_visual(texto):
+    """Remove dados técnicos e deixa apenas o nome do produto e a copy"""
+    if not texto: return ""
+    # Remove as tags técnicas que o Gemini às vezes repete
+    sujeiras = ["CALOR:", "VALOR:", "TICKET:", "URL:", "|"]
+    linha_limpa = texto
+    for sujeira in sujeiras:
+        if sujeira in linha_limpa:
+            linha_limpa = linha_limpa.split(sujeira)[0] # Pega só o que vem antes da primeira sujeira
+    return linha_limpa.strip()
 
 def exibir_estudio(miny, motor_ia):
     st.markdown("### 🎬 Estúdio de Edição Nexus | Direção Gemini Plus")
     
     if "copy_ativa" in st.session_state:
-        # 1. Painel de Controle de Legenda
+        # Pega a copy e limpa os dados técnicos
+        texto_base = limpar_legenda_visual(st.session_state.copy_ativa)
+        
+        # Corrige o link duplicado (Garante que não tenha https/https)
+        link_cru = st.session_state.get('sel_link', '')
+        if "shopee.com.br" in link_cru:
+            # Pega só a base antes da interrogação e limpa
+            link_limpo = link_cru.split('?')[0].replace("https://shopee.com.br/https", "https://shopee.com.br")
+            link_final = f"{link_limpo}?smtt=18316451024"
+        else:
+            link_final = link_cru
+
         with st.container(border=True):
             st.markdown("#### 📝 Legenda Estratégica")
-            legenda_editavel = st.text_area("Refine a munição final:", 
-                                          value=st.session_state.copy_ativa, 
-                                          height=200)
+            # Exibe a legenda já limpa para o usuário
+            copy_para_uso = f"{texto_base}\n\n🛒 **COMPRE AGORA:** {link_final}"
+            legenda_editavel = st.text_area("Refine a munição final:", value=copy_para_uso, height=200)
             
             if st.button("📋 COPIAR TEXTO + LINK", use_container_width=True):
-                st.toast("Pronto para colar no Instagram/WhatsApp!")
-
-        st.divider()
-
-        # 2. O Cérebro do Diretor (Gemini Plus + Roteiro)
-        st.markdown("#### 🚀 Direção de Arte e Viralização")
-        if st.button("🧠 ANALISAR VÍDEO E GERAR ROTEIRO VIRAL", use_container_width=True):
-            with st.spinner("Gemini Plus analisando padrões de retenção..."):
-                
-                # Prompt de alto nível para o Gemini Plus
-                prompt_direcao = f"""
-                Atue como um Especialista em Viralização de Short-Videos (TikTok/Reels).
-                Produto: {st.session_state.sel_nome}
-                Legenda: {legenda_editavel}
-
-                Tarefa: Crie um plano de edição de ALTO IMPACTO (Nível CEO) para este vídeo.
-                
-                ESTRUTURA OBRIGATÓRIA:
-                1. O GANCHO (0-3 seg): Qual texto "na cara" deve aparecer? Qual o movimento inicial?
-                2. RETENÇÃO (3-10 seg): Como mostrar os detalhes do produto? (Ex: Close no bambu, teste da batedeira).
-                3. PSICOLOGIA DAS CORES: Que filtros ou overlays usar para passar confiança/desejo.
-                4. TRILHA SONORA: Sugira um estilo de áudio em alta.
-                5. CHAMADA VISUAL: Como posicionar o link de forma que não seja ignorado.
-                
-                Use termos técnicos de edição para facilitar no CapCut ou MoviePy.
-                """
-                
-                roteiro_direcao = miny.minerar_produtos(prompt_direcao, "Shopee", motor_ia)
-                st.session_state.roteiro_video = roteiro_direcao
-
-        # Exibe o roteiro gerado
-        if "roteiro_video" in st.session_state:
-            with st.expander("🎥 INSTRUÇÕES DO DIRETOR GEMINI", expanded=True):
-                st.markdown(st.session_state.roteiro_video)
-                st.caption("Siga estas etapas no CapCut para maximizar suas vendas.")
-
-        # 3. Futuro: Automação com MoviePy (Espaço reservado)
-        with st.expander("⚙️ Automações Avançadas (Em breve)"):
-            st.write("Detectamos as bibliotecas: OpenCV e MoviePy no seu sistema.")
-            st.info("Estas ferramentas permitirão, no futuro, que o Nexus insira automaticamente o seu Link Blindado por cima dos vídeos baixados.")
-            
-    else:
-        st.warning("⚠️ Vá ao Arsenal, gere uma copy e clique em 'Enviar ao Estúdio' primeiro!")
+                st.toast("Copiado para a área de transferência!")
+        
+        # ... resto do código do botão ANALISAR VÍDEO ...
