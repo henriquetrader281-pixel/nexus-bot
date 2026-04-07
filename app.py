@@ -5,7 +5,7 @@ import urllib.parse
 from datetime import datetime
 import mineracao as miny # O novo módulo que criamos
 
-# --- FUNÇÃO DE MELHORIA: UPDATE DE LINHA (REUTILIZÁVEL) ---
+# --- MELHORIA: FUNÇÃO DE RENDERIZAÇÃO (UPDATE DE LINHA) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "📦", "Mercado Livre": "🏪", "Amazon": "🛒"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -15,10 +15,10 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         c1.write(f"{ico} **{nome}**")
         c1.caption(f"💰 {valor} | 🎫 {ticket} | 🏷️ {mkt_alvo}")
         
-        # Trava de segurança para o calor (Max 100)
-        calor_limpo = min(max(int(calor), 0), 99)
-        c2.progress(calor_limpo/100)
-        c2.write(f"🌡️ {calor_limpo}°C")
+        # Trava de segurança para a barra de progresso (0.0 a 1.0)
+        calor_num = min(max(int(calor), 0), 100)
+        c2.progress(calor_num / 100)
+        c2.write(f"🌡️ {calor_num}°C")
         
         if c3.button("Selecionar", key=f"btn_{idx}_{mkt_alvo}"):
             st.session_state.sel_nome = nome
@@ -53,35 +53,34 @@ if "copy_ativa" not in st.session_state: st.session_state.copy_ativa = ""
 
 # --- 3. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Configurações")
-mkt_alvo = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
-
-# MELHORIA: O 'key' sincroniza o campo da sidebar com o campo do Scanner
+mkt_alvo_side = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"], key="mkt_global")
+# Sincronização do nicho para permitir alteração
 nicho_global = st.sidebar.text_input("Nicho Ativo:", value="Cozinha Criativa", key="nicho_ativo")
 motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (ATUALIZADA COM FOCO DINÂMICO) ---
+# --- ABA 0: SCANNER (ATUALIZADA) ---
 with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {mkt_alvo}")
+    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
-    # SELETORES RÁPIDOS DE MARKETPLACE
+    # SELETORES RÁPIDOS NO TOPO (Como solicitado na imagem)
     c_mkt1, c_mkt2, c_mkt3 = st.columns(3)
-    if c_mkt1.button("🧡 Shopee", use_container_width=True): mkt_alvo = "Shopee"
-    if c_mkt2.button("💛 Mercado Livre", use_container_width=True): mkt_alvo = "Mercado Livre"
-    if c_mkt3.button("💙 Amazon", use_container_width=True): mkt_alvo = "Amazon"
+    if c_mkt1.button("🧡 Shopee", use_container_width=True): st.session_state.mkt_global = "Shopee"
+    if c_mkt2.button("💛 Mercado Livre", use_container_width=True): st.session_state.mkt_global = "Mercado Livre"
+    if c_mkt3.button("💙 Amazon", use_container_width=True): st.session_state.mkt_global = "Amazon"
 
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Quantidade de itens:", [15, 30, 45], index=1)
     
     with col_sel2:
-        # MELHORIA: Campo de Foco que realmente altera o nicho usado na busca
-        foco_nicho = st.text_input("🎯 Foco do Scanner (Alterar Nicho):", key="nicho_ativo")
+        # Campo que permite mudar o nicho diretamente aqui
+        foco_nicho = st.text_input("🎯 Foco do Scanner (Mudar Nicho):", key="nicho_ativo")
 
-    if st.button(f"🔥 Iniciar Varredura na {mkt_alvo}", use_container_width=True):
-        with st.spinner(f"IA minerando {qtd_produtos} itens de '{foco_nicho}'..."):
-            resultado = miny.minerar_produtos(foco_nicho, mkt_alvo, motor_ia, qtd=qtd_produtos)
+    if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
+        with st.spinner(f"IA minerando {qtd_produtos} produtos em '{foco_nicho}'..."):
+            resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd=qtd_produtos)
             st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
     
     if st.session_state.res_busca:
@@ -93,18 +92,18 @@ with tabs[0]:
             if "|" in linha and "NOME" in linha.upper():
                 try:
                     partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha.split('|') if ':' in p}
-                    
                     ticket_atual = partes.get("TICKET", "Médio")
+                    
                     if ticket_atual in filtro_ticket:
-                        calor_val = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
+                        c_str = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
                         renderizar_card_produto(
                             idx, 
                             partes.get("NOME", "Produto"), 
-                            partes.get("VALOR", "Sob consulta"), 
-                            int(calor_val) if calor_val else 0,
+                            partes.get("VALOR", "Consultar"), 
+                            int(c_str) if c_str else 0,
                             ticket_atual,
                             partes.get("URL", "#"),
-                            mkt_alvo
+                            st.session_state.mkt_global
                         )
                 except: continue
 
@@ -112,9 +111,9 @@ with tabs[0]:
 with tabs[1]:
     st.header("🚀 Arsenal de Vendas")
     if st.session_state.sel_nome:
-        st.success(f"Produto Ativo: {st.session_state.sel_nome} ({mkt_alvo})")
-        if st.button(f"⚡ Gerar 10 Copies para {mkt_alvo}"):
-            res_ia = miny.minerar_produtos(f"Gere 10 variações de copy viral para: {st.session_state.sel_nome}", mkt_alvo, motor_ia) 
+        st.success(f"Produto Ativo: {st.session_state.sel_nome} ({st.session_state.mkt_global})")
+        if st.button(f"⚡ Gerar 10 Copies para {st.session_state.mkt_global}"):
+            res_ia = miny.minerar_produtos(f"Gere 10 variações de copy viral para: {st.session_state.sel_nome}", st.session_state.mkt_global, motor_ia) 
             variacoes = [v.strip() for v in res_ia.split("###") if len(v) > 10]
             if not variacoes: variacoes = res_ia.split('\n')
             
@@ -136,8 +135,8 @@ with tabs[2]:
         if st.button("🇺🇸 Scanner TikTok USA"):
             st.info("Buscando produtos virais nos EUA...")
     with c_br:
-        if st.button(f"🇧🇷 Trends {mkt_alvo}"):
-            st.success(f"Analisando tendências na {mkt_alvo}...")
+        if st.button(f"🇧🇷 Trends {st.session_state.mkt_global}"):
+            st.success(f"Analisando tendências na {st.session_state.mkt_global}...")
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
@@ -145,8 +144,7 @@ with tabs[3]:
     prod_f = st.text_input("Produto:", value=st.session_state.sel_nome)
     copy_f = st.text_area("Roteiro:", value=st.session_state.copy_ativa)
     
-    if st.button(f"🚀 Produzir Mídia para {mkt_alvo}"):
-        aff_id = st.secrets.get("SHOPEE_ID", "SEM_ID")
-        link_deep = f"Link de Afiliado {mkt_alvo}: {st.session_state.sel_link}"
-        st.success(f"Mídia em produção para {mkt_alvo}!")
+    if st.button(f"🚀 Produzir Mídia para {st.session_state.mkt_global}"):
+        link_deep = f"Link de Afiliado {st.session_state.mkt_global}: {st.session_state.sel_link}"
+        st.success(f"Mídia em produção para {st.session_state.mkt_global}!")
         st.code(link_deep, language="text")
