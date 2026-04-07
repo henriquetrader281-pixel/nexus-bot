@@ -12,7 +12,6 @@ def aplicar_id_afiliado(link, mkt):
         # Se for link de busca (search), extraímos a palavra-chave para limpar
         if "search?keyword=" in link:
             keyword = link.split("keyword=")[-1].split("&")[0]
-            # Reconstrói do zero para não ter erro de rastreio
             return f"https://shopee.com.br/search?keyword={keyword}&smtt={ID_FIXO_SHOPEE}"
         
         # Se for link de produto, removemos o lixo e colocamos o ID
@@ -36,7 +35,7 @@ def exibir_arsenal(miny, motor_ia):
             st.markdown("#### 🔗 Link de Afiliado Blindado")
             # AQUI VAI APARECER O ID 18316451024
             st.code(link_final, language="text")
-            st.caption(f"Rastreio ativo para o ID: {ID_FIXO_SHOPEE}")
+            st.caption("Rastreio ativo para o ID: 18316451024")
 
         st.divider()
 
@@ -70,7 +69,6 @@ def exibir_arsenal(miny, motor_ia):
                     st.markdown(v_limpa)
                     
                     if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_v_{i}"):
-                        # Link enviado agora é o link_final com o seu ID
                         st.session_state.copy_ativa = f"{v_limpa}\n\n🛒 **COMPRE AGORA:** {link_final}"
                         st.toast("Munição enviada com sucesso!")
     else:
