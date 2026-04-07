@@ -1,35 +1,28 @@
 import streamlit as st
 
 def aplicar_id_afiliado(link, mkt):
-    """Reconstrói o link garantindo o domínio e o ID 18316451024"""
+    """Versão Recuperada: Garante o domínio Shopee e injeta o ID 18316451024"""
     if not link or link == "#":
         return link
     
-    ID_FIXO_SHOPEE = "18316451024"
+    ID_FIXO_SHOPEE = "18316451024" 
     link = str(link).strip()
     
     if mkt == "Shopee":
-        # Caso 1: Link de busca (Search)
-        # Se o link contém "search?keyword=", limpamos os parâmetros extras da Shopee
+        # Proteção para não perder o domínio (evita o erro das fotos)
+        if "shopee.com.br" not in link:
+            # Se o link vier quebrado do scanner, tentamos reconstruir
+            path = link.split("/")[-1]
+            link = f"https://shopee.com.br/{path}"
+
+        # Se for link de busca (search)
         if "search?keyword=" in link:
-            try:
-                # Extraímos apenas o que vem depois de keyword= e antes de qualquer &
-                keyword = link.split("keyword=")[1].split("&")[0]
-                return f"https://shopee.com.br/search?keyword={keyword}&smtt={ID_FIXO_SHOPEE}"
-            except:
-                # Caso o split falhe, forçamos o domínio básico com a busca original
-                return f"https://shopee.com.br/search?keyword=produto&smtt={ID_FIXO_SHOPEE}"
+            # Mantém a base da busca e troca o rastreio pelo seu
+            base_search = link.split("&")[0] 
+            return f"{base_search}&smtt={ID_FIXO_SHOPEE}"
         
-        # Caso 2: Link de Produto Direto
-        # Pegamos a parte principal do link antes de qualquer interrogação (?)
+        # Se for link de produto (limpa o lixo e coloca o seu ID)
         base_link = link.split("?")[0]
-        
-        # SEGURANÇA: Se por algum erro o link vier sem o domínio (como nas suas fotos), nós o reinserimos
-        if "shopee.com.br" not in base_link:
-            # Tenta pegar a parte final do link (ex: nome-do-produto-i.123.456)
-            path = base_link.split("/")[-1]
-            return f"https://shopee.com.br/{path}?smtt={ID_FIXO_SHOPEE}"
-            
         return f"{base_link}?smtt={ID_FIXO_SHOPEE}"
     
     return link
@@ -47,15 +40,16 @@ def exibir_arsenal(miny, motor_ia):
         with st.container(border=True):
             st.success(f"📦 **Produto Selecionado:** {st.session_state.sel_nome}")
             st.markdown("#### 🔗 Link de Afiliado Blindado")
-            # Exibe o link reconstruído corretamente
+            # EXIBE O LINK COMPLETO PARA CÓPIA
             st.code(link_final, language="text")
-            st.caption(f"Rastreio ativo para o ID: {ID_FIXO_SHOPEE if 'ID_FIXO_SHOPEE' in locals() else '18316451024'}")
+            st.caption(f"Rastreio ativo para o ID: 18316451024")
 
         st.divider()
 
         # Botão para o Gemini 3.1 Pro gerar a copy CEO
         if st.button(f"🔥 GERAR MUNIÇÃO DE ALTA PERSUASÃO", use_container_width=True):
             with st.spinner("Gemini 3.1 Pro processando gatilhos psicológicos..."):
+                
                 prompt = f"""
                 Atue como um Copywriter Sênior e Estrategista de Venda Direta (Estilo CEO).
                 Ignore listas genéricas. Foque 100% no produto: {st.session_state.sel_nome}.
@@ -68,9 +62,11 @@ def exibir_arsenal(miny, motor_ia):
                 - PROIBIDO introduções ou explicações.
                 - Separe as 5 variações com ###.
                 """
+                
                 resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
                 st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
 
+        # EXIBIÇÃO DAS COPIES PARA O ESTÚDIO
         if "res_arsenal" in st.session_state:
             for i, copy in enumerate(st.session_state.res_arsenal):
                 with st.container(border=True):
@@ -79,6 +75,7 @@ def exibir_arsenal(miny, motor_ia):
                     st.markdown(v_limpa)
                     
                     if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_v_{i}"):
+                        # Aqui o link final já vai com o ID injetado
                         st.session_state.copy_ativa = f"{v_limpa}\n\n🛒 **COMPRE AGORA:** {link_final}"
                         st.toast("Munição enviada com sucesso!")
     else:
