@@ -39,7 +39,7 @@ motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (Versão Corrigida para evitar 'Desconhecido') ---
+# --- ABA 0: SCANNER (VERSÃO ULTRA-RESISTENTE) ---
 with tabs[0]:
     st.header(f"Mineração Direcionada: {mkt_alvo}")
     if st.button(f"🔥 Iniciar Varredura {mkt_alvo}", use_container_width=True):
@@ -48,24 +48,49 @@ with tabs[0]:
             st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
     
     if st.session_state.res_busca:
+        # Divide por quebra de linha para pegar cada produto individualmente
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            if "|" in linha:
+            if "|" in linha and "NOME" in linha.upper():
                 try:
-                    # Limpeza inteligente para capturar os dados mesmo com símbolos da IA
-                    partes_brutas = linha.split('|')
-                    dados = {}
-                    for p in partes_brutas:
+                    # Cria um dicionário para capturar os dados limpando tudo ao redor
+                    partes = {}
+                    for p in linha.split('|'):
                         if ":" in p:
-                            k, v = p.split(':', 1)
-                            dados[k.replace("*", "").strip().upper()] = v.replace("*", "").strip()
+                            chave, valor = p.split(':', 1)
+                            # Limpa asteriscos, espaços e deixa a chave em maiúsculo
+                            k = chave.replace("*", "").strip().upper()
+                            v = valor.replace("*", "").strip()
+                            partes[k] = v
 
-                    nome = dados.get("NOME", "Desconhecido")
-                    # Extrai apenas números do calor
-                    calor_raw = dados.get("CALOR", "0")
-                    calor = int(''.join(filter(str.isdigit, calor_raw)) or 0)
-                    valor = dados.get("VALOR", "Consulte")
-                    link = dados.get("URL", "#")
+                    # Extração segura dos dados
+                    nome = partes.get("NOME", "Produto Sem Nome")
+                    
+                    # Limpeza do Calor (pega só os números)
+                    calor_str = partes.get("CALOR", "0")
+                    calor_num = "".join(filter(str.isdigit, calor_str))
+                    calor = int(calor_num) if calor_num else 0
+                    
+                    valor = partes.get("VALOR", "Consulte")
+                    link = partes.get("URL", "#")
+
+                    # Renderização do Card
+                    with st.container(border=True):
+                        c1, c2, c3 = st.columns([2, 1, 1])
+                        c1.write(f"📦 **{nome}**")
+                        c1.caption(f"💰 Preço Médio: {valor}")
+                        
+                        # Barra de progresso do Calor
+                        prog_calor = min(max(calor/100, 0.0), 1.0)
+                        c2.progress(prog_calor)
+                        c2.write(f"🌡️ {calor}°C")
+                        
+                        if c3.button("Selecionar", key=f"btn_{idx}"):
+                            st.session_state.sel_nome = nome
+                            st.session_state.sel_link = link
+                            st.toast(f"{nome} selecionado!")
+                except:
+                    continue
 
                     with st.container(border=True):
                         c1, c2, c3 = st.columns([2, 1, 1])
