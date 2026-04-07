@@ -1,37 +1,57 @@
-# --- DENTRO DA FUNÇÃO exibir_estudio ---
+import streamlit as st
 
-if "sel_nome" in st.session_state and st.session_state.sel_nome:
-    # Criamos uma variável limpa com APENAS o nome do produto selecionado
-    produto_foco = st.session_state.sel_nome.split('|')[0].strip() 
+def exibir_estudio(miny, motor_ia):
+    st.markdown("### 🎬 Estúdio de Edição Nexus | Retenção & AIDA 🔱")
+    
+    # 1. VERIFICAÇÃO DE SEGURANÇA (Dentro da função)
+    if "sel_nome" not in st.session_state or not st.session_state.sel_nome:
+        st.warning("⚠️ Nenhum produto selecionado! Vá ao SCANNER e clique em 'Selecionar'.")
+        return # Para a execução aqui se não houver produto
 
+    # Se chegou aqui, temos um produto!
+    produto_bruto = st.session_state.sel_nome
+    # Limpa o nome para o Gemini focar só no objeto (Ex: Peneira de Arroz)
+    produto_foco = produto_bruto.split('|')[0].replace("NOME:", "").strip()
+
+    # --- BLOCO AIDA (CONVERSÃO) ---
     with st.container(border=True):
-        if st.button(f"🔥 GERAR MUNIÇÃO AIDA: {produto_foco}", use_container_width=True):
-            with st.spinner("Gemini Plus isolando produto e criando copy..."):
+        st.markdown(f"#### 🎯 Estratégia de Venda: {produto_foco}")
+        
+        if st.button("🔥 GERAR LEGENDA AIDA + LINK BLINDADO", use_container_width=True):
+            with st.spinner("Gemini Plus isolando produto e criando copy de impacto..."):
                 
-                # PROMPT BLINDADO: Proíbe a IA de listar outros produtos
                 prompt_aida = f"""
-                Ignore qualquer lista anterior. Foque EXCLUSIVAMENTE no produto: {produto_foco}.
-                
-                Tarefa: Crie uma legenda de Venda Direta usando o método AIDA.
-                Regras Estritas:
-                - NÃO liste outros produtos.
-                - NÃO repita dados técnicos (Calor, Valor, ID).
-                - Use emojis e foco total em RETENÇÃO.
-                
-                Estrutura:
-                [ATENÇÃO] (Hook de 1 linha)
-                [INTERESSE] (O problema resolvido)
-                [DESEJO] (O benefício transformador)
-                [AÇÃO] (Chamada para o link)
+                Ignore listas. Foque APENAS no produto: {produto_foco}.
+                Crie uma legenda AIDA (Atenção, Interesse, Desejo, Ação).
+                - Use gatilhos de retenção.
+                - Sem dados técnicos.
+                - Curto e viral.
                 """
                 
-                # Chama a IA passando apenas o nome isolado
-                copy_aida = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
+                copy_gerada = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
                 
-                # Reconstrução do Link Blindado (ID: 18316451024)
+                # Blindagem do Link (ID: 18316451024)
                 link_original = st.session_state.get('sel_link', 'https://shopee.com.br')
-                # Limpa o lixo do link antes de injetar o seu ID
-                link_base = link_original.split('?')[0] 
-                link_final = f"{link_base}?smtt=18316451024"
+                link_limpo = link_original.split('?')[0].split('|')[0].strip()
+                if "https" not in link_limpo: link_limpo = f"https://shopee.com.br/search?keyword={produto_foco.replace(' ', '+')}"
                 
-                st.session_state.copy_final_pronta = f"{copy_aida.strip()}\n\n🛒 **LINK COM DESCONTO:** {link_final}"
+                link_final = f"{link_limpo}?smtt=18316451024"
+                st.session_state.copy_final_pronta = f"{copy_gerada.strip()}\n\n🛒 **LINK COM DESCONTO:** {link_final}"
+
+        if "copy_final_pronta" in st.session_state:
+            st.text_area("Munição de Elite:", value=st.session_state.copy_final_pronta, height=200)
+            if st.button("📋 Copiar para Postagem"):
+                st.toast("Copiado!")
+
+    st.divider()
+
+    # --- BLOCO RETENÇÃO (EDIÇÃO VÍDEO) ---
+    st.markdown("#### ⚡ Radar de Retenção e Edição")
+    if st.button("🧠 BUSCAR ESTRATÉGIA DE VÍDEO VIRAL", use_container_width=True):
+        with st.spinner("Analisando padrões de retenção..."):
+            prompt_video = f"Crie um roteiro de 15 segundos para {produto_foco}. Foque em 3s de Hook agressivo e 12s de demonstração satisfatória."
+            st.session_state.roteiro_video = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
+
+    if "roteiro_video" in st.session_state:
+        with st.expander("🎥 MAPA DE CORTES (CAPCUT)", expanded=True):
+            st.markdown(st.session_state.roteiro_video)
