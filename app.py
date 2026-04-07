@@ -54,12 +54,13 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 # --- 3. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Configurações")
-# Marketplace na sidebar (sem conflito)
+# Marketplace na sidebar
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"], index=["Shopee", "Mercado Livre", "Amazon"].index(st.session_state.mkt_global))
 
-# CORREÇÃO: Mostramos o nicho na sidebar apenas como informação para não dar erro de duplicidade
 st.sidebar.info(f"Nicho Atual: {st.session_state.get('nicho_ativo', 'Cozinha Criativa')}")
-motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
+
+# ATUALIZADO: Agora enviando o nome técnico do modelo Pro
+motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "gemini-1.5-pro"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
@@ -67,7 +68,6 @@ tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
-    # SELETORES RÁPIDOS
     c_mkt1, c_mkt2, c_mkt3 = st.columns(3)
     if c_mkt1.button("🧡 Shopee", use_container_width=True): 
         st.session_state.mkt_global = "Shopee"
@@ -84,7 +84,6 @@ with tabs[0]:
         qtd_produtos = st.selectbox("Quantidade de itens:", [15, 30, 45], index=1)
     
     with col_sel2:
-        # A ÚNICA KEY "nicho_ativo" DO APP FICA AQUI
         foco_nicho = st.text_input("🎯 Foco do Scanner (Mudar Nicho):", value="Cozinha Criativa", key="nicho_ativo")
 
     if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
@@ -117,22 +116,8 @@ with tabs[0]:
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:
-    st.header("🚀 Arsenal de Vendas")
-    if st.session_state.sel_nome:
-        st.success(f"Produto Ativo: {st.session_state.sel_nome} ({st.session_state.mkt_global})")
-        if st.button(f"⚡ Gerar 10 Copies para {st.session_state.mkt_global}"):
-            res_ia = miny.minerar_produtos(f"Gere 10 variações de copy viral para: {st.session_state.sel_nome}", st.session_state.mkt_global, motor_ia) 
-            variacoes = [v.strip() for v in res_ia.split("###") if len(v) > 10]
-            if not variacoes: variacoes = res_ia.split('\n')
-            for i, v in enumerate(variacoes):
-                if len(v.strip()) > 5:
-                    with st.container(border=True):
-                        st.write(v)
-                        if st.button(f"Usar V{i+1}", key=f"v_{i}"):
-                            st.session_state.copy_ativa = v
-                            st.toast("Enviado ao Estúdio!")
-    else:
-        st.warning("Selecione um produto no Scanner.")
+    # ATUALIZADO: Agora utiliza o módulo arsenal especializado para blindar o link com seu ID
+    arsenal.exibir_arsenal(miny, motor_ia)
 
 # --- ABA 2: RADAR ---
 with tabs[2]:
@@ -148,4 +133,5 @@ with tabs[3]:
     st.text_area("Roteiro:", value=st.session_state.copy_ativa)
     if st.button(f"🚀 Produzir Mídia para {st.session_state.mkt_global}"):
         st.success(f"Mídia em produção para {st.session_state.mkt_global}!")
-        st.code(f"Link: {st.session_state.sel_link}", language="text")
+        # Mostra o link ativo (que já deve estar blindado se veio do Arsenal)
+        st.code(f"Link de Saída: {st.session_state.sel_link}", language="text")
