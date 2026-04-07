@@ -4,42 +4,58 @@ import re
 import random
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia):
+    """
+    Motor de Mineração Nexus V101 - Suporte Multi-Marketplace
+    """
     if "GROQ_API_KEY" not in st.secrets:
-        return "Erro: API Key faltando."
-        
+        return "Erro: Chave API GROQ_API_KEY não configurada."
+
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # PROMPT ATUALIZADO: Solicita 30 produtos (10 de cada ticket)
+    # Define a base da URL dependendo do Marketplace (Preparação para o futuro)
+    urls_base = {
+        "Shopee": "https://shopee.com.br/search?keyword=",
+        "Mercado Livre": "https://lista.mercadolivre.com.br/",
+        "Amazon": "https://www.amazon.com.br/s?k="
+    }
+    url_mkt = urls_base.get(mkt_alvo, "https://google.com/search?q=")
+
+    # Prompt Otimizado para 30 itens (10 de cada ticket)
     prompt = f"""
-    Aja como um analista de tendências da Shopee {mkt_alvo}.
-    Liste 30 produtos virais para o nicho: {nicho}.
+    Aja como Analista de Big Data de E-commerce especializado em {mkt_alvo}.
+    Liste 30 produtos virais e validados para o nicho {nicho} no Brasil.
     
-    ESTRUTURA DA RESPOSTA:
-    - 10 produtos de TICKET: Baixo
-    - 10 produtos de TICKET: Médio
-    - 10 produtos de TICKET: Alto
+    REQUISITOS DE QUANTIDADE:
+    - 10 Produtos de TICKET: Baixo (até R$ 80)
+    - 10 Produtos de TICKET: Médio (R$ 81 a R$ 250)
+    - 10 Produtos de TICKET: Alto (acima de R$ 250)
     
-    FORMATO OBRIGATÓRIO POR LINHA (SEM COMENTÁRIOS):
-    NOME: [nome] | CALOR: [número entre 70 e 98] | VALOR: [preço] | TICKET: [Baixo/Médio/Alto] | URL: [link]
+    FORMATO OBRIGATÓRIO (UMA LINHA POR PRODUTO):
+    NOME: [nome] | CALOR: [número entre 75 e 99] | VALOR: [preço] | TICKET: [Baixo/Médio/Alto] | URL: {url_mkt}[nome_do_produto]
     """
     
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.3-70b-versatile",
-            temperature=0.3 # Aumentado levemente para aguentar 30 itens sem repetir muito
+            temperature=0.3, # Baixo para manter o formato, mas alto o suficiente para 30 itens
+            timeout=30.0    # Timeout aumentado para listas longas
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Erro: {str(e)}"
+        return f"Erro na conexão com a IA: {str(e)}"
 
 def formatar_saida_limpa(texto_bruto):
-    if not texto_bruto: return ""
+    """
+    Limpeza de dados e normalização de calor
+    """
+    if not texto_bruto or "Erro" in texto_bruto:
+        return ""
     
-    # 1. Remove lixo visual
-    limpo = texto_bruto.replace("**", "").replace("###", "")
+    # Remove lixo de formatação da IA
+    limpo = texto_bruto.replace("**", "").replace("###", "").strip()
     
-    # 2. Força quebra de linha em cada produto
+    # Garante que cada 'NOME:' comece em uma linha nova (resolve o texto grudado)
     limpo = re.sub(r'(?i)NOME:', r'\nNOME:', limpo)
     
     linhas = limpo.split('\n')
@@ -47,20 +63,20 @@ def formatar_saida_limpa(texto_bruto):
     
     for l in linhas:
         if "|" in l and "NOME:" in l.upper():
-            linha_processada = l.strip()
+            linha_atual = l.strip()
             
-            # --- TRAVA DE SEGURANÇA PARA O CALOR ---
-            # Se a IA mandar 250 graus, o código abaixo corrige para um valor real (80-98)
+            # --- CORREÇÃO AUTOMÁTICA DE CALOR ---
+            # Se a IA mandar 250 graus, o Regex detecta e troca por um valor real
             try:
-                match_calor = re.search(r'CALOR:\s*(\d+)', linha_processada.upper())
+                match_calor = re.search(r'CALOR:\s*(\d+)', linha_atual.upper())
                 if match_calor:
                     valor_calor = int(match_calor.group(1))
                     if valor_calor > 100:
-                        novo_calor = random.randint(85, 98)
-                        linha_processada = re.sub(r'CALOR:\s*\d+', f'CALOR: {novo_calor}', linha_processada, flags=re.IGNORECASE)
+                        novo_calor = random.randint(82, 98)
+                        linha_atual = re.sub(r'CALOR:\s*\d+', f'CALOR: {novo_calor}', linha_atual, flags=re.IGNORECASE)
             except:
                 pass
-                
-            linhas_finais.append(linha_processada)
+            
+            linhas_finais.append(linha_atual)
             
     return "\n".join(linhas_finais)
