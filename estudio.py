@@ -1,33 +1,45 @@
 # --- DENTRO DO BOTAO GERAR LEGENDA ---
 with st.spinner("Limpando ruído e gerando copy de impacto..."):
-    # Isolamos apenas o nome essencial
+    # Isolamos apenas o nome essencial para não confundir a IA com números
     produto_limpo = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
 
+    # PROMPT DE CHOQUE: Força a IA a sair do modo "lista"
     prompt_blindado = f"""
-    CONTEXTO: Você é um Diretor de Conversão.
-    PRODUTO ATUAL: {produto_limpo}
-
-    TAREFA: Gere APENAS a legenda AIDA e o Roteiro de Retenção para ESTE produto.
+    [RESET DE CONTEXTO]: Ignore qualquer lista de 30 produtos citada anteriormente.
     
-    REGRAS CRÍTICAS:
-    1. PROIBIDO listar outros produtos da sessão.
-    2. PROIBIDO repetir dados como 'CALOR' ou 'TICKET'.
-    3. FOCO TOTAL no método AIDA (Atenção, Interesse, Desejo, Ação).
-    4. O tom deve ser de 'Achadinho Viral'.
+    VOCÊ É: Um Diretor de Edição de Vídeos Virais.
+    PRODUTO ÚNICO: {produto_limpo}
 
-    FORMATO DE SAÍDA:
-    🚨 [ATENÇÃO]: (Gancho que para o scroll)
-    💡 [INTERESSE]: (Por que ele precisa disso?)
-    ✨ [DESEJO]: (A transformação na rotina)
-    🛒 [AÇÃO]: (Chamada para o link)
+    TAREFA: Escreva uma copy curta seguindo o método AIDA.
+    
+    REGRAS DE OURO:
+    - NÃO mencione outros produtos. 
+    - NÃO repita 'Calor', 'Ticket' ou 'Valor'.
+    - Saída direta, sem introduções como "Aqui está sua legenda".
+    - Estilo: Rápido, visual e persuasivo.
+
+    FORMATO:
+    🚨 [ATENÇÃO]: (Hook que para o scroll)
+    💡 [INTERESSE]: (O problema que resolve)
+    ✨ [DESEJO]: (O benefício satisfatório)
+    🛒 [AÇÃO]: (Chamada para o link abaixo)
     """
 
-    # Chama a IA com o prompt restrito
+    # Chama a IA
     resposta_ia = miny.minerar_produtos(prompt_blindado, "Shopee", motor_ia)
     
-    # Blindagem do Link (Consertando o erro do https? que apareceu no seu print)
-    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
-    link_final = link_raw.split('?')[0].split('|')[0].strip()
-    link_afiliado = f"{link_final}?smtt=18316451024"
+    # --- LIMPEZA DE SEGURANÇA (Caso a IA teime em mandar lixo) ---
+    # Se a resposta contiver o número '1.' ou '30', nós filtramos para pegar só o AIDA
+    if "1." in resposta_ia and "🚨" in resposta_ia:
+        resposta_ia = resposta_ia.split("🚨")[1]
+        resposta_ia = "🚨 " + resposta_ia
 
-    st.session_state.copy_final_pronta = f"{resposta_ia}\n\n🔗 **LINK EXCLUSIVO:** {link_afiliado}"
+    # Blindagem do Link (ID: 18316451024)
+    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
+    # Remove qualquer parâmetro antigo ou erro de duplicidade
+    link_base = link_raw.split('?')[0].split('|')[0].replace("https://shopee.com.br/https", "https://shopee.com.br").strip()
+    
+    # Link final cravado com seu rastreio
+    link_afiliado = f"{link_base}?smtt=18316451024"
+
+    st.session_state.copy_final_pronta = f"{resposta_ia.strip()}\n\n🔗 **LINK EXCLUSIVO:** {link_afiliado}"
