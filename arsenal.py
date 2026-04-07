@@ -1,57 +1,50 @@
 import streamlit as st
 
-def processar_link_afiliado(link_original, mkt_alvo):
-    """Retorna o link com o ID de afiliado aplicado conforme o marketplace"""
-    # Buscamos os IDs nos secrets
-    ids = {
-        "Shopee": st.secrets.get("SHOPEE_ID", "default_shopee"),
-        "Mercado Livre": st.secrets.get("MELI_ID", "default_meli"),
-        "Amazon": st.secrets.get("AMAZON_ID", "default_amazon")
-    }
+def aplicar_id_afiliado(link, mkt):
+    """Gera o link final com o ID de afiliado correto para cada plataforma"""
+    if mkt == "Shopee":
+        id_shopee = st.secrets.get("SHOPEE_ID", "seu_id_padrao")
+        return f"{link}&smtt={id_shopee}"
     
-    meu_id = ids.get(mkt_alvo)
-
-    # Lógica de montagem de link por plataforma
-    if mkt_alvo == "Shopee":
-        return f"{link_original}?smtt={meu_id}"
-    elif mkt_alvo == "Mercado Livre":
-        # Exemplo: links de ML costumam usar parâmetros de tracking
-        return f"{link_original}&utm_source=afiliado&utm_id={meu_id}"
-    elif mkt_alvo == "Amazon":
-        # Amazon usa o tag=ID-20
-        return f"{link_original}&tag={meu_id}"
+    elif mkt == "Mercado Livre":
+        id_meli = st.secrets.get("MELI_ID", "seu_id_meli")
+        # Estrutura padrão de trackid para ML
+        return f"{link}&utm_source=afiliado&utm_id={id_meli}"
     
-    return link_original
+    elif mkt == "Amazon":
+        id_amz = st.secrets.get("AMAZON_ID", "seu_tag-20")
+        return f"{link}&tag={id_amz}"
+    
+    return link
 
-def exibir_aba_arsenal(miny, motor_ia):
+def exibir_arsenal(miny, motor_ia):
     st.header("🚀 Arsenal de Vendas")
     
+    # Verifica se há um produto selecionado no estado da sessão
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.mkt_global
-        st.success(f"Produto: {st.session_state.sel_nome} ({mkt})")
+        st.success(f"📦 Produto Selecionado: {st.session_state.sel_nome} ({mkt})")
         
-        # 1. Configurações
-        col1, col2 = st.columns(2)
-        estilo = col1.selectbox("Estilo:", ["Viral", "Venda Direta", "Storytelling"])
-        
-        if st.button(f"⚡ Gerar Munição para {mkt}"):
-            with st.spinner("IA preparando copies..."):
-                prompt = f"Gere 5 copies para {st.session_state.sel_nome} no estilo {estilo}. Separe com ###"
-                res = miny.minerar_produtos(prompt, mkt, motor_ia)
-                st.session_state.res_arsenal = res.split("###")
+        if st.button(f"⚡ Gerar Munição Viral para {mkt}", use_container_width=True):
+            with st.spinner("IA preparando munição de vendas..."):
+                prompt = f"Gere 5 variações de copy viral curta para o produto {st.session_state.sel_nome}. Use emojis e separe cada uma com ###"
+                resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
+                # Divide o texto da IA em uma lista usando o separador
+                st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 10]
 
-        # 2. Exibição
+        # Exibição organizada em cards
         if "res_arsenal" in st.session_state:
-            link_final = processar_link_afiliado(st.session_state.sel_link, mkt)
+            link_final = aplicar_id_afiliado(st.session_state.sel_link, mkt)
             
-            for i, copy in enumerate(st.session_state.res_arsenal):
-                if len(copy.strip()) > 5:
-                    with st.container(border=True):
-                        st.markdown(copy)
-                        st.caption(f"🔗 Link: {link_final}")
-                        
-                        if st.button(f"🎬 Usar V{i+1}", key=f"ars_{i}"):
-                            st.session_state.copy_ativa = f"{copy}\n\n🛒 Compre aqui: {link_final}"
-                            st.toast("Pronto para o Estúdio!")
+            for i, texto in enumerate(st.session_state.res_arsenal):
+                with st.container(border=True):
+                    # Remove números automáticos que a IA costuma colocar (ex: "1. ")
+                    v_limpa = texto.lstrip('0123456789. ')
+                    st.write(v_limpa)
+                    st.caption(f"🔗 Link de Afiliado {mkt} Gerado")
+                    
+                    if st.button(f"🎬 Usar V{i+1} no Estúdio", key=f"btn_ars_{i}"):
+                        st.session_state.copy_ativa = f"{v_limpa}\n\n🛒 Compre aqui: {link_final}"
+                        st.toast("Copy e Link enviados ao Estúdio!")
     else:
-        st.warning("Selecione um produto no Scanner.")
+        st.warning("⚠️ Selecione um produto no Scanner antes de gerar o arsenal.")
