@@ -54,16 +54,18 @@ if "copy_ativa" not in st.session_state: st.session_state.copy_ativa = ""
 # --- 3. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Configurações")
 mkt_alvo = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
-nicho = st.sidebar.text_input("Nicho Ativo:", "Cozinha Criativa")
+
+# MELHORIA: O 'key' sincroniza o campo da sidebar com o campo do Scanner
+nicho_global = st.sidebar.text_input("Nicho Ativo:", value="Cozinha Criativa", key="nicho_ativo")
 motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "Gemini"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (ATUALIZADA) ---
+# --- ABA 0: SCANNER (ATUALIZADA COM FOCO DINÂMICO) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {mkt_alvo}")
     
-    # SELETORES RÁPIDOS DE MARKETPLACE (ESTILO IMAGEM)
+    # SELETORES RÁPIDOS DE MARKETPLACE
     c_mkt1, c_mkt2, c_mkt3 = st.columns(3)
     if c_mkt1.button("🧡 Shopee", use_container_width=True): mkt_alvo = "Shopee"
     if c_mkt2.button("💛 Mercado Livre", use_container_width=True): mkt_alvo = "Mercado Livre"
@@ -72,11 +74,14 @@ with tabs[0]:
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Quantidade de itens:", [15, 30, 45], index=1)
-        st.caption(f"Foco: {nicho}")
+    
+    with col_sel2:
+        # MELHORIA: Campo de Foco que realmente altera o nicho usado na busca
+        foco_nicho = st.text_input("🎯 Foco do Scanner (Alterar Nicho):", key="nicho_ativo")
 
     if st.button(f"🔥 Iniciar Varredura na {mkt_alvo}", use_container_width=True):
-        with st.spinner(f"IA minerando tendências na {mkt_alvo}..."):
-            resultado = miny.minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=qtd_produtos)
+        with st.spinner(f"IA minerando {qtd_produtos} itens de '{foco_nicho}'..."):
+            resultado = miny.minerar_produtos(foco_nicho, mkt_alvo, motor_ia, qtd=qtd_produtos)
             st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
     
     if st.session_state.res_busca:
@@ -87,12 +92,10 @@ with tabs[0]:
         for idx, linha in enumerate(linhas):
             if "|" in linha and "NOME" in linha.upper():
                 try:
-                    # Extração de dados da linha
                     partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha.split('|') if ':' in p}
                     
                     ticket_atual = partes.get("TICKET", "Médio")
                     if ticket_atual in filtro_ticket:
-                        # CHAMADA DA FUNÇÃO DE UPDATE DE LINHA (MELHORIA)
                         calor_val = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
                         renderizar_card_produto(
                             idx, 
