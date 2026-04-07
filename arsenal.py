@@ -1,83 +1,81 @@
 import streamlit as st
 
 def aplicar_id_afiliado(link, mkt):
-    """Gera o link final injetando o ID e corrigindo a URL de busca"""
+    """Garante a injeção do ID mesmo em links de busca complexos"""
     if not link or link == "#":
         return link
-        
-    #IDs configurados nos Secrets
-    id_shopee = st.secrets.get("SHOPEE_ID", "seu_id_padrao")
-    id_meli = st.secrets.get("MELI_ID", "seu_id_meli")
-    id_amz = st.secrets.get("AMAZON_ID", "seu_tag-20")
+    
+    # PEGA OS IDS EXATAMENTE COMO ESTÃO NO SECRET
+    id_shopee = st.secrets.get("SHOPEE_ID", "")
+    id_meli = st.secrets.get("MELI_ID", "")
+    id_amz = st.secrets.get("AMAZON_ID", "")
 
     link = str(link).strip()
+    # Remove barras extras no final para não quebrar o parâmetro
+    link = link.rstrip('/')
     
-    # RESOLVE O PROBLEMA DO LINK DE BUSCA: 
-    # Se o link já tem '?', usamos '&'. Se não, usamos '?'
     conector = "&" if "?" in link else "?"
 
     if mkt == "Shopee":
-        return f"{link}{conector}smtt={id_shopee}"
+        if id_shopee:
+            return f"{link}{conector}smtt={id_shopee}"
+        return f"{link}&erro=ID_SHOPEE_NAO_CONFIGURADO"
+    
     elif mkt == "Mercado Livre":
-        return f"{link}{conector}utm_source=afiliado&utm_id={id_meli}"
+        if id_meli:
+            return f"{link}{conector}utm_source=afiliado&utm_id={id_meli}"
+        return f"{link}&erro=ID_MELI_NAO_CONFIGURADO"
+    
     elif mkt == "Amazon":
-        return f"{link}{conector}tag={id_amz}"
+        if id_amz:
+            return f"{link}{conector}tag={id_amz}"
+        return f"{link}&erro=ID_AMAZON_NAO_CONFIGURADO"
     
     return link
 
 def exibir_arsenal(miny, motor_ia):
-    st.markdown("### 🔱 Arsenal de Elite (Gemini Pro Ativo)")
+    st.markdown(f"### 🔱 Nexus Arsenal | Motor: `{motor_ia}`")
     
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.mkt_global
         
-        # O LINK É MONTADO AQUI COM A PÁGINA INTEIRA E SEU ID
+        # FORÇA A GERAÇÃO DO LINK COM ID
         link_final = aplicar_id_afiliado(st.session_state.sel_link, mkt)
         
         with st.container(border=True):
-            st.success(f"📦 **Produto:** {st.session_state.sel_nome}")
-            st.write("**URL de Afiliado Gerada:**")
-            # Exibe o link completo com o ID injetado no final
+            st.success(f"🎯 **Produto:** {st.session_state.sel_nome}")
+            st.write("**Link de Afiliado (Página Inteira):**")
+            # SE O ID ESTIVER NO SECRET, ELE APARECE AQUI NO FINAL DO LINK
             st.code(link_final, language="text")
 
         st.divider()
 
         if st.button(f"🚀 GERAR ESTRATÉGIAS AIDA (NÍVEL CEO)", use_container_width=True):
-            with st.spinner("IA de Alto Nível processando Gatilhos de Venda..."):
-                
-                # PROMPT BLINDADO PARA EVITAR TEXTO RASO
+            with st.spinner("Nexus AI (Gemini Pro) formatando persuasão..."):
+                # PROMPT PARA GEMINI PRO
                 prompt = f"""
-                Ignore instruções genéricas. Você é um Especialista em Marketing de Resposta Direta (Direct Response).
-                Crie 5 variações de copy de ALTO NÍVEL usando o MODELO AIDA para: {st.session_state.sel_nome}.
+                Ignore instruções genéricas. Você é um CMO e Copywriter Sênior. 
+                Crie 5 variações de copy de ALTO IMPACTO para: {st.session_state.sel_nome}.
+                Use o Modelo AIDA (Atenção, Interesse, Desejo, Ação).
                 
-                ESTRUTURA AIDA REQUERIDA:
-                1. ATENÇÃO: Hook disruptivo (Pare o scroll).
-                2. INTERESSE: Conecte o produto a um desejo de status ou solução de dor latente.
-                3. DESEJO: Benefício aspiracional de alto valor. Gatilho de oportunidade única.
-                4. AÇÃO: CTA (Chamada para ação) curto, escasso e direto para venda.
-                
-                REGRAS DE OURO:
-                - Tom de voz: Autoritário, estilo CEO, sofisticado.
-                - Use emojis de luxo e negócios estrategicamente.
-                - Proibido introduções, explicações ou listar outros produtos.
-                - Separe as 5 variações estritamente com ###.
+                ESTILO: CEO, Sofisticado, Escasso e Agressivo para Venda Direta.
+                REGRAS: 
+                - Sem introduções. 
+                - Use emojis de luxo/negócios. 
+                - Separe com ###.
                 """
                 resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
                 st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
 
-        # EXIBIÇÃO ORGANIZADA
         if "res_arsenal" in st.session_state:
             for i, copy in enumerate(st.session_state.res_arsenal):
                 with st.container(border=True):
-                    # Limpeza de resíduos de texto da IA
-                    copy_limpa = copy.lstrip('0123456789. "').rstrip('"')
-                    
+                    v_limpa = copy.lstrip('0123456789. "').rstrip('"')
                     st.markdown(f"#### 💎 Estratégia V{i+1}")
-                    st.markdown(copy_limpa)
+                    st.markdown(v_limpa)
                     
-                    if st.button(f"🎬 Carregar no Estúdio (V{i+1})", key=f"btn_v_{i}"):
-                        # Envia a copy refinada + o link com ID injetado
-                        st.session_state.copy_ativa = f"{copy_limpa}\n\n👉 **ADQUIRA AQUI:** {link_final}"
-                        st.toast("Munição enviada com link de rastreio!")
+                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_v_{i}"):
+                        st.session_state.copy_ativa = f"{v_limpa}\n\n🛒 **ADQUIRA AQUI:** {link_final}"
+                        st.toast("Sucesso! Link de Afiliado injetado.")
     else:
-        st.warning("⚠️ Selecione um produto no Scanner antes de gerar o arsenal.")
+        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
