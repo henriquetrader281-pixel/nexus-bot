@@ -1,5 +1,6 @@
 import streamlit as st
-import arsenal  # Importação do novo módulo
+import arsenal # Importação do novo módulo
+import estudio
 import pandas as pd
 import os
 import urllib.parse
@@ -128,10 +129,6 @@ with tabs[2]:
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
-    st.header("🎥 Estúdio de Mídia")
-    st.text_input("Produto:", value=st.session_state.sel_nome)
-    st.text_area("Roteiro:", value=st.session_state.copy_ativa)
-    if st.button(f"🚀 Produzir Mídia para {st.session_state.mkt_global}"):
-        st.success(f"Mídia em produção para {st.session_state.mkt_global}!")
-        # Mostra o link ativo (que já deve estar blindado se veio do Arsenal)
-        st.code(f"Link de Saída: {st.session_state.sel_link}", language="text")
+    import estudio 
+    # Aqui o Gemini 1.5 Pro assume a direção do seu vídeo
+    estudio.exibir_estudio(miny, motor_ia)
