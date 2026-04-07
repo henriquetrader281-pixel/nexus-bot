@@ -3,81 +3,58 @@ import streamlit as st
 def exibir_estudio(miny, motor_ia):
     st.markdown("### 🎬 Estúdio de Edição Nexus | Retenção & AIDA 🔱")
     
-    # 1. VERIFICAÇÃO DE SEGURANÇA: Só roda se houver um produto no Scanner
+    # 1. SEGURANÇA: Verifica se existe produto selecionado
     if "sel_nome" not in st.session_state or not st.session_state.sel_nome:
-        st.warning("⚠️ Nenhum produto selecionado! Vá ao SCANNER e clique em 'Selecionar'.")
+        st.warning("⚠️ Selecione um produto no Scanner antes de entrar no Estúdio!")
         return
 
-    # 2. ISOLAMENTO DO PRODUTO (Mata a lista de 30 produtos aqui)
-    # Pega apenas o nome antes do primeiro pipe '|'
+    # 2. LIMPEZA: Isola o nome do produto para a IA não se perder
     produto_foco = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
 
-    # --- BLOCO 1: MUNIÇÃO DE ELITE (COPY AIDA) ---
+    # --- CONTAINER DA LEGENDA ---
     with st.container(border=True):
-        st.markdown(f"#### 🎯 Estratégia de Venda: **{produto_foco}**")
+        st.markdown(f"#### 🎯 Estratégia: **{produto_foco}**")
         
-        if st.button("🔥 GERAR MUNIÇÃO AIDA + LINK BLINDADO", use_container_width=True):
-            with st.spinner("Limpando ruído e gerando copy de impacto..."):
+        if st.button("🔥 GERAR MUNIÇÃO AIDA + LINK", use_container_width=True):
+            with st.spinner("Refinando copy e blindando link..."):
                 
-                # PROMPT DE CHOQUE: Força a IA a esquecer o histórico e focar no AIDA
-                prompt_blindado = f"""
-                [RESET DE CONTEXTO]: Ignore qualquer lista de 30 produtos anterior.
-                VOCÊ É: Um Diretor de Conversão e Copywriter Sênior.
-                PRODUTO ÚNICO: {produto_foco}
-
-                TAREFA: Gere uma legenda seguindo o método AIDA.
-                REGRAS CRÍTICAS:
-                - PROIBIDO listar outros produtos.
-                - PROIBIDO repetir dados como 'CALOR' ou 'VALOR'.
-                - Comece direto no Hook com emoji 🚨.
-                
-                FORMATO:
-                🚨 [ATENÇÃO]: Hook agressivo.
-                💡 [INTERESSE]: Problema/Curiosidade.
-                ✨ [DESEJO]: Benefício transformador.
-                🛒 [AÇÃO]: Chamada para o link.
+                # PROMPT CURTO (Economiza tokens/dinheiro)
+                prompt_aida = f"""
+                Ignore o histórico. Foque APENAS no produto: {produto_foco}.
+                Gere uma legenda AIDA (Atenção, Interesse, Desejo, Ação).
+                Regras: Direto ao ponto, use emojis, sem introduções.
                 """
                 
-                # Chamada da IA
-                resultado_ia = miny.minerar_produtos(prompt_blindado, "Shopee", motor_ia)
-                
-                # 3. BLINDAGEM DO LINK (ID: 18316451024)
-                link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
-                # Limpa https duplicado ou parâmetros antigos
-                link_limpo = link_raw.split('?')[0].split('|')[0].strip()
-                if "https" not in link_limpo: 
-                    link_limpo = f"https://shopee.com.br/search?keyword={produto_foco.replace(' ', '+')}"
-                
-                link_afiliado = f"{link_limpo}?smtt=18316451024"
+                try:
+                    resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
+                    
+                    # Blindagem do Link (ID: 18316451024)
+                    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
+                    link_base = link_raw.split('?')[0].split('|')[0].strip()
+                    link_final = f"{link_base}?smtt=18316451024"
 
-                # Salva na sessão
-                st.session_state.copy_final_pronta = f"{resultado_ia.strip()}\n\n🔗 **LINK EXCLUSIVO:** {link_afiliado}"
-                st.rerun()
+                    st.session_state.copy_final_pronta = f"{resultado.strip()}\n\n🛒 **COMPRE AQUI:** {link_final}"
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Aguarde o reset da IA: {str(e)}")
 
-        # Exibe a munição pronta
+        # Exibição da copy gerada
         if "copy_final_pronta" in st.session_state:
-            st.text_area("Copiou, Colou, Vendeu:", value=st.session_state.copy_final_pronta, height=220)
-            if st.button("📋 Marcar como Pronto"):
-                st.toast("Munição pronta para o campo de batalha!")
+            st.text_area("Sua munição:", value=st.session_state.copy_final_pronta, height=200)
 
     st.divider()
 
-    # --- BLOCO 2: MAPA DE RETENÇÃO (ROTEIRO) ---
-    st.markdown("#### ⚡ Radar de Retenção (Instruções de Edição)")
-    
-    if st.button("🧠 GERAR ROTEIRO DE CORTES RÁPIDOS", use_container_width=True):
-        with st.spinner("Calculando ganchos visuais..."):
-            prompt_video = f"""
-            Crie um roteiro de edição VIRAL de 15s para {produto_foco}.
-            Divida em:
-            0-3s: O Hook (O que escrever na tela para parar o scroll?)
-            3-12s: O Desejo (Que cenas mostrar?)
-            12-15s: O CTA (Como pedir o clique?)
-            """
-            st.session_state.roteiro_video = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
-            st.rerun()
+    # --- CONTAINER DO ROTEIRO ---
+    st.markdown("#### 🎥 Mapa de Cortes (Retenção)")
+    if st.button("🧠 GERAR ROTEIRO PARA VÍDEO", use_container_width=True):
+        with st.spinner("Criando mapa de cenas..."):
+            prompt_video = f"Crie um roteiro de 15s para {produto_foco}. Foque em 3s de Hook e 12s de demonstração."
+            try:
+                st.session_state.roteiro_video = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
+                st.rerun()
+            except:
+                st.error("IA em resfriamento. Tente em instantes.")
 
     if "roteiro_video" in st.session_state:
-        with st.expander("🎥 MAPA DE CORTES (SIGA ISSO NO CAPCUT)", expanded=True):
+        with st.expander("🎞️ ROTEIRO CAPCUT", expanded=True):
             st.markdown(st.session_state.roteiro_video)
-            st.info("
