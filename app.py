@@ -5,6 +5,20 @@ import urllib.parse
 from datetime import datetime
 import mineracao as miny # O novo módulo que criamos
 
+def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
+    icones = {"Shopee": "📦", "Mercado Livre": "🏪", "Amazon": "🛒"}
+    ico = icones.get(mkt_alvo, "🛍️")
+    
+    with st.container(border=True):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        c1.write(f"{ico} **{nome}**")
+        c1.caption(f"💰 {valor} | 🎫 {ticket} | 🏷️ {mkt_alvo}")
+        c2.progress(min(max(calor/100, 0.0), 1.0))
+        c2.write(f"🌡️ {calor}°C")
+        if c3.button("Selecionar", key=f"btn_{idx}"):
+            st.session_state.sel_nome = nome
+            st.session_state.sel_link = link
+            st.toast(f"Selecionado: {nome}")
 # --- 1. CONFIGURAÇÃO E LOGIN ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
