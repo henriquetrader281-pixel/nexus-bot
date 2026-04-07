@@ -1,4 +1,5 @@
 import streamlit as st
+import arsenal
 import pandas as pd
 import os
 import urllib.parse
