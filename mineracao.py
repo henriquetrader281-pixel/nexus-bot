@@ -3,16 +3,16 @@ from groq import Groq
 import re
 import random
 
-def minerar_produtos(nicho, mkt_alvo, motor_ia):
+def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=30):
     """
-    Motor de Mineração Nexus V101 - Suporte Multi-Marketplace
+    Motor de Mineração Nexus V101 - Suporte Multi-Marketplace com Seletor
     """
     if "GROQ_API_KEY" not in st.secrets:
         return "Erro: Chave API GROQ_API_KEY não configurada."
 
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # Define a base da URL dependendo do Marketplace (Preparação para o futuro)
+    # Define a base da URL dependendo do Marketplace
     urls_base = {
         "Shopee": "https://shopee.com.br/search?keyword=",
         "Mercado Livre": "https://lista.mercadolivre.com.br/",
@@ -20,15 +20,18 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia):
     }
     url_mkt = urls_base.get(mkt_alvo, "https://google.com/search?q=")
 
-    # Prompt Otimizado para 30 itens (10 de cada ticket)
+    # Cálculo para dividir a quantidade igualmente entre os tickets
+    por_ticket = qtd // 3
+
+    # Prompt Otimizado com suporte a quantidade dinâmica
     prompt = f"""
     Aja como Analista de Big Data de E-commerce especializado em {mkt_alvo}.
-    Liste 30 produtos virais e validados para o nicho {nicho} no Brasil.
+    Liste EXATAMENTE {qtd} produtos virais e validados para o nicho {nicho} no Brasil.
     
     REQUISITOS DE QUANTIDADE:
-    - 10 Produtos de TICKET: Baixo (até R$ 80)
-    - 10 Produtos de TICKET: Médio (R$ 81 a R$ 250)
-    - 10 Produtos de TICKET: Alto (acima de R$ 250)
+    - {por_ticket} Produtos de TICKET: Baixo (até R$ 80)
+    - {por_ticket} Produtos de TICKET: Médio (R$ 81 a R$ 250)
+    - {por_ticket} Produtos de TICKET: Alto (acima de R$ 250)
     
     FORMATO OBRIGATÓRIO (UMA LINHA POR PRODUTO):
     NOME: [nome] | CALOR: [número entre 75 e 99] | VALOR: [preço] | TICKET: [Baixo/Médio/Alto] | URL: {url_mkt}[nome_do_produto]
@@ -38,8 +41,8 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia):
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.3-70b-versatile",
-            temperature=0.3, # Baixo para manter o formato, mas alto o suficiente para 30 itens
-            timeout=30.0    # Timeout aumentado para listas longas
+            temperature=0.4, # Aumentado levemente para evitar repetições em listas longas
+            timeout=40.0    # Timeout maior para garantir o processamento de até 45 itens
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -47,15 +50,15 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia):
 
 def formatar_saida_limpa(texto_bruto):
     """
-    Limpeza de dados e normalização de calor
+    Limpeza de dados, normalização de calor e correção de duplicidade
     """
     if not texto_bruto or "Erro" in texto_bruto:
         return ""
     
-    # Remove lixo de formatação da IA
+    # Remove lixo de formatação da IA e asteriscos
     limpo = texto_bruto.replace("**", "").replace("###", "").strip()
     
-    # Garante que cada 'NOME:' comece em uma linha nova (resolve o texto grudado)
+    # Garante que cada 'NOME:' comece em uma linha nova
     limpo = re.sub(r'(?i)NOME:', r'\nNOME:', limpo)
     
     linhas = limpo.split('\n')
@@ -66,12 +69,12 @@ def formatar_saida_limpa(texto_bruto):
             linha_atual = l.strip()
             
             # --- CORREÇÃO AUTOMÁTICA DE CALOR ---
-            # Se a IA mandar 250 graus, o Regex detecta e troca por um valor real
             try:
                 match_calor = re.search(r'CALOR:\s*(\d+)', linha_atual.upper())
                 if match_calor:
                     valor_calor = int(match_calor.group(1))
-                    if valor_calor > 100:
+                    # Se o calor for absurdo (como os 250 que vimos) ou baixo demais, normaliza
+                    if valor_calor > 100 or valor_calor < 10:
                         novo_calor = random.randint(82, 98)
                         linha_atual = re.sub(r'CALOR:\s*\d+', f'CALOR: {novo_calor}', linha_atual, flags=re.IGNORECASE)
             except:
