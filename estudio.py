@@ -1,54 +1,58 @@
 import streamlit as st
+import pandas as pd
 
 def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio de Edição Nexus | Nível CEO")
+    st.markdown("### 🎬 Estúdio de Edição Nexus | Direção Gemini Plus")
     
     if "copy_ativa" in st.session_state:
-        # Área de edição da Copy
+        # 1. Painel de Controle de Legenda
         with st.container(border=True):
-            st.markdown("#### 📝 Munição Pronta para Uso")
-            copy_final = st.text_area("Refine sua legenda aqui:", 
-                                     value=st.session_state.copy_ativa, 
-                                     height=250)
+            st.markdown("#### 📝 Legenda Estratégica")
+            legenda_editavel = st.text_area("Refine a munição final:", 
+                                          value=st.session_state.copy_ativa, 
+                                          height=200)
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("📋 Copiar para Instagram/WhatsApp", use_container_width=True):
-                    st.toast("Copiado! Basta colar na sua rede social.")
-            
+            if st.button("📋 COPIAR TEXTO + LINK", use_container_width=True):
+                st.toast("Pronto para colar no Instagram/WhatsApp!")
+
         st.divider()
 
-        # SUPER IA: DIREÇÃO DE VÍDEO
-        st.markdown("#### 🚀 Upgrade de Vídeo (Gemini Plus)")
-        if st.button("🧠 GERAR ROTEIRO DE VÍDEO VIRAL", use_container_width=True):
-            with st.spinner("Analisando padrões de viralização para este produto..."):
+        # 2. O Cérebro do Diretor (Gemini Plus + Roteiro)
+        st.markdown("#### 🚀 Direção de Arte e Viralização")
+        if st.button("🧠 ANALISAR VÍDEO E GERAR ROTEIRO VIRAL", use_container_width=True):
+            with st.spinner("Gemini Plus analisando padrões de retenção..."):
                 
-                # O Gemini vai criar a estratégia do vídeo
-                prompt_estudio = f"""
-                Atue como Diretor de Arte e Estrategista de TikTok/Reels.
+                # Prompt de alto nível para o Gemini Plus
+                prompt_direcao = f"""
+                Atue como um Especialista em Viralização de Short-Videos (TikTok/Reels).
                 Produto: {st.session_state.sel_nome}
-                Legenda base: {copy_final}
+                Legenda: {legenda_editavel}
+
+                Tarefa: Crie um plano de edição de ALTO IMPACTO (Nível CEO) para este vídeo.
                 
-                Crie um roteiro de edição de alto nível dividido em:
-                1. O GANCHO (Primeiros 3 segundos): O que deve aparecer na tela e qual texto usar.
-                2. O DESENVOLVIMENTO: Como mostrar o produto (ângulos, detalhes).
-                3. O CTA (Fechamento): Como pedir o clique no link.
-                4. TRILHA SONORA: Que tipo de áudio usar (Trend, Urgência ou Satisfatório).
+                ESTRUTURA OBRIGATÓRIA:
+                1. O GANCHO (0-3 seg): Qual texto "na cara" deve aparecer? Qual o movimento inicial?
+                2. RETENÇÃO (3-10 seg): Como mostrar os detalhes do produto? (Ex: Close no bambu, teste da batedeira).
+                3. PSICOLOGIA DAS CORES: Que filtros ou overlays usar para passar confiança/desejo.
+                4. TRILHA SONORA: Sugira um estilo de áudio em alta.
+                5. CHAMADA VISUAL: Como posicionar o link de forma que não seja ignorado.
                 
-                Seja direto e use termos de edição (Corte seco, Zoom in, Overlay).
+                Use termos técnicos de edição para facilitar no CapCut ou MoviePy.
                 """
                 
-                roteiro = miny.minerar_produtos(prompt_estudio, "Shopee", motor_ia)
-                st.session_state.roteiro_video = roteiro
+                roteiro_direcao = miny.minerar_produtos(prompt_direcao, "Shopee", motor_ia)
+                st.session_state.roteiro_video = roteiro_direcao
 
+        # Exibe o roteiro gerado
         if "roteiro_video" in st.session_state:
-            with st.expander("🎥 Roteiro de Edição Estratégica (Siga isso!)", expanded=True):
+            with st.expander("🎥 INSTRUÇÕES DO DIRETOR GEMINI", expanded=True):
                 st.markdown(st.session_state.roteiro_video)
-                st.info("💡 Dica: Use o CapCut para seguir essas instruções e veja sua conversão dobrar.")
+                st.caption("Siga estas etapas no CapCut para maximizar suas vendas.")
 
+        # 3. Futuro: Automação com MoviePy (Espaço reservado)
+        with st.expander("⚙️ Automações Avançadas (Em breve)"):
+            st.write("Detectamos as bibliotecas: OpenCV e MoviePy no seu sistema.")
+            st.info("Estas ferramentas permitirão, no futuro, que o Nexus insira automaticamente o seu Link Blindado por cima dos vídeos baixados.")
+            
     else:
-        st.warning("⚠️ Nenhuma munição enviada. Vá ao Arsenal primeiro!")
-
-def formatar_para_estudio(texto, link):
-    """Garante que o link e o texto fiquem perfeitos para o Estúdio"""
-    return f"{texto}\n\n🛒 COMPRE AQUI: {link}"
+        st.warning("⚠️ Vá ao Arsenal, gere uma copy e clique em 'Enviar ao Estúdio' primeiro!")
