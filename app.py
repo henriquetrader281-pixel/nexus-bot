@@ -1,10 +1,10 @@
 import streamlit as st
-import arsenal
+import arsenal  # Importação do novo módulo
 import pandas as pd
 import os
 import urllib.parse
 from datetime import datetime
-import mineracao as miny # O novo módulo que criamos
+import mineracao as miny
 
 # --- FUNÇÃO DE RENDERIZAÇÃO ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
