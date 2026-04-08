@@ -1,19 +1,24 @@
 import streamlit as st
 from groq import Groq
 import google.generativeai as genai
+from google.generativeai.types import RequestOptions
 import re
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
-    # --- ROTA DE INTELIGÊNCIA (Arsenal/Estúdio) via Gemini Plus ---
-    if any(keyword in nicho for keyword in ["AIDA", "Copy", "Ignore", "Roteiro"]):
+    # --- ROTA DE INTELIGÊNCIA (Arsenal/Estúdio/Copy) via Gemini Plus ---
+    # O gatilho agora é a presença de "AIDA" ou regras vindas do copy.py
+    if any(k in nicho for k in ["AIDA", "Copywriter", "Ignore", "###"]):
         try:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-            # Usando o nome estável para evitar o erro 404
+            
+            # 🔱 O PULO DO GATO: Forçamos a versão 'v1' (Estável)
+            opcoes = RequestOptions(api_version="v1")
             model = genai.GenerativeModel('gemini-1.5-pro') 
-            response = model.generate_content(nicho)
+            
+            response = model.generate_content(nicho, request_options=opcoes)
             return response.text
         except Exception as e:
-            return f"Erro Gemini: {str(e)}"
+            return f"Erro Crítico Gemini: {str(e)}"
     
     # --- ROTA DE VARREDURA (Scanner) via Groq ---
     else:
