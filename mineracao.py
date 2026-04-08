@@ -1,40 +1,34 @@
 import streamlit as st
 from groq import Groq
-import google.generativeai as genai
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
-    # ROTA DE INTELIGENCIA (Arsenal e Estudio)
-    if any(k in nicho for k in ["AIDA", "Copywriter", "Ignore", "###", "Roteiro"]):
-        try:
-            genai.configure(
-                api_key=st.secrets["GEMINI_API_KEY"],
-                transport='rest'
-            )
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(nicho)
-            return response.text
-        except Exception as e:
-            return "Erro Gemini: " + str(e)
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # ROTA SCANNER (Groq)
-    else:
+    # 🎯 ROTA DE COPY E ESTRATÉGIA (Arsenal e Estúdio)
+    # Se o prompt for de marketing, usamos temperatura 0.7 para ser criativo
+    if any(k in nicho for k in ["AIDA", "Copywriter", "###", "Roteiro"]):
         try:
-            client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-            
-            urls_base = {
-                "Shopee": "https://shopee.com.br/search?keyword=",
-                "Mercado Livre": "https://lista.mercadolivre.com.br/",
-                "Amazon": "https://www.amazon.com.br/s?k="
-            }
-            url_mkt = urls_base.get(mkt_alvo, "https://shopee.com.br/search?keyword=")
-
-            prompt = f"Aja como minerador. Liste {qtd} produtos de {nicho}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: {url_mkt}[nome]"
-
             chat = client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "user", "content": nicho}],
                 model="llama-3.3-70b-versatile",
-                temperature=0.2
+                temperature=0.7 
             )
             return chat.choices[0].message.content
         except Exception as e:
-            return "Erro Groq: " + str(e)
+            return f"Erro Groq Copy: {str(e)}"
+    
+    # 🔍 ROTA DE VARREDURA (Scanner)
+    # Para listas, usamos temperatura 0.2 para ser preciso
+    else:
+        try:
+            url_mkt = "https://shopee.com.br/search?keyword="
+            prompt = f"Liste {qtd} produtos de {nicho}. Formato: NOME: [nome] | CALOR: [95] | VALOR: R$ [0,00] | TICKET: Baixo | URL: {url_mkt}[nome]"
+            
+            chat = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                temperature=0.2 
+            )
+            return chat.choices[0].message.content
+        except Exception as e:
+            return f"Erro Groq Scanner: {str(e)}"
