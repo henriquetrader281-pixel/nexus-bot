@@ -116,23 +116,27 @@ with tabs[0]:
                         )
                 except: continue
 
-# No Arsenal (Tab 1)
-if st.session_state.sel_nome and st.session_state.sel_link:
-    st.info(f"🎯 Produto focado: {st.session_state.sel_nome}")
-    
-if st.button("🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO"):
-            if st.session_state.sel_nome:
-                with st.spinner("Conectando ao Arsenal..."):
-                    # Chamada direta e alinhada
-                    sucesso = update.aplicar_seo_viral(
-                        st.session_state.sel_nome, 
-                        st.session_state.sel_link, 
-                        nicho
-                    )
-                    if sucesso:
-                        st.success(f"✅ Injetado: {st.session_state.sel_nome}")
-                        st.balloons()
-            else:
+with tabs[1]:  # Aba do Arsenal
+    if st.session_state.sel_nome:
+        st.success(f"🎯 Produto Ativo: **{st.session_state.sel_nome}**")
+        
+        # Botão principal de injeção
+        if st.button("🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO", type="primary"):
+            with st.spinner("Conectando ao Arsenal e Sincronizando..."):
+                # Chama o update enviando apenas o que foi selecionado
+                sucesso = update.aplicar_seo_viral(
+                    st.session_state.sel_nome, 
+                    st.session_state.sel_link, 
+                    nicho
+                )
+                
+                if sucesso:
+                    st.success(f"✅ Sucesso! 10 vídeos criados para: {st.session_state.sel_nome}")
+                    st.balloons()
+                else:
+                    st.error("Erro ao processar no Arsenal.")
+    else:
+        st.warning("⚠️ Nenhum produto selecionado. Volte no Scanner e escolha um item.")
                 st.error("Nenhum produto selecionado no Scanner!")
     else:
         st.error("Nenhum produto selecionado no Scanner!")
