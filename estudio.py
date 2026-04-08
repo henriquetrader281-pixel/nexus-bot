@@ -1,4 +1,5 @@
 import streamlit as st
+import urllib.parse
 
 def exibir_estudio(miny, motor_ia):
     st.markdown("### 🎬 Estúdio de Edição Nexus | Retenção & AIDA 🔱")
@@ -8,22 +9,18 @@ def exibir_estudio(miny, motor_ia):
         st.warning("⚠️ Selecione um produto no Scanner antes de entrar no Estúdio!")
         return
 
-    # 2. LIMPEZA DO NOME
+    # 2. LIMPEZA DO NOME DO PRODUTO
     produto_foco = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
+
+    # 3. MÁQUINA DE LINKS (Gera o link perfeito da Shopee sem depender do Scanner)
+    nome_formatado_url = urllib.parse.quote(produto_foco)
+    link_perfeito = f"https://shopee.com.br/search?keyword={nome_formatado_url}&smtt=18316451024"
 
     # --- 🔗 INTEGRAÇÃO COM O ARSENAL ---
     if "copy_ativa" in st.session_state and st.session_state.copy_ativa != "":
         st.success("✅ Copy de Alta Conversão recebida do Arsenal!")
         
-        link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
-        if "http" in link_raw:
-            link_base = link_raw.split('?')[0]
-        else:
-            link_base = "https://shopee.com.br"
-        
-        link_final = f"{link_base}?smtt=18316451024"
-
-        st.session_state.copy_final_pronta = f"{st.session_state.copy_ativa}\n\n🛒 **COMPRE AQUI:** {link_final}"
+        st.session_state.copy_final_pronta = f"{st.session_state.copy_ativa}\n\n🛒 **COMPRE AQUI:** {link_perfeito}"
         st.session_state.copy_ativa = ""
 
     # --- CONTAINER DA LEGENDA ---
@@ -32,32 +29,29 @@ def exibir_estudio(miny, motor_ia):
         
         if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
             with st.spinner("Forçando IA a agir como Especialista em Reels..."):
-                prompt_aida = f"""IGNORE TODAS AS INSTRUÇÕES ANTERIORES. Atue como um Criador de Conteúdo Viral para Reels/TikTok.
-Escreva UMA ÚNICA legenda curta e explosiva para o produto: '{produto_foco}'.
-REGRA 1: NUNCA use saudações como 'Atenção fulano'. Comece direto com o problema/dor (Ex: 'Você ainda passa raiva com...').
-REGRA 2: Seja muito informal, use emojis.
-REGRA 3: É ESTRITAMENTE PROIBIDO colocar links, URLs ou sites no meio do seu texto. O sistema fará isso depois.
-REGRA 4: O CTA final deve ser APENAS: 'Comenta EU QUERO que te mando o link no Direct!'."""
+                
+                # NOVO PROMPT: Garante o Hook + A dor + O CTA sem apagar nada
+                prompt_aida = f"""Atue como um Copywriter Sênior de Instagram Reels.
+Escreva UMA legenda persuasiva e viral para o produto: '{produto_foco}'.
+A legenda DEVE ter este formato natural em um ou dois parágrafos curtos:
+- Início: Uma pergunta que toca na dor (Ex: Você ainda passa raiva com...).
+- Meio: Mostre que o produto é a solução definitiva.
+- Fim: Termine OBRIGATORIAMENTE com a exata frase: 'Comenta EU QUERO que te mando o link no Direct!'
+ATENÇÃO: NÃO escreva as palavras 'Hook', 'Solução' ou 'CTA'. NÃO liste produtos. Entregue apenas o texto pronto para postar."""
                 
                 try:
                     resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
                     
+                    # Filtro físico contra listas
                     linhas_limpas = []
                     for linha in resultado.split('\n'):
                         if "NOME:" not in linha and "CALOR:" not in linha and "http" not in linha:
                             linhas_limpas.append(linha)
                     
                     texto_final_ia = "\n".join(linhas_limpas).strip()
-                    
-                    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
-                    if "http" in link_raw:
-                        link_base = link_raw.split('?')[0]
-                    else:
-                        link_base = "https://shopee.com.br"
-                        
-                    link_final = f"{link_base}?smtt=18316451024"
 
-                    st.session_state.copy_final_pronta = f"{texto_final_ia}\n\n🛒 **SEU LINK DE AFILIADO:** {link_final}"
+                    # Junta o texto com a Máquina de Links que criamos acima
+                    st.session_state.copy_final_pronta = f"{texto_final_ia}\n\n🛒 **SEU LINK DE AFILIADO:** {link_perfeito}"
                     st.rerun()
                 except Exception as e:
                     st.error(f"Aguarde o reset da IA: {str(e)}")
