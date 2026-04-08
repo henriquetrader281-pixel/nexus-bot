@@ -30,14 +30,15 @@ def exibir_estudio(miny, motor_ia):
         if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
             with st.spinner("Forçando IA a agir como Especialista em Reels..."):
                 
-                # NOVO PROMPT: Garante o Hook + A dor + O CTA sem apagar nada
-                prompt_aida = f"""Atue como um Copywriter Sênior de Instagram Reels.
-Escreva UMA legenda persuasiva e viral para o produto: '{produto_foco}'.
-A legenda DEVE ter este formato natural em um ou dois parágrafos curtos:
-- Início: Uma pergunta que toca na dor (Ex: Você ainda passa raiva com...).
-- Meio: Mostre que o produto é a solução definitiva.
-- Fim: Termine OBRIGATORIAMENTE com a exata frase: 'Comenta EU QUERO que te mando o link no Direct!'
-ATENÇÃO: NÃO escreva as palavras 'Hook', 'Solução' ou 'CTA'. NÃO liste produtos. Entregue apenas o texto pronto para postar."""
+              # NOVO PROMPT: Simula a leitura da página do produto (RAG Simulado)
+                prompt_aida = f"""Atue como um Copywriter Sênior de Instagram Reels especializado em produtos da Shopee.
+Produto: '{produto_foco}'.
+PASSO 1: Busque no seu conhecimento quais são as 2 principais características TÉCNICAS e os 2 maiores BENEFÍCIOS reais que os clientes mais procuram quando compram '{produto_foco}'.
+PASSO 2: Use essas informações reais para escrever UMA legenda persuasiva e viral em formato AIDA.
+- Início (Dor): Comece tocando na ferida ou problema diário.
+- Meio (Solução Real): Apresente o produto usando as características técnicas reais que você levantou no Passo 1 para dar credibilidade (ex: material, durabilidade, facilidade).
+- Fim (CTA): Termine OBRIGATORIAMENTE com: 'Comenta EU QUERO que te mando o link no Direct!'
+ATENÇÃO: NÃO mostre o Passo 1 para o usuário. Entregue APENAS o texto final da legenda pronto para postar. NÃO liste produtos."""
                 
                 try:
                     resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
