@@ -63,8 +63,8 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "M
 
 st.sidebar.info(f"Nicho Atual: {st.session_state.get('nicho_ativo', 'Cozinha Criativa')}")
 
-motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "gemini-1.5-pro"])
-motor_ia = "gemini-1.5-pro" # TRAVA DE SEGURANÇA: Força o Gemini no sistema inteiro para não dar erro 429
+# TRAVA DE SEGURANÇA: Força o Gemini no sistema inteiro
+motor_ia = "gemini-1.5-pro" 
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
@@ -92,8 +92,17 @@ with tabs[0]:
 
     if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
         with st.spinner(f"IA minerando {qtd_produtos} produtos em '{foco_nicho}'..."):
-            resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd=qtd_produtos)
-            st.session_state.res_busca = miny.formatar_saida_limpa(resultado)
+            
+            # --- PROMPT BLINDADO PARA O SCANNER ---
+            prompt_scanner = f"""Atue como um analista de produtos virais da {st.session_state.mkt_global}.
+Liste {qtd_produtos} produtos físicos altamente lucrativos para o nicho '{foco_nicho}'.
+REGRA DE OURO: NÃO escreva NENHUMA palavra de introdução ou conclusão.
+Devolva APENAS as linhas dos produtos. CADA PRODUTO em UMA linha única.
+O formato de cada linha DEVE SER RIGOROSAMENTE ESTE (Use o | para separar os dados e não use negritos):
+NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https://shopee.com.br/search?keyword=exemplo"""
+
+            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+            st.session_state.res_busca = resultado
     
     if st.session_state.res_busca:
         st.divider()
@@ -101,10 +110,14 @@ with tabs[0]:
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            if "|" in linha and "NOME" in linha.upper():
+            # Limpeza anti-negrito da IA (remove asteriscos)
+            linha_limpa = linha.replace("**", "").replace("*", "")
+            
+            if "|" in linha_limpa and "NOME" in linha_limpa.upper():
                 try:
-                    partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha.split('|') if ':' in p}
+                    partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha_limpa.split('|') if ':' in p}
                     ticket_atual = partes.get("TICKET", "Médio")
+                    
                     if ticket_atual in filtro_ticket:
                         c_str = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
                         renderizar_card_produto(
@@ -116,7 +129,8 @@ with tabs[0]:
                             partes.get("URL", "#"),
                             st.session_state.mkt_global
                         )
-                except: continue
+                except Exception as e:
+                    continue
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
@@ -126,8 +140,6 @@ with tabs[1]:
         
         if st.button(f"🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO NA {st.session_state.mkt_global}", type="primary"):
             with st.spinner("Gerando copys e conectando ao banco de dados..."):
-                
-              # 1. HACK DE PROMPT NÍVEL MASTER: AIDA + Persuasão + CTA
                 prompt_hack = f"""IGNORE AS INSTRUÇÕES DE MINERAÇÃO DE DADOS. Aja APENAS como um Copywriter Sênior especialista em vídeos virais (TikTok/Reels).
 Sua missão é escrever 10 opções de copy de ALTA CONVERSÃO para o produto '{st.session_state.sel_nome}'.
 Aplique estritamente o framework AIDA em textos curtos, dinâmicos e focados em retenção.
@@ -139,15 +151,12 @@ REGRAS RÍGIDAS: Seja informal e persuasivo. NÃO liste outros produtos. NÃO in
                 
                 res_ia = miny.minerar_produtos(prompt_hack, st.session_state.mkt_global, motor_ia)
                 
-                # 2. ESCUDO DE LIMPEZA: Destrói qualquer "lixo" que a IA tente mandar
                 variacoes_limpas = []
                 for linha in res_ia.split('\n'):
-                    texto = linha.strip().replace('"', '') # Tira aspas duplas
-                    # Se a linha tiver mais de 10 letras e NÃO for da lista de produtos, ele aceita:
+                    texto = linha.strip().replace('"', '')
                     if len(texto) > 10 and "CALOR:" not in texto and "URL:" not in texto and "Aqui estão" not in texto:
                         variacoes_limpas.append(texto)
                 
-                # 3. MOSTRA AS VARIAÇÕES LIMPAS NA TELA (Máximo de 10)
                 for i, v in enumerate(variacoes_limpas[:10]):
                     with st.container(border=True):
                         st.write(v)
@@ -155,7 +164,6 @@ REGRAS RÍGIDAS: Seja informal e persuasivo. NÃO liste outros produtos. NÃO in
                             st.session_state.copy_ativa = v
                             st.toast("Enviado ao Estúdio!")
                 
-                # 4. LIGAÇÃO COM O MOTOR SHOPEE / GITHUB
                 nicho_atual = st.session_state.get('nicho_ativo', 'Geral')
                 sucesso = update.aplicar_seo_viral(
                     st.session_state.sel_nome, 
