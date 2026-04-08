@@ -1,0 +1,29 @@
+import streamlit as st
+import pandas as pd
+import os
+
+DATA_PATH = "dataset_nexus.csv"
+
+def dashboard_performance_simples():
+    #st.header("📊 Raio-X de Performance") # Já tem o título no app.py
+    
+    if os.path.exists(DATA_PATH):
+        try:
+            df = pd.read_csv(DATA_PATH)
+            if not df.empty:
+                st.write(f"📈 Total de {len(df)} produtos processados")
+                st.data_editor(
+                    df.tail(20), # Mostra os últimos 20
+                    column_config={
+                        "link_afiliado": st.column_config.LinkColumn("🛒 Link"),
+                        "data": "Data"
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("O banco de dados está vazio. Processe um produto no SEO primeiro.")
+        except Exception as e:
+            st.error(f"Erro ao ler banco de dados: {e}")
+    else:
+        st.warning("⚠️ Nenhum dado encontrado. O arquivo será criado quando você gerar o primeiro SEO.")
