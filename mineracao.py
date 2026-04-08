@@ -13,8 +13,9 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
         # 2. CONFIGURAÇÃO DA CHAVE
         genai.configure(api_key=chave)
         
-        # 3. MODELO FLASH (O mais estável para chaves novas)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # 3. MATANDO O ERRO 404: 
+        # Usamos o nome de modelo que o Google exige para contas estáveis/Plus
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
         urls_base = {
             "Shopee": "https://shopee.com.br/search?keyword=",
@@ -29,11 +30,21 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
         
         # 4. DISPARO
         response = model.generate_content(prompt)
-        return response.text
+        
+        # Validação extra para garantir que recebemos texto
+        if response and response.text:
+            return response.text
+        else:
+            return "Erro: A IA respondeu, mas o conteúdo veio vazio. Tente novamente."
 
     except Exception as e:
-        # Erro detalhado para sabermos se o problema é a chave ou a cota
-        return f"Erro na conexão Gemini: {str(e)}"
+        # Se o 'flash-latest' falhar, tentamos a última cartada: o nome puro
+        try:
+            model_backup = genai.GenerativeModel('gemini-1.5-flash')
+            response_backup = model_backup.generate_content(prompt)
+            return response_backup.text
+        except:
+            return f"Erro na conexão Gemini (Plus/Estável): {str(e)}"
 
 def formatar_saida_limpa(texto_bruto):
     if not texto_bruto or "Erro" in texto_bruto: return ""
