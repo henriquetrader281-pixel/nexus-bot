@@ -95,26 +95,59 @@ with tabs[0]:
             resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
+# --- DENTRO DA ABA 0: SCANNER (Logo após o st.session_state.res_busca) ---
     if st.session_state.res_busca:
         st.divider()
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            if "|" in linha and "NOME:" in linha.upper():
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in linha_limpa:
                 try:
-                    # Extração inteligente de dados
-                    p = {part.split(':', 1)[0].strip().upper(): part.split(':', 1)[1].strip() for part in linha.split('|') if ':' in part}
+                    # 1. Quebra a linha pelos canos |
+                    partes_brutas = [p.strip() for p in linha_limpa.split('|')]
                     
-                    ticket_val = p.get("TICKET", "Médio")
+                    # 2. Cria um dicionário para busca fácil
+                    dados = {}
+                    for p in partes_brutas:
+                        if ':' in p:
+                            chave, valor = p.split(':', 1)
+                            dados[chave.strip().upper()] = valor.strip()
+                    
+                    # 3. LÓGICA DE NOME BLINDADA:
+                    # Tenta achar a chave que CONTÉM "NOME" (ex: "1. NOME" ou "NOME")
+                    nome_final = "Produto Desconhecido"
+                    for k in dados.keys():
+                        if "NOME" in k:
+                            nome_final = dados[k]
+                            break
+                    
+                    # Se ainda for o padrão, pega a primeira parte da linha (geralmente o nome)
+                    if nome_final == "Produto Desconhecido" and partes_brutas:
+                        nome_final = partes_brutas[0].replace("NOME:", "").strip()
+
+                    # 4. Captura os outros dados com fallbacks
+                    ticket_val = "Médio"
+                    for k in dados.keys():
+                        if "TICKET" in k: ticket_val = dados[k]; break
+                    
                     if ticket_val in filtro_ticket:
-                        c_num = "".join(filter(str.isdigit, p.get("CALOR", "0")))
+                        # Extrai apenas os números do Calor
+                        c_num = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        
                         renderizar_card_produto(
-                            idx, p.get("NOME", "Produto"), p.get("VALOR", "---"), 
-                            int(c_num) if c_num else 0, ticket_val, 
-                            p.get("URL", "#"), st.session_state.mkt_global
+                            idx, 
+                            nome_final, 
+                            dados.get("VALOR", "R$ ---"), 
+                            int(c_num) if c_num else 0, 
+                            ticket_val, 
+                            dados.get("URL", "#"), 
+                            st.session_state.mkt_global
                         )
-                except: continue
+                except Exception as e:
+                    continue # Pula linhas que derem erro de formato
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
