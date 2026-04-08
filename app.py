@@ -64,6 +64,7 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "M
 st.sidebar.info(f"Nicho Atual: {st.session_state.get('nicho_ativo', 'Cozinha Criativa')}")
 
 motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "gemini-1.5-pro"])
+motor_ia = "gemini-1.5-pro" # TRAVA DE SEGURANÇA: Força o Gemini no sistema inteiro para não dar erro 429
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
