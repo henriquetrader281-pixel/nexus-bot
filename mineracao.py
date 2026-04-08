@@ -2,20 +2,24 @@ import streamlit as st
 import re
 import random
 import google.generativeai as genai
+from google.generativeai.types import RequestOptions
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
-    # 1. BUSCA A CHAVE NOVA NOS SECRETS
+    # 1. BUSCA A CHAVE NOS SECRETS
     chave = st.secrets.get("GEMINI_API_KEY")
     if not chave:
-        return "Erro: Chave 'GEMINI_API_KEY' não encontrada nos Secrets do Streamlit."
+        return "Erro: Chave 'GEMINI_API_KEY' não encontrada nos Secrets."
 
     try:
-        # 2. CONFIGURAÇÃO DA CHAVE
+        # 2. CONFIGURAÇÃO COM FORÇA BRUTA NA VERSÃO V1 (ESTÁVEL)
         genai.configure(api_key=chave)
         
-        # 3. MATANDO O ERRO 404: 
-        # Usamos o nome de modelo que o Google exige para contas estáveis/Plus
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # Criamos uma configuração de rota para ignorar a v1beta que está dando erro
+        opcoes = RequestOptions(api_version="v1")
+        
+        # 3. DEFINIÇÃO DO MODELO ESTÁVEL
+        # Usamos o flash-8b ou flash por ser o mais compatível com chaves novas
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         urls_base = {
             "Shopee": "https://shopee.com.br/search?keyword=",
@@ -24,31 +28,29 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
         }
         url_mkt = urls_base.get(mkt_alvo, "https://shopee.com.br/search?keyword=")
 
-        prompt = f"""Liste {qtd} produtos virais de '{nicho}' para {mkt_alvo}.
-        Use RIGOROSAMENTE este formato:
+        prompt = f"""Atue como minerador de produtos virais. Nicho: {nicho}. Marketplace: {mkt_alvo}.
+        Liste {qtd} produtos. Use EXATAMENTE este formato por linha:
         NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: {url_mkt}[nome]"""
         
-        # 4. DISPARO
-        response = model.generate_content(prompt)
+        # 4. DISPARO FORÇANDO A ROTA V1
+        response = model.generate_content(prompt, request_options=opcoes)
         
-        # Validação extra para garantir que recebemos texto
-        if response and response.text:
+        if response.text:
             return response.text
         else:
-            return "Erro: A IA respondeu, mas o conteúdo veio vazio. Tente novamente."
+            return "Erro: Resposta vazia da IA."
 
     except Exception as e:
-        # Se o 'flash-latest' falhar, tentamos a última cartada: o nome puro
+        # Se falhar, tentamos a última rota possível sem prefixos
         try:
-            model_backup = genai.GenerativeModel('gemini-1.5-flash')
-            response_backup = model_backup.generate_content(prompt)
-            return response_backup.text
-        except:
-            return f"Erro na conexão Gemini (Plus/Estável): {str(e)}"
+            model_alt = genai.GenerativeModel('gemini-1.5-pro')
+            res_alt = model_alt.generate_content(prompt, request_options=RequestOptions(api_version="v1"))
+            return res_alt.text
+        except Exception as e2:
+            return f"Erro Crítico de Conexão (v1): {str(e2)}"
 
 def formatar_saida_limpa(texto_bruto):
     if not texto_bruto or "Erro" in texto_bruto: return ""
     limpo = texto_bruto.replace("**", "").strip()
-    # Pega apenas as linhas que seguem o formato Nexus
     linhas = [l.strip() for l in limpo.split('\n') if "|" in l and "NOME:" in l.upper()]
     return "\n".join(linhas)
