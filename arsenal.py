@@ -38,7 +38,7 @@ def exibir_arsenal(miny, motor_ia):
         st.divider()
 
         if st.button(f"🔥 GERAR MUNIÇÃO DE ALTA PERSUASÃO", use_container_width=True):
-            with st.spinner("Gemini 3.1 Pro processando gatilhos psicológicos..."):
+            with st.spinner("Gemini Pro processando gatilhos psicológicos..."):
                 
                 # --- PROMPT BLINDADO E REESTRUTURADO ---
                 prompt = f"""
@@ -55,7 +55,8 @@ def exibir_arsenal(miny, motor_ia):
                 - Separe cada uma das 5 variações APENAS com o símbolo ###.
                 """
                 
-                resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
+                # 🛑 TRAVA ABSOLUTA: Forçando o Gemini para evitar o erro 429 da Groq
+                resultado = miny.minerar_produtos(prompt, mkt, "gemini-1.5-pro")
                 
                 # Limpeza de segurança caso a IA ainda tente mandar a lista
                 if "1. NOME:" in resultado:
