@@ -27,7 +27,7 @@ def exibir_estudio(miny, motor_ia):
         st.markdown(f"#### 🎯 Estratégia: **{produto_foco}**")
         
         if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
-            with st.spinner("Extraindo copy nível sênior (Técnica de Tags)..."):
+            with st.spinner("Extraindo copy nível sênior via Gemini 1.5 Pro..."):
                 
                 # PROMPT BLINDADO COM TAGS DE EXTRAÇÃO
                 prompt_aida = f"""Atue como o melhor Copywriter de TikTok/Reels do Brasil.
@@ -44,7 +44,8 @@ Você ainda passa raiva com...
 [/COPY]"""
                 
                 try:
-                    resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
+                    # AQUI ESTÁ A MUDANÇA: Forçando o uso do Gemini 1.5 Pro para não cair no erro de limite da Groq
+                    resultado = miny.minerar_produtos(prompt_aida, "Shopee", "gemini-1.5-pro")
                     
                     # TÉCNICA DE EXTRAÇÃO POR TAGS (Ignora qualquer lixo fora das tags)
                     if "[COPY]" in resultado and "[/COPY]" in resultado:
@@ -75,14 +76,15 @@ Você ainda passa raiva com...
     # --- CONTAINER DO ROTEIRO ---
     st.markdown("#### 🎥 Mapa de Cortes (Direção de Arte)")
     if st.button("🧠 GERAR ROTEIRO DE ALTA RETENÇÃO", use_container_width=True):
-        with st.spinner("Criando mapa de cenas..."):
+        with st.spinner("Criando mapa de cenas com Gemini..."):
             prompt_video = f"""IGNORE BUSCA. Atue como Diretor de Marketing. Crie um roteiro prático de 15s para o vídeo de '{produto_foco}'.
 Divida no formato:
 [0-3s] HOOK VISUAL: Cena inicial.
 [3-10s] DESEJO: O que mostrar.
 [10-15s] CTA: O que escrever na tela."""
             try:
-                res_roteiro = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
+                # Forçando Gemini também no roteiro de vídeo
+                res_roteiro = miny.minerar_produtos(prompt_video, "Shopee", "gemini-1.5-pro")
                 
                 linhas_rot = []
                 for linha in res_roteiro.split('\n'):
