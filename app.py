@@ -120,21 +120,20 @@ with tabs[0]:
 if st.session_state.sel_nome and st.session_state.sel_link:
     st.info(f"🎯 Produto focado: {st.session_state.sel_nome}")
     
-   # Trecho corrigido da Linha 125
 if st.button("🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO"):
-    # Verifica se existe algo selecionado antes de chamar o update
-    if st.session_state.sel_nome:
-        with st.spinner("Conectando ao Arsenal..."):
-            # CHAMA O ARQUIVO update.py
-            sucesso = update.aplicar_seo_viral(
-                st.session_state.sel_nome, 
-                st.session_state.sel_link, 
-                nicho
-            )
-            
-            if sucesso:
-                st.success(f"✅ Injetado: {st.session_state.sel_nome}")
-                st.balloons()
+            if st.session_state.sel_nome:
+                with st.spinner("Conectando ao Arsenal..."):
+                    # Chamada direta e alinhada
+                    sucesso = update.aplicar_seo_viral(
+                        st.session_state.sel_nome, 
+                        st.session_state.sel_link, 
+                        nicho
+                    )
+                    if sucesso:
+                        st.success(f"✅ Injetado: {st.session_state.sel_nome}")
+                        st.balloons()
+            else:
+                st.error("Nenhum produto selecionado no Scanner!")
     else:
         st.error("Nenhum produto selecionado no Scanner!")
             )
