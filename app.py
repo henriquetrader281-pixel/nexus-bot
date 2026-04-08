@@ -2,6 +2,7 @@ import streamlit as st
 import arsenal # Importação do novo módulo
 import estudio
 import pandas as pd
+import update
 import os
 import urllib.parse
 from datetime import datetime
