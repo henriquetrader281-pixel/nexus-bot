@@ -1,5 +1,5 @@
 import streamlit as st
-import arsenal # Importação do novo módulo
+import arsenal 
 import estudio
 import pandas as pd
 import update
@@ -43,6 +43,8 @@ def login():
             if senha == senha_mestra:
                 st.session_state.autenticado = True
                 st.rerun()
+            else:
+                st.error("Senha incorreta.")
     st.stop()
 
 if not st.session_state.autenticado: login()
@@ -56,12 +58,10 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 # --- 3. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Configurações")
-# Marketplace na sidebar
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"], index=["Shopee", "Mercado Livre", "Amazon"].index(st.session_state.mkt_global))
 
 st.sidebar.info(f"Nicho Atual: {st.session_state.get('nicho_ativo', 'Cozinha Criativa')}")
 
-# ATUALIZADO: Agora enviando o nome técnico do modelo Pro
 motor_ia = st.sidebar.radio("Motor IA:", ["Groq", "gemini-1.5-pro"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
@@ -116,39 +116,38 @@ with tabs[0]:
                         )
                 except: continue
 
-with tabs[1]:  # Aba do Arsenal
+# --- ABA 1: ARSENAL ---
+with tabs[1]:  
+    st.header("🚀 Arsenal Nexus")
     if st.session_state.sel_nome:
         st.success(f"🎯 Produto Ativo: **{st.session_state.sel_nome}**")
         
         # Botão principal de injeção
         if st.button("🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO", type="primary"):
             with st.spinner("Conectando ao Arsenal e Sincronizando..."):
-                # Chama o update enviando apenas o que foi selecionado
+                
+                # Resgata o nicho atual para enviar ao update.py sem dar erro
+                nicho_atual = st.session_state.get('nicho_ativo', 'Geral')
+                
                 sucesso = update.aplicar_seo_viral(
                     st.session_state.sel_nome, 
                     st.session_state.sel_link, 
-                    nicho
+                    nicho_atual
                 )
                 
                 if sucesso:
                     st.success(f"✅ Sucesso! 10 vídeos criados para: {st.session_state.sel_nome}")
                     st.balloons()
+                    
+                    # Limpa a seleção da memória para não bugar a próxima injeção
+                    st.session_state.sel_nome = ""
+                    st.session_state.sel_link = ""
+                    
                 else:
                     st.error("Erro ao processar no Arsenal.")
     else:
         st.warning("⚠️ Nenhum produto selecionado. Volte no Scanner e escolha um item.")
-                st.error("Nenhum produto selecionado no Scanner!")
-    else:
-        st.error("Nenhum produto selecionado no Scanner!")
-            )
-            
-            if sucesso:
-                st.success(f"✅ Sucesso! 10 vídeos criados apenas para: {st.session_state.sel_nome}")
-                # Limpa a seleção após o envio para evitar duplicidade
-                st.session_state.sel_nome = None
-                st.session_state.sel_link = None
-else:
-    st.warning("⚠️ Volte no Scanner e clique em 'Selecionar' em apenas um produto.")
+
 # --- ABA 2: RADAR ---
 with tabs[2]:
     st.header("🌍 Inteligência Radar")
@@ -158,6 +157,14 @@ with tabs[2]:
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
-    import estudio 
-    # Aqui o Gemini 1.5 Pro assume a direção do seu vídeo
+    st.header("🎥 Estúdio de Edição Automática")
     estudio.exibir_estudio(miny, motor_ia)
+
+# --- ABA 4: DASHBOARD (Adicionado para não deixar a aba vazia) ---
+with tabs[4]:
+    st.header("📊 Dashboard de Performance")
+    # Tenta puxar a função se existir no seu arquivo update.py
+    try:
+        update.dashboard_performance_simples()
+    except:
+        st.info("Dashboard será carregado após as primeiras injeções.")
