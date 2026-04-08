@@ -126,9 +126,17 @@ with tabs[1]:
         if st.button(f"🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO NA {st.session_state.mkt_global}", type="primary"):
             with st.spinner("Gerando copys e conectando ao banco de dados..."):
                 
-                # 1. HACK DE PROMPT: Força a IA a esquecer a regra dos 30 produtos
-                prompt_hack = f"IGNORE AS INSTRUÇÕES DE MINERAÇÃO. Aja APENAS como Copywriter. Escreva 10 frases curtas, virais e persuasivas para vender o produto '{st.session_state.sel_nome}'. NÃO liste outros produtos. NÃO use preços. NÃO use URLs."
-                res_ia = miny.minerar_produtos(prompt_hack, st.session_state.mkt_global, motor_ia) 
+              # 1. HACK DE PROMPT NÍVEL MASTER: AIDA + Persuasão + CTA
+                prompt_hack = f"""IGNORE AS INSTRUÇÕES DE MINERAÇÃO DE DADOS. Aja APENAS como um Copywriter Sênior especialista em vídeos virais (TikTok/Reels).
+Sua missão é escrever 10 opções de copy de ALTA CONVERSÃO para o produto '{st.session_state.sel_nome}'.
+Aplique estritamente o framework AIDA em textos curtos, dinâmicos e focados em retenção.
+Cada variação DEVE ter:
+1. ATENÇÃO (Hook): Uma frase de impacto, polêmica ou curiosidade nos primeiros segundos.
+2. INTERESSE/DESEJO: Toque na ferida. Como esse produto resolve um problema irritante do dia a dia ou traz muito status?
+3. AÇÃO (CTA): Uma ordem agressiva e clara no final (Ex: 'Clica no link da bio e garante o seu antes que esgote!', 'Comenta EU QUERO que te mando o link agora').
+REGRAS RÍGIDAS: Seja informal e persuasivo. NÃO liste outros produtos. NÃO invente preços. NÃO coloque URLs (links). Entregue apenas as 10 copys, uma por linha."""
+                
+                res_ia = miny.minerar_produtos(prompt_hack, st.session_state.mkt_global, motor_ia)
                 
                 # 2. ESCUDO DE LIMPEZA: Destrói qualquer "lixo" que a IA tente mandar
                 variacoes_limpas = []
