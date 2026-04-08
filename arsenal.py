@@ -25,7 +25,7 @@ def exibir_arsenal(miny, motor_ia):
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.mkt_global
         
-        # LIMPEZA ABSOLUTA DO NOME (Identação corrigida aqui)
+        # Limpeza do nome para a IA focar na copy e não nos dados técnicos
         bruto = st.session_state.sel_nome
         nome_para_ia = bruto.split('|')[0].replace("NOME:", "").strip()
         
@@ -39,23 +39,24 @@ def exibir_arsenal(miny, motor_ia):
         st.divider()
 
         if st.button(f"🔥 GERAR MUNIÇÃO DE ALTA PERSUASÃO", width='stretch'):
-            with st.spinner("Gemini Pro triturando objeções..."):
+            with st.spinner("Gemini Plus processando gatilhos..."):
                 prompt = f"""
-                Ignore dados técnicos. Crie 5 COPIES VIRAIS de venda para: {nome_para_ia}.
-                Use o método AIDA (Atenção, Interesse, Desejo, Ação). Estilo agressivo.
-                Cada copy deve ser única e focar em um desejo diferente.
-                Separe cada uma APENAS por ###.
+                Ignore dados técnicos. Crie 5 COPIES VIRAIS de venda para o produto: {nome_para_ia}.
+                Use o método AIDA (Atenção, Interesse, Desejo, Ação). Estilo agressivo e direto.
+                Separe cada uma das 5 variações APENAS com o símbolo ###.
                 """
                 
                 try:
-                    resultado = miny.minerar_produtos(prompt, mkt, motor_ia)
+                    # 🚀 AQUI ESTÁ A CHAVE: Forçamos o uso do motor_ia (Gemini) 
+                    # mesmo que o minerador esteja usando a Groq.
+                    resultado = miny.minerar_produtos(prompt, mkt, "gemini-1.5-pro")
                     
                     if "###" in resultado:
                         st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
                     else:
                         st.session_state.res_arsenal = [resultado.strip()]
                 except Exception as e:
-                    st.error(f"Erro na IA: {e}")
+                    st.error(f"Erro no motor Gemini: {e}")
 
         if "res_arsenal" in st.session_state:
             for i, copy in enumerate(st.session_state.res_arsenal):
