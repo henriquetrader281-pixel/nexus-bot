@@ -26,7 +26,8 @@ def exibir_estudio(miny, motor_ia):
     with st.container(border=True):
         st.markdown(f"#### 🎯 Estratégia: **{produto_foco}**")
         
-        if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
+        # Atualizado: use_container_width -> width='stretch'
+        if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", width='stretch'):
             with st.spinner("Extraindo copy nível sênior via Gemini 1.5 Pro..."):
                 
                 # PROMPT BLINDADO COM TAGS DE EXTRAÇÃO
@@ -44,14 +45,13 @@ Você ainda passa raiva com...
 [/COPY]"""
                 
                 try:
-                    # AQUI ESTÁ A MUDANÇA: Forçando o uso do Gemini 1.5 Pro para não cair no erro de limite da Groq
+                    # Forçando Gemini 1.5 Pro
                     resultado = miny.minerar_produtos(prompt_aida, "Shopee", "gemini-1.5-pro")
                     
-                    # TÉCNICA DE EXTRAÇÃO POR TAGS (Ignora qualquer lixo fora das tags)
+                    # TÉCNICA DE EXTRAÇÃO POR TAGS
                     if "[COPY]" in resultado and "[/COPY]" in resultado:
                         texto_final_ia = resultado.split("[COPY]")[1].split("[/COPY]")[0].strip()
                     else:
-                        # Filtro de emergência caso a IA esqueça as tags
                         linhas_limpas = []
                         for linha in resultado.split('\n'):
                             if "CALOR:" in linha or "TICKET:" in linha or "Aqui est" in linha or "shopee.com" in linha:
@@ -62,7 +62,6 @@ Você ainda passa raiva com...
                     if not texto_final_ia:
                         texto_final_ia = "⚠️ Erro de formatação da IA. Clique em Gerar novamente."
 
-                    # Junta o texto purificado com a Máquina de Links
                     st.session_state.copy_final_pronta = f"{texto_final_ia}\n\n🛒 **SEU LINK DE AFILIADO:** {link_perfeito}"
                     st.rerun()
                 except Exception as e:
@@ -75,7 +74,8 @@ Você ainda passa raiva com...
 
     # --- CONTAINER DO ROTEIRO ---
     st.markdown("#### 🎥 Mapa de Cortes (Direção de Arte)")
-    if st.button("🧠 GERAR ROTEIRO DE ALTA RETENÇÃO", use_container_width=True):
+    # Atualizado: use_container_width -> width='stretch'
+    if st.button("🧠 GERAR ROTEIRO DE ALTA RETENÇÃO", width='stretch'):
         with st.spinner("Criando mapa de cenas com Gemini..."):
             prompt_video = f"""IGNORE BUSCA. Atue como Diretor de Marketing. Crie um roteiro prático de 15s para o vídeo de '{produto_foco}'.
 Divida no formato:
@@ -83,7 +83,6 @@ Divida no formato:
 [3-10s] DESEJO: O que mostrar.
 [10-15s] CTA: O que escrever na tela."""
             try:
-                # Forçando Gemini também no roteiro de vídeo
                 res_roteiro = miny.minerar_produtos(prompt_video, "Shopee", "gemini-1.5-pro")
                 
                 linhas_rot = []
