@@ -1,24 +1,32 @@
 import streamlit as st
 from groq import Groq
 import google.generativeai as genai
-from google.generativeai.types import RequestOptions
 import re
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
     # --- ROTA DE INTELIGÊNCIA (Arsenal/Estúdio/Copy) via Gemini Plus ---
-    # O gatilho agora é a presença de "AIDA" ou regras vindas do copy.py
-    if any(k in nicho for k in ["AIDA", "Copywriter", "Ignore", "###"]):
+    # Gatilho: Presença de marcadores de Copy ou instruções de marketing
+    if any(k in nicho for k in ["AIDA", "Copywriter", "Ignore", "###", "Roteiro"]):
         try:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
             
-            # 🔱 O PULO DO GATO: Forçamos a versão 'v1' (Estável)
-            opcoes = RequestOptions(api_version="v1")
+            # 🔱 ROTA ESTÁVEL 2026: 
+            # O modelo 'gemini-1.5-pro' agora já aponta por padrão para a v1 estável
+            # Se o erro 404 persistir, o problema pode ser a região da API no Cloud.
             model = genai.GenerativeModel('gemini-1.5-pro') 
             
-            response = model.generate_content(nicho, request_options=opcoes)
+            # Chamada simplificada sem o RequestOptions problemático
+            response = model.generate_content(nicho)
             return response.text
+            
         except Exception as e:
-            return f"Erro Crítico Gemini: {str(e)}"
+            # Se der erro no Pro, tentamos um fallback automático para o Flash (mais permissivo)
+            try:
+                model_fb = genai.GenerativeModel('gemini-1.5-flash')
+                response = model_fb.generate_content(nicho)
+                return response.text
+            except:
+                return f"Erro Crítico Gemini: {str(e)}"
     
     # --- ROTA DE VARREDURA (Scanner) via Groq ---
     else:
