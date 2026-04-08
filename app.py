@@ -9,10 +9,10 @@ import urllib.parse
 from datetime import datetime
 import mineracao as miny
 
-# --- 1. CONFIGURAÇÃO DE TELA (Obrigatório ser a primeira linha) ---
+# --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (Scanner) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -24,11 +24,13 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         
         with c2:
-            calor_num = min(max(int(calor), 0), 100)
+            try:
+                calor_num = min(max(int(calor), 0), 100)
+            except:
+                calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
         
-        # O Padrão 2026: width='stretch'
         if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", width='stretch'):
             st.session_state.sel_nome = nome
             st.session_state.sel_link = link
@@ -69,8 +71,6 @@ st.session_state.mkt_global = st.sidebar.selectbox(
     index=["Shopee", "Mercado Livre", "Amazon"].index(st.session_state.mkt_global)
 )
 
-# Motor configurado para Gemini Pro Estável (Lido pelo mineracao.py)
-# No app.py, onde você define o motor_ia:
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
@@ -92,80 +92,56 @@ with tabs[0]:
             Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
             Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
             """
-            # mineracao.py usará Groq aqui para evitar limites do Gemini
             resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
-# --- DENTRO DA ABA 0: SCANNER (Logo após o st.session_state.res_busca) ---
     if st.session_state.res_busca:
         st.divider()
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
-       # --- Dentro do loop de linhas do Scanner no seu app.py ---
-for idx, linha in enumerate(linhas):
-    linha_limpa = linha.replace("**", "").replace("*", "").strip()
-    
-    if "|" in linha_limpa:
-        try:
-            # Divide a linha por |
-            partes = [p.strip() for p in linha_limpa.split('|')]
+        for idx, linha in enumerate(linhas):
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
-            # Pega o nome: Se não achar "NOME:", pega a primeira parte da linha
-            nome_final = "Produto"
-            for p in partes:
-                if "NOME:" in p.upper():
-                    nome_final = p.split(':', 1)[1].strip()
-                    break
-            if nome_final == "Produto" and len(partes) > 0:
-                nome_final = partes[0].replace("NOME:", "").strip()
-
-            # Pega o Valor
-            valor_final = "R$ 0,00"
-            for p in partes:
-                if "VALOR:" in p.upper():
-                    valor_final = p.split(':', 1)[1].strip()
-                    break
-
-            # Renderiza o Card
-            renderizar_card_produto(
-                idx, nome_final, valor_final, 95, "Médio", "#", st.session_state.mkt_global
-            )
-        except:
-            continue
+            if "|" in linha_limpa:
+                try:
+                    # 1. Extração por dicionário (Lógica Blindada)
+                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
+                    dados = {}
+                    for p in partes_lista:
+                        if ':' in p:
+                            k, v = p.split(':', 1)
+                            dados[k.strip().upper()] = v.strip()
                     
-                    # 3. LÓGICA DE NOME BLINDADA:
-                    # Tenta achar a chave que CONTÉM "NOME" (ex: "1. NOME" ou "NOME")
+                    # 2. Busca do Nome com Fallback
                     nome_final = "Produto Desconhecido"
-                    for k in dados.keys():
-                        if "NOME" in k:
-                            nome_final = dados[k]
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
                             break
                     
-                    # Se ainda for o padrão, pega a primeira parte da linha (geralmente o nome)
-                    if nome_final == "Produto Desconhecido" and partes_brutas:
-                        nome_final = partes_brutas[0].replace("NOME:", "").strip()
+                    if nome_final == "Produto Desconhecido" and partes_lista:
+                        nome_final = partes_lista[0].replace("NOME:", "").strip()
 
-                    # 4. Captura os outros dados com fallbacks
+                    # 3. Busca de Ticket e Valor
                     ticket_val = "Médio"
-                    for k in dados.keys():
-                        if "TICKET" in k: ticket_val = dados[k]; break
+                    for chave in dados.keys():
+                        if "TICKET" in chave: ticket_val = dados[chave]; break
                     
                     if ticket_val in filtro_ticket:
-                        # Extrai apenas os números do Calor
-                        c_num = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
                         
                         renderizar_card_produto(
                             idx, 
                             nome_final, 
                             dados.get("VALOR", "R$ ---"), 
-                            int(c_num) if c_num else 0, 
+                            int(c_str) if c_str else 0, 
                             ticket_val, 
                             dados.get("URL", "#"), 
                             st.session_state.mkt_global
                         )
-                except Exception as e:
-                    continue # Pula linhas que derem erro de formato
+                except:
+                    continue
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
