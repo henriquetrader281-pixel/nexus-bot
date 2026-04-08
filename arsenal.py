@@ -1,7 +1,6 @@
 import streamlit as st
 
 def aplicar_id_afiliado(link, mkt):
-    # ... (mantenha sua função de link como está, ela está ótima)
     if not link or link == "#":
         return link
     ID_FIXO_SHOPEE = "18316451024"
@@ -55,15 +54,18 @@ def exibir_arsenal(miny, motor_ia):
                 - Separe cada uma das 5 variações APENAS com o símbolo ###.
                 """
                 
-                # 🛑 TRAVA ABSOLUTA: Forçando o Gemini para evitar o erro 429 da Groq
-                resultado = miny.minerar_produtos(prompt, mkt, "gemini-1.5-pro")
-                
-                # Limpeza de segurança caso a IA ainda tente mandar a lista
-                if "1. NOME:" in resultado:
-                    resultado = resultado.split("###")[-5:] # Pega só as últimas 5 partes (as copies)
-                    st.session_state.res_arsenal = [c.strip() for c in resultado if len(c) > 20]
-                else:
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
+                try:
+                    # 🛑 TRAVA ABSOLUTA: Forçando o Gemini para evitar o erro 429 da Groq
+                    resultado = miny.minerar_produtos(prompt, mkt, "gemini-1.5-pro")
+                    
+                    # Limpeza de segurança caso a IA ainda tente mandar a lista
+                    if "1. NOME:" in resultado:
+                        resultado = resultado.split("###")[-5:] # Pega só as últimas 5 partes (as copies)
+                        st.session_state.res_arsenal = [c.strip() for c in resultado if len(c) > 20]
+                    else:
+                        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
+                except Exception as e:
+                    st.error(f"Erro na IA: {e}")
 
         # EXIBIÇÃO
         if "res_arsenal" in st.session_state:
