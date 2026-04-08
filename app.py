@@ -123,24 +123,30 @@ with tabs[1]:
     if st.session_state.sel_nome:
         st.success(f"🎯 Produto Ativo: **{st.session_state.sel_nome}**")
         
-        # O SEU BOTÃO ORIGINAL QUE MOSTRA AS VARIAÇÕES
         if st.button(f"🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO NA {st.session_state.mkt_global}", type="primary"):
             with st.spinner("Gerando copys e conectando ao banco de dados..."):
                 
-                # 1. MOSTRA AS 10 VARIAÇÕES NA TELA (O que estava faltando)
-                res_ia = miny.minerar_produtos(f"Gere 10 variações de copy viral para: {st.session_state.sel_nome}", st.session_state.mkt_global, motor_ia) 
-                variacoes = [v.strip() for v in res_ia.split("###") if len(v) > 10]
-                if not variacoes: variacoes = res_ia.split('\n')
+                # 1. HACK DE PROMPT: Força a IA a esquecer a regra dos 30 produtos
+                prompt_hack = f"IGNORE AS INSTRUÇÕES DE MINERAÇÃO. Aja APENAS como Copywriter. Escreva 10 frases curtas, virais e persuasivas para vender o produto '{st.session_state.sel_nome}'. NÃO liste outros produtos. NÃO use preços. NÃO use URLs."
+                res_ia = miny.minerar_produtos(prompt_hack, st.session_state.mkt_global, motor_ia) 
                 
-                for i, v in enumerate(variacoes):
-                    if len(v.strip()) > 5:
-                        with st.container(border=True):
-                            st.write(v)
-                            if st.button(f"Usar V{i+1}", key=f"v_{i}"):
-                                st.session_state.copy_ativa = v
-                                st.toast("Enviado ao Estúdio!")
+                # 2. ESCUDO DE LIMPEZA: Destrói qualquer "lixo" que a IA tente mandar
+                variacoes_limpas = []
+                for linha in res_ia.split('\n'):
+                    texto = linha.strip().replace('"', '') # Tira aspas duplas
+                    # Se a linha tiver mais de 10 letras e NÃO for da lista de produtos, ele aceita:
+                    if len(texto) > 10 and "CALOR:" not in texto and "URL:" not in texto and "Aqui estão" not in texto:
+                        variacoes_limpas.append(texto)
                 
-                # 2. LIGAÇÃO COM O MOTOR SHOPEE (invisível, faz o trabalho pesado por trás)
+                # 3. MOSTRA AS VARIAÇÕES LIMPAS NA TELA (Máximo de 10)
+                for i, v in enumerate(variacoes_limpas[:10]):
+                    with st.container(border=True):
+                        st.write(v)
+                        if st.button(f"Usar V{i+1}", key=f"v_{i}"):
+                            st.session_state.copy_ativa = v
+                            st.toast("Enviado ao Estúdio!")
+                
+                # 4. LIGAÇÃO COM O MOTOR SHOPEE / GITHUB
                 nicho_atual = st.session_state.get('nicho_ativo', 'Geral')
                 sucesso = update.aplicar_seo_viral(
                     st.session_state.sel_nome, 
