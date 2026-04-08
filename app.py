@@ -115,11 +115,26 @@ with tabs[0]:
                         )
                 except: continue
 
-# --- ABA 1: ARSENAL ---
-with tabs[1]:
-    # ATUALIZADO: Agora utiliza o módulo arsenal especializado para blindar o link com seu ID
-    arsenal.exibir_arsenal(miny, motor_ia)
-
+# No Arsenal (Tab 1)
+if st.session_state.sel_nome and st.session_state.sel_link:
+    st.info(f"🎯 Produto focado: {st.session_state.sel_nome}")
+    
+    if st.button("🚀 INJETAR 10 VARIAÇÕES DO PRODUTO SELECIONADO"):
+        with st.spinner("Limpando fila e injetando apenas o selecionado..."):
+            # Passamos apenas OS DOIS dados específicos para o update
+            sucesso = update.aplicar_seo_viral(
+                st.session_state.sel_nome, 
+                st.session_state.sel_link, 
+                nicho
+            )
+            
+            if sucesso:
+                st.success(f"✅ Sucesso! 10 vídeos criados apenas para: {st.session_state.sel_nome}")
+                # Limpa a seleção após o envio para evitar duplicidade
+                st.session_state.sel_nome = None
+                st.session_state.sel_link = None
+else:
+    st.warning("⚠️ Volte no Scanner e clique em 'Selecionar' em apenas um produto.")
 # --- ABA 2: RADAR ---
 with tabs[2]:
     st.header("🌍 Inteligência Radar")
