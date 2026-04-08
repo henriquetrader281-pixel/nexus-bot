@@ -1,6 +1,13 @@
 import streamlit as st
-import copy  # Integração com o Cérebro de Marketing
+import streamlit as st
+import nexus_copy as nxcopy # 🔱 Nome novo aqui também
 
+# ... (dentro da função gerar roteiro)
+try:
+    roteiro_bruto = miny.minerar_produtos(prompt_estudio, "", "gemini-1.5-pro")
+    st.session_state.roteiro_ativo = nxcopy.limpar_copy(roteiro_bruto)
+except Exception as e:
+    st.error(f"Erro no motor do Estúdio: {e}")
 def exibir_estudio(miny, motor_ia):
     st.markdown("### 🎬 Estúdio de Edição Nexus Absolute")
 
