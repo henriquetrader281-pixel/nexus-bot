@@ -95,4 +95,4 @@ with tabs[0]:
     
     if st.session_state.res_busca:
         st.divider()
-        filtro_ticket = st.multiselect("Visualizar Tickets:", ["Baixo
+       filtro_ticket = st.multiselect("Visualizar Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
