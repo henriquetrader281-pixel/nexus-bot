@@ -1,4 +1,5 @@
 import streamlit as st
+import copy  # Importante: Importa o arquivo copy.py que criamos
 
 def aplicar_id_afiliado(link, mkt):
     if not link or link == "#":
@@ -16,49 +17,49 @@ def exibir_arsenal(miny, motor_ia):
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.mkt_global
         bruto = st.session_state.sel_nome
-        # Limpa o nome removendo Calor/Valor para a IA não repetir isso
+        
+        # 🛡️ Limpeza de Elite: Remove o lixo técnico antes de enviar para a IA
         nome_limpo = bruto.split('|')[0].replace("NOME:", "").strip()
         link_final = aplicar_id_afiliado(st.session_state.sel_link, mkt)
         
         with st.container(border=True):
-            st.success(f"📦 **Produto:** {nome_limpo}")
+            st.success(f"📦 **Produto Selecionado:** {nome_limpo}")
+            st.markdown("#### 🔗 Link Rastreando Comissão")
             st.code(link_final, language="text")
 
-        if st.button("🔥 GERAR ESTRATÉGIAS VIRAIS", width='stretch'):
-            with st.spinner("Gemini Plus criando 5 variações agressivas..."):
-                # PROMPT REESTRUTURADO (O PULO DO GATO)
-                prompt = f"""
-                Aja como um Copywriter de elite focado em Reels e TikTok. 
-                Crie 5 variações de copy extremamente curtas e persuasivas para o produto: {nome_limpo}.
+        st.divider()
+
+        # Botão atualizado para o padrão 2026 (width='stretch')
+        if st.button("🔥 GERAR ESTRATÉGIAS VIRAIS (AIDA)", width='stretch'):
+            with st.spinner("Conectando ao Cérebro de Marketing Gemini Plus..."):
                 
-                REGRAS RÍGIDAS:
-                1. Use o método AIDA, mas seja direto. 
-                2. Use emojis que chamam atenção.
-                3. Foque no benefício/desejo, NÃO na ficha técnica.
-                4. Termine sempre instigando a pessoa a comentar para receber o link.
-                5. NÃO diga "Aqui estão as cópias", apenas entregue o texto.
-                
-                SEPARE CADA UMA DAS 5 VARIAÇÕES APENAS COM O MARCADOR: ###
-                """
+                # 🧠 Aqui está a mágica: buscamos o prompt mestre no copy.py
+                prompt_mestre = copy.gerar_prompt_aida(nome_limpo, estilo="agressivo")
                 
                 try:
-                    # Chama o motor (Gemini Pro Estável via v1)
-                    resultado = miny.minerar_produtos(prompt, mkt, "gemini-1.5-pro")
+                    # Dispara para o motor (já blindado contra erro 404 no mineracao.py)
+                    resultado_bruto = miny.minerar_produtos(prompt_mestre, mkt, "gemini-1.5-pro")
+                    
+                    # 🧼 Limpa saudações da IA (Oi, aqui está...)
+                    resultado = copy.limpar_copy(resultado_bruto)
                     
                     if "###" in resultado:
                         st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 15]
                     else:
                         st.session_state.res_arsenal = [resultado.strip()]
                 except Exception as e:
-                    st.error(f"Erro na geração: {e}")
+                    st.error(f"Erro no disparo do Arsenal: {e}")
 
+        # Exibição das Munições
         if "res_arsenal" in st.session_state:
-            for i, copy in enumerate(st.session_state.res_arsenal[:5]):
+            for i, texto_copy in enumerate(st.session_state.res_arsenal[:5]):
                 with st.container(border=True):
-                    st.markdown(f"#### 💎 Estratégia V{i+1}")
-                    st.write(copy)
+                    st.markdown(f"#### 💎 Estratégia de Elite V{i+1}")
+                    st.write(texto_copy)
+                    
+                    # Botão atualizado para width='stretch'
                     if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}", width='stretch'):
-                        st.session_state.copy_ativa = f"{copy}\n\n🛒 LINK NO DIRECT: {link_final}"
-                        st.toast("Munição enviada!")
+                        st.session_state.copy_ativa = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_final}"
+                        st.toast(f"Munição V{i+1} enviada ao Estúdio!")
     else:
-        st.warning("Selecione um produto no Scanner.")
+        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
