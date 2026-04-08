@@ -36,7 +36,8 @@ def exibir_arsenal(miny, motor_ia):
 
         st.divider()
 
-        if st.button(f"🔥 GERAR MUNIÇÃO DE ALTA PERSUASÃO", use_container_width=True):
+        # Atualizado: use_container_width -> width='stretch'
+        if st.button(f"🔥 GERAR MUNIÇÃO DE ALTA PERSUASÃO", width='stretch'):
             with st.spinner("Gemini Pro processando gatilhos psicológicos..."):
                 
                 # --- PROMPT BLINDADO E REESTRUTURADO ---
@@ -76,7 +77,8 @@ def exibir_arsenal(miny, motor_ia):
                     st.markdown(f"#### 💎 Estratégia de Elite V{i+1}")
                     st.markdown(v_limpa)
                     
-                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_v_{i}"):
+                    # Atualizado: key dinâmico e width='stretch'
+                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_v_{i}", width='stretch'):
                         st.session_state.copy_ativa = f"{v_limpa}\n\n🛒 **COMPRE AGORA:** {link_final}"
                         st.toast("Munição enviada com sucesso!")
     else:
