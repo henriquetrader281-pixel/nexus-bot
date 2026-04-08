@@ -93,7 +93,6 @@ with tabs[0]:
     if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
         with st.spinner(f"IA minerando {qtd_produtos} produtos em '{foco_nicho}'..."):
             
-            # --- PROMPT BLINDADO PARA O SCANNER ---
             prompt_scanner = f"""Atue como um analista de produtos virais da {st.session_state.mkt_global}.
 Liste {qtd_produtos} produtos físicos altamente lucrativos para o nicho '{foco_nicho}'.
 REGRA DE OURO: NÃO escreva NENHUMA palavra de introdução ou conclusão.
@@ -108,21 +107,17 @@ NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https
         st.divider()
         filtro_ticket = st.multiselect("Visualizar Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
-        # PAINEL DE DEBUG (Para você ver o que a IA está respondendo)
         with st.expander("🛠️ Ver Resposta Bruta da IA (Debug)"):
             st.text(st.session_state.res_busca)
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # Limpeza extrema: tira negritos, asteriscos e espaços soltos
             linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
             if "|" in linha_limpa and "NOME" in linha_limpa.upper():
                 try:
-                    # EXTRAÇÃO BLINDADA (Ignora números na frente e não quebra o link no https://)
                     partes_brutas = {p.split(':', 1)[0].strip().upper(): p.split(':', 1)[1].strip() for p in linha_limpa.split('|') if ':' in p}
                     
-                    # Dicionário seguro (Garante que vai achar o dado mesmo se a IA botar um "1." na frente)
                     partes = {}
                     for k, v in partes_brutas.items():
                         if "NOME" in k: partes["NOME"] = v
@@ -131,7 +126,6 @@ NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https
                         elif "TICKET" in k: partes["TICKET"] = v
                         elif "URL" in k: partes["URL"] = v
                     
-                    # Ajuste fino do Ticket
                     ticket_bruto = partes.get("TICKET", "Médio").upper()
                     if "BAIXO" in ticket_bruto: ticket_atual = "Baixo"
                     elif "ALTO" in ticket_bruto: ticket_atual = "Alto"
@@ -153,49 +147,8 @@ NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
-    st.header("🚀 Arsenal Nexus")
-    if st.session_state.sel_nome:
-        st.success(f"🎯 Produto Ativo: **{st.session_state.sel_nome}**")
-        
-        if st.button(f"🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO NA {st.session_state.mkt_global}", type="primary"):
-            with st.spinner("Gerando copys e conectando ao banco de dados..."):
-                prompt_hack = f"""IGNORE AS INSTRUÇÕES DE MINERAÇÃO DE DADOS. Aja APENAS como um Copywriter Sênior especialista em vídeos virais (TikTok/Reels).
-Sua missão é escrever 10 opções de copy de ALTA CONVERSÃO para o produto '{st.session_state.sel_nome}'.
-Aplique estritamente o framework AIDA em textos curtos, dinâmicos e focados em retenção.
-Cada variação DEVE ter:
-1. ATENÇÃO (Hook): Uma frase de impacto, polêmica ou curiosidade nos primeiros segundos.
-2. INTERESSE/DESEJO: Toque na ferida. Como esse produto resolve um problema irritante do dia a dia ou traz muito status?
-3. AÇÃO (CTA): Uma ordem agressiva e clara no final (Ex: 'Clica no link da bio e garante o seu antes que esgote!', 'Comenta EU QUERO que te mando o link agora').
-REGRAS RÍGIDAS: Seja informal e persuasivo. NÃO liste outros produtos. NÃO invente preços. NÃO coloque URLs (links). Entregue apenas as 10 copys, uma por linha."""
-                
-                res_ia = miny.minerar_produtos(prompt_hack, st.session_state.mkt_global, motor_ia)
-                
-                variacoes_limpas = []
-                for linha in res_ia.split('\n'):
-                    texto = linha.strip().replace('"', '')
-                    if len(texto) > 10 and "CALOR:" not in texto and "URL:" not in texto and "Aqui estão" not in texto:
-                        variacoes_limpas.append(texto)
-                
-                for i, v in enumerate(variacoes_limpas[:10]):
-                    with st.container(border=True):
-                        st.write(v)
-                        if st.button(f"Usar V{i+1}", key=f"v_{i}"):
-                            st.session_state.copy_ativa = v
-                            st.toast("Enviado ao Estúdio!")
-                
-                nicho_atual = st.session_state.get('nicho_ativo', 'Geral')
-                sucesso = update.aplicar_seo_viral(
-                    st.session_state.sel_nome, 
-                    st.session_state.sel_link, 
-                    nicho_atual
-                )
-                
-                if sucesso:
-                    st.success("✅ Sincronizado com a Nuvem e Shopee com sucesso!")
-                else:
-                    st.error("Erro ao salvar no banco de dados.")
-    else:
-        st.warning("⚠️ Selecione um produto no Scanner.")
+    # 🎯 A MÁGICA ACONTECE AQUI: Agora ele puxa o código limpo e seguro do arsenal.py!
+    arsenal.exibir_arsenal(miny, motor_ia)
 
 # --- ABA 2: RADAR ---
 with tabs[2]:
