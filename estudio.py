@@ -1,75 +1,77 @@
 import streamlit as st
-import os
-
-try:
-    from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-except ImportError:
-    pass
 
 def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio Nexus | Edição na Nuvem 🔱")
+    st.markdown("### 🎬 Estúdio de Edição Nexus | Retenção & AIDA 🔱")
     
+    # 1. SEGURANÇA: Verifica se existe produto selecionado
+    if "sel_nome" not in st.session_state or not st.session_state.sel_nome:
+        st.warning("⚠️ Selecione um produto no Scanner antes de entrar no Estúdio!")
+        return
+
+    # 2. LIMPEZA: Isola o nome do produto para a IA não se perder
+    produto_foco = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
+
+    # --- 🔗 INTEGRAÇÃO COM O ARSENAL ---
+    # Se você clicou em "Usar V1" no Arsenal, ele puxa o texto e cola o link!
     if "copy_ativa" in st.session_state and st.session_state.copy_ativa != "":
-        st.success("✅ Copy Matadora Recebida!")
+        st.success("✅ Copy de Alta Conversão recebida do Arsenal!")
         
+        # Blindagem do Link (ID: 18316451024)
         link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
         link_base = link_raw.split('?')[0].split('|')[0].strip()
         link_final = f"{link_base}?smtt=18316451024"
+
+        # Junta a copy viral do Arsenal com o seu link
+        st.session_state.copy_final_pronta = f"{st.session_state.copy_ativa}\n\n🛒 **COMPRE AQUI:** {link_final}"
         
-        st.text_area("Legenda do Post (Copia e Cola no Instagram):", f"{st.session_state.copy_ativa}\n\n🛒 COMPRE AQUI: {link_final}", height=150)
+        # Limpa o envio para não travar a tela
+        st.session_state.copy_ativa = ""
+
+    # --- CONTAINER DA LEGENDA ---
+    with st.container(border=True):
+        st.markdown(f"#### 🎯 Estratégia: **{produto_foco}**")
         
-        st.divider()
-        st.markdown("#### ⚙️ Motor de Renderização (Streamlit Cloud)")
-        
-        # Lendo e salvando direto na raiz do GitHub / Nuvem
-        video_base = "video_modelo_nexus.mp4" 
-        caminho_final = "reel_pronto_nexus.mp4"
-        
-        if st.button("🎞️ INICIAR EDIÇÃO E GERAR DOWNLOAD", type="primary"):
-            with st.spinner("IA fatiando a copy e renderizando vídeo na nuvem..."):
-                
-                prompt_edicao = f"Divida esta copy em 3 partes curtas separadas por '|': [HOOK] | [DESEJO] | [CTA]. Copy: {st.session_state.copy_ativa}"
-                
+        if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
+            with st.spinner("Refinando copy e blindando link..."):
+                prompt_aida = f"""
+                Ignore o histórico. Foque APENAS no produto: {produto_foco}.
+                Gere uma legenda AIDA (Atenção, Interesse, Desejo, Ação).
+                Regras: Direto ao ponto, use emojis, sem introduções.
+                """
                 try:
-                    mapa_edicao = miny.minerar_produtos(prompt_edicao, "Shopee", motor_ia)
-                    partes_texto = mapa_edicao.split('|')
+                    resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
                     
-                    texto_hook = partes_texto[0].strip() if len(partes_texto) > 0 else "Olha isso!"
-                    texto_meio = partes_texto[1].strip() if len(partes_texto) > 1 else st.session_state.copy_ativa
-                    texto_cta = partes_texto[2].strip() if len(partes_texto) > 2 else "Link na Bio!"
-                    
-                    if os.path.exists(video_base):
-                        # Carrega o vídeo cru que está no GitHub
-                        video = VideoFileClip(video_base).subclip(0, 15)
-                        
-                        txt_hook = TextClip(texto_hook, fontsize=50, color='white', stroke_color='black', stroke_width=2, method='caption', size=video.size).set_position('center').set_start(0).set_end(3)
-                        txt_meio = TextClip(texto_meio, fontsize=45, color='white', stroke_color='black', stroke_width=2, method='caption', size=video.size).set_position('center').set_start(3).set_end(10)
-                        txt_cta = TextClip(texto_cta, fontsize=55, color='yellow', stroke_color='black', stroke_width=3, method='caption', size=video.size).set_position('center').set_start(10).set_end(15)
-                        
-                        video_final = CompositeVideoClip([video, txt_hook, txt_meio, txt_cta])
-                        
-                        # Salva temporariamente na nuvem do Streamlit
-                        video_final.write_videofile(caminho_final, fps=24, codec="libx264", audio_codec="aac", logger=None)
-                        
-                        st.success("🚀 VÍDEO RENDERIZADO COM SUCESSO!")
-                        
-                        # GERA O BOTÃO DE DOWNLOAD DIRETO PARA O SEU CELULAR/PC
-                        with open(caminho_final, "rb") as file:
-                            btn = st.download_button(
-                                label="📥 BAIXAR REEL PARA A GALERIA",
-                                data=file,
-                                file_name="reel_viral_pronto.mp4",
-                                mime="video/mp4",
-                                type="primary"
-                            )
-                        
-                        st.balloons()
-                        st.session_state.copy_ativa = ""
-                        
-                    else:
-                        st.error(f"⚠️ O arquivo '{video_base}' não foi encontrado! Faça o upload dele para a raiz do seu repositório no GitHub.")
-                
+                    link_raw = st.session_state.get('sel_link', 'https://shopee.com.br')
+                    link_base = link_raw.split('?')[0].split('|')[0].strip()
+                    link_final = f"{link_base}?smtt=18316451024"
+
+                    st.session_state.copy_final_pronta = f"{resultado.strip()}\n\n🛒 **COMPRE AQUI:** {link_final}"
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Erro no motor de renderização: {e}\n(Verifique se o pacote 'moviepy' está no seu arquivo requirements.txt do GitHub).")
-    else:
-        st.warning("⚠️ Volte no Arsenal, gere as copys e clique em 'Usar V1' para enviar o texto para a ilha de edição.")
+                    st.error(f"Aguarde o reset da IA: {str(e)}")
+
+        # Exibição da copy gerada ou recebida
+        if "copy_final_pronta" in st.session_state:
+            st.text_area("Sua munição (Legenda + Link Shopee):", value=st.session_state.copy_final_pronta, height=200)
+
+    st.divider()
+
+    # --- CONTAINER DO ROTEIRO (ATUALIZADO PARA ALTO NÍVEL) ---
+    st.markdown("#### 🎥 Mapa de Cortes (Direção de Arte)")
+    if st.button("🧠 GERAR ROTEIRO DE ALTA RETENÇÃO", use_container_width=True):
+        with st.spinner("Criando mapa de cenas com marketing avançado..."):
+            prompt_video = f"""Atue como Diretor de Marketing. Crie um roteiro de edição prático de 15s para o produto: {produto_foco}.
+Divida a edição no formato AIDA de alta retenção visual:
+[0-3s] HOOK VISUAL: O que deve aparecer na tela para prender a atenção nos primeiros segundos?
+[3-10s] DESEJO/DOR: Como demonstrar o produto resolvendo o problema no vídeo?
+[10-15s] CTA: O que deve piscar na tela para forçar o clique/comentário.
+Seja direto, prático e focado na edição no CapCut."""
+            try:
+                st.session_state.roteiro_video = miny.minerar_produtos(prompt_video, "Shopee", motor_ia)
+                st.rerun()
+            except:
+                st.error("IA em resfriamento. Tente em instantes.")
+
+    if "roteiro_video" in st.session_state:
+        with st.expander("🎞️ ROTEIRO CAPCUT", expanded=True):
+            st.markdown(st.session_state.roteiro_video)
