@@ -1,9 +1,9 @@
-streamlit
-groq
-google-generativeai
+streamlit>=1.35.0
+groq>=0.9.0
+google-generativeai>=0.8.3
 pandas
 requests
 tiktok-uploader
-opencv-python
+opencv-python-headless
 pillow
 moviepy
