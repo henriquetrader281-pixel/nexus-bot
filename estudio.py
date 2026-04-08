@@ -1,13 +1,6 @@
 import streamlit as st
-import streamlit as st
-import nexus_copy as nxcopy # 🔱 Nome novo aqui também
+import nexus_copy as nxcopy # 🔱 Importando o cérebro de marketing atualizado
 
-# ... (dentro da função gerar roteiro)
-try:
-    roteiro_bruto = miny.minerar_produtos(prompt_estudio, "", "gemini-1.5-pro")
-    st.session_state.roteiro_ativo = nxcopy.limpar_copy(roteiro_bruto)
-except Exception as e:
-    st.error(f"Erro no motor do Estúdio: {e}")
 def exibir_estudio(miny, motor_ia):
     st.markdown("### 🎬 Estúdio de Edição Nexus Absolute")
 
@@ -40,7 +33,7 @@ def exibir_estudio(miny, motor_ia):
         if st.button("📽️ GERAR ROTEIRO CINEMATOGRÁFICO", width='stretch'):
             with st.spinner("Gemini Plus desenhando as cenas..."):
                 
-                # Criamos um prompt focado em roteiro visual dentro do contexto de marketing
+                # Criamos um prompt focado em roteiro visual
                 nome_prod = st.session_state.get('sel_nome', 'Produto').split('|')[0]
                 prompt_estudio = f"""
                 Aja como Diretor de Vídeos Virais. Crie um roteiro de 15 segundos para Reels.
@@ -56,11 +49,11 @@ def exibir_estudio(miny, motor_ia):
                 """
                 
                 try:
-                    # Dispara para o motor Gemini Pro Estável
+                    # 🚀 Dispara para o motor Gemini Pro Estável via mineracao.py
                     roteiro_bruto = miny.minerar_produtos(prompt_estudio, "", "gemini-1.5-pro")
                     
-                    # Usa a limpeza do copy.py para tirar o "Oi" da IA
-                    st.session_state.roteiro_ativo = copy.limpar_copy(roteiro_bruto)
+                    # ✅ Correção: Usando o nxcopy para limpar o ruído da IA
+                    st.session_state.roteiro_ativo = nxcopy.limpar_copy(roteiro_bruto)
                 except Exception as e:
                     st.error(f"Erro no motor do Estúdio: {e}")
 
