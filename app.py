@@ -3,7 +3,7 @@ import arsenal
 import estudio
 import pandas as pd
 import update
-import radar_engine  # Ligação do motor de radar adicionada
+import radar_engine 
 import os
 import urllib.parse
 from datetime import datetime
@@ -123,14 +123,25 @@ with tabs[1]:
     if st.session_state.sel_nome:
         st.success(f"🎯 Produto Ativo: **{st.session_state.sel_nome}**")
         
-        # Botão principal de injeção
-        if st.button("🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO", type="primary"):
-            with st.spinner("Conectando ao Arsenal e Sincronizando..."):
+        # O SEU BOTÃO ORIGINAL QUE MOSTRA AS VARIAÇÕES
+        if st.button(f"🚀 INJETAR 10 VARIAÇÕES DO SELECIONADO NA {st.session_state.mkt_global}", type="primary"):
+            with st.spinner("Gerando copys e conectando ao banco de dados..."):
                 
-                # Resgata o nicho atual para enviar ao update.py sem dar erro
+                # 1. MOSTRA AS 10 VARIAÇÕES NA TELA (O que estava faltando)
+                res_ia = miny.minerar_produtos(f"Gere 10 variações de copy viral para: {st.session_state.sel_nome}", st.session_state.mkt_global, motor_ia) 
+                variacoes = [v.strip() for v in res_ia.split("###") if len(v) > 10]
+                if not variacoes: variacoes = res_ia.split('\n')
+                
+                for i, v in enumerate(variacoes):
+                    if len(v.strip()) > 5:
+                        with st.container(border=True):
+                            st.write(v)
+                            if st.button(f"Usar V{i+1}", key=f"v_{i}"):
+                                st.session_state.copy_ativa = v
+                                st.toast("Enviado ao Estúdio!")
+                
+                # 2. LIGAÇÃO COM O MOTOR SHOPEE (invisível, faz o trabalho pesado por trás)
                 nicho_atual = st.session_state.get('nicho_ativo', 'Geral')
-                
-                # LIGAÇÃO DEFINITIVA AO MOTOR DA SHOPEE AQUI
                 sucesso = update.aplicar_seo_viral(
                     st.session_state.sel_nome, 
                     st.session_state.sel_link, 
@@ -138,17 +149,11 @@ with tabs[1]:
                 )
                 
                 if sucesso:
-                    st.success(f"✅ Sucesso! 10 vídeos criados para: {st.session_state.sel_nome}")
-                    st.balloons()
-                    
-                    # Limpa a seleção da memória para não bugar a próxima injeção
-                    st.session_state.sel_nome = ""
-                    st.session_state.sel_link = ""
-                    
+                    st.success("✅ Sincronizado com a Nuvem e Shopee com sucesso!")
                 else:
-                    st.error("Erro ao processar no Arsenal.")
+                    st.error("Erro ao salvar no banco de dados.")
     else:
-        st.warning("⚠️ Nenhum produto selecionado. Volte no Scanner e escolha um item.")
+        st.warning("⚠️ Selecione um produto no Scanner.")
 
 # --- ABA 2: RADAR ---
 with tabs[2]:
@@ -158,7 +163,7 @@ with tabs[2]:
     if c_eua.button("🇺🇸 Scanner TikTok USA"): 
         st.info("Buscando produtos virais nos EUA...")
         try:
-            radar_engine.buscar_trends_usa() # Executa o seu motor se a função existir
+            radar_engine.buscar_trends_usa()
         except:
             pass
             
