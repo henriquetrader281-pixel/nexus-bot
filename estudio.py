@@ -27,39 +27,41 @@ def exibir_estudio(miny, motor_ia):
         st.markdown(f"#### 🎯 Estratégia: **{produto_foco}**")
         
         if st.button("🔥 GERAR NOVA MUNIÇÃO AIDA + LINK", use_container_width=True):
-            with st.spinner("Buscando dados reais do produto e gerando legenda..."):
+            with st.spinner("Extraindo copy nível sênior (Técnica de Tags)..."):
                 
-                # PROMPT RAG SIMULADO: Inteligente e direto
-                prompt_aida = f"""MUDE AS REGRAS. IGNORE A LISTA DE 30 PRODUTOS.
-Preciso de UMA legenda para o produto '{produto_foco}'.
-PASSO 1: Lembre-se de 2 características técnicas e 2 benefícios reais que os compradores buscam neste produto.
-PASSO 2: Escreva a legenda usando esses dados reais para dar credibilidade.
-- Comece tocando numa dor ou problema comum.
-- Apresente o produto com os dados técnicos.
-- Termine com: 'Comenta EU QUERO que te mando o link no Direct!'
-NÃO use a palavra 'http' e NÃO liste outros produtos."""
+                # PROMPT BLINDADO COM TAGS DE EXTRAÇÃO
+                prompt_aida = f"""Atue como o melhor Copywriter de TikTok/Reels do Brasil.
+Seu trabalho é vender o produto: '{produto_foco}'.
+Crie UMA legenda curta, agressiva e viral.
+1. Use 2 características técnicas reais e 2 benefícios práticos.
+2. Comece com uma pergunta que toque na dor.
+3. O CTA final DEVE SER: 'Comenta EU QUERO que te mando o link no Direct!'
+REGRA DE OURO: Você está proibido de conversar comigo. Não diga 'Aqui está', não explique nada.
+Obrigatoriamente, coloque a sua legenda DENTRO das tags [COPY] e [/COPY].
+Exemplo do seu formato de resposta:
+[COPY]
+Você ainda passa raiva com...
+[/COPY]"""
                 
                 try:
                     resultado = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
                     
-                    # FILTRO SNIPER (Apaga só o que é lixo da IA, protege o texto)
-                    linhas_limpas = []
-                    for linha in resultado.split('\n'):
-                        # Se for a lista padrão do Scanner, ele ignora
-                        if "CALOR:" in linha or "TICKET:" in linha:
-                            continue
-                        # Se a IA teimar em colocar um link solto, ele ignora
-                        if "shopee.com.br" in linha:
-                            continue
-                        linhas_limpas.append(linha)
+                    # TÉCNICA DE EXTRAÇÃO POR TAGS (Ignora qualquer lixo fora das tags)
+                    if "[COPY]" in resultado and "[/COPY]" in resultado:
+                        texto_final_ia = resultado.split("[COPY]")[1].split("[/COPY]")[0].strip()
+                    else:
+                        # Filtro de emergência caso a IA esqueça as tags
+                        linhas_limpas = []
+                        for linha in resultado.split('\n'):
+                            if "CALOR:" in linha or "TICKET:" in linha or "Aqui est" in linha or "shopee.com" in linha:
+                                continue
+                            linhas_limpas.append(linha)
+                        texto_final_ia = "\n".join(linhas_limpas).strip()
                     
-                    texto_final_ia = "\n".join(linhas_limpas).strip()
-                    
-                    # Se por algum motivo a IA travar e não devolver nada, avisamos
                     if not texto_final_ia:
-                        texto_final_ia = "⚠️ A IA não conseguiu formatar o texto. Clique em Gerar novamente."
+                        texto_final_ia = "⚠️ Erro de formatação da IA. Clique em Gerar novamente."
 
-                    # Junta o texto com a Máquina de Links
+                    # Junta o texto purificado com a Máquina de Links
                     st.session_state.copy_final_pronta = f"{texto_final_ia}\n\n🛒 **SEU LINK DE AFILIADO:** {link_perfeito}"
                     st.rerun()
                 except Exception as e:
