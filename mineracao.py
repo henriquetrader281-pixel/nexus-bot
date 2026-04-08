@@ -8,10 +8,10 @@ except ImportError:
 
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
     """
-    Motor de Mineração Nexus V101 - Edição Gemini Plus 🔱
+    Motor de Mineração Nexus V101 - Edição Gemini Plus (Rota Fixa) 🔱
     """
     if "GEMINI_API_KEY" not in st.secrets:
-        return "Erro: GEMINI_API_KEY não encontrada nos Secrets do Streamlit."
+        return "Erro: GEMINI_API_KEY não encontrada nos Secrets."
 
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
@@ -39,23 +39,20 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
     NOME: [nome] | CALOR: [número entre 75 e 99] | VALOR: [preço] | TICKET: [Baixo/Médio/Alto] | URL: {url_mkt}[nome_do_produto]
     """
     
-    try:
-        # 💎 CONFIGURAÇÃO PARA USUÁRIOS PLUS (Usando a versão estável mais potente)
-        # O nome 'gemini-1.5-pro' sem o latest costuma ser o mais estável para API estável
-        model = genai.GenerativeModel("gemini-1.5-pro")
-        
-        # O Plus permite uma temperatura menor para dados mais precisos
-        response = model.generate_content(prompt)
-        return response.text
-        
-    except Exception as e:
-        # Se der erro no Pro, tentamos o Flash como backup ultrarrápido
+    # Lista de modelos por ordem de potência para o seu plano Plus
+    modelos_tentar = ["gemini-1.5-pro-002", "gemini-1.5-pro", "gemini-1.5-flash-002"]
+    
+    ultima_excecao = ""
+    for nome_modelo in modelos_tentar:
         try:
-            model_fb = genai.GenerativeModel("gemini-1.5-flash")
-            response_fb = model_fb.generate_content(prompt)
-            return response_fb.text
-        except:
-            return f"Erro na conexão Gemini Plus: {str(e)}"
+            model = genai.GenerativeModel(nome_modelo)
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            ultima_excecao = str(e)
+            continue # Tenta o próximo modelo se o atual der 404
+            
+    return f"Erro Crítico de Rota no Gemini Plus: {ultima_excecao}"
 
 def formatar_saida_limpa(texto_bruto):
     if not texto_bruto or "Erro" in texto_bruto:
