@@ -70,7 +70,8 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 )
 
 # Motor configurado para Gemini Pro Estável (Lido pelo mineracao.py)
-motor_ia = "gemini-1.5-pro" 
+# No app.py, onde você define o motor_ia:
+motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
