@@ -108,15 +108,34 @@ NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https
         st.divider()
         filtro_ticket = st.multiselect("Visualizar Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
+        # PAINEL DE DEBUG (Para você ver o que a IA está respondendo)
+        with st.expander("🛠️ Ver Resposta Bruta da IA (Debug)"):
+            st.text(st.session_state.res_busca)
+        
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # Limpeza anti-negrito da IA (remove asteriscos)
-            linha_limpa = linha.replace("**", "").replace("*", "")
+            # Limpeza extrema: tira negritos, asteriscos e espaços soltos
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
             if "|" in linha_limpa and "NOME" in linha_limpa.upper():
                 try:
-                    partes = {p.split(':')[0].strip().upper(): p.split(':')[1].strip() for p in linha_limpa.split('|') if ':' in p}
-                    ticket_atual = partes.get("TICKET", "Médio")
+                    # EXTRAÇÃO BLINDADA (Ignora números na frente e não quebra o link no https://)
+                    partes_brutas = {p.split(':', 1)[0].strip().upper(): p.split(':', 1)[1].strip() for p in linha_limpa.split('|') if ':' in p}
+                    
+                    # Dicionário seguro (Garante que vai achar o dado mesmo se a IA botar um "1." na frente)
+                    partes = {}
+                    for k, v in partes_brutas.items():
+                        if "NOME" in k: partes["NOME"] = v
+                        elif "CALOR" in k: partes["CALOR"] = v
+                        elif "VALOR" in k: partes["VALOR"] = v
+                        elif "TICKET" in k: partes["TICKET"] = v
+                        elif "URL" in k: partes["URL"] = v
+                    
+                    # Ajuste fino do Ticket
+                    ticket_bruto = partes.get("TICKET", "Médio").upper()
+                    if "BAIXO" in ticket_bruto: ticket_atual = "Baixo"
+                    elif "ALTO" in ticket_bruto: ticket_atual = "Alto"
+                    else: ticket_atual = "Médio"
                     
                     if ticket_atual in filtro_ticket:
                         c_str = "".join(filter(str.isdigit, partes.get("CALOR", "0")))
