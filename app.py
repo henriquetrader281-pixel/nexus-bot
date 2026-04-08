@@ -101,20 +101,37 @@ with tabs[0]:
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+       # --- Dentro do loop de linhas do Scanner no seu app.py ---
+for idx, linha in enumerate(linhas):
+    linha_limpa = linha.replace("**", "").replace("*", "").strip()
+    
+    if "|" in linha_limpa:
+        try:
+            # Divide a linha por |
+            partes = [p.strip() for p in linha_limpa.split('|')]
             
-            if "|" in linha_limpa:
-                try:
-                    # 1. Quebra a linha pelos canos |
-                    partes_brutas = [p.strip() for p in linha_limpa.split('|')]
-                    
-                    # 2. Cria um dicionário para busca fácil
-                    dados = {}
-                    for p in partes_brutas:
-                        if ':' in p:
-                            chave, valor = p.split(':', 1)
-                            dados[chave.strip().upper()] = valor.strip()
+            # Pega o nome: Se não achar "NOME:", pega a primeira parte da linha
+            nome_final = "Produto"
+            for p in partes:
+                if "NOME:" in p.upper():
+                    nome_final = p.split(':', 1)[1].strip()
+                    break
+            if nome_final == "Produto" and len(partes) > 0:
+                nome_final = partes[0].replace("NOME:", "").strip()
+
+            # Pega o Valor
+            valor_final = "R$ 0,00"
+            for p in partes:
+                if "VALOR:" in p.upper():
+                    valor_final = p.split(':', 1)[1].strip()
+                    break
+
+            # Renderiza o Card
+            renderizar_card_produto(
+                idx, nome_final, valor_final, 95, "Médio", "#", st.session_state.mkt_global
+            )
+        except:
+            continue
                     
                     # 3. LÓGICA DE NOME BLINDADA:
                     # Tenta achar a chave que CONTÉM "NOME" (ex: "1. NOME" ou "NOME")
