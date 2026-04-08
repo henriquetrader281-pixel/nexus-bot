@@ -162,4 +162,8 @@ with tabs[3]:
 
 # --- ABA 4: DASHBOARD ---
 with tabs[4]:
-    update.dashboard_performance_simples()
+    st.header("📊 Dashboard de Performance")
+    try:
+        update.dashboard_performance_simples() # Garanta que esse nome de função existe no update.py
+    except Exception as e:
+        st.error(f"Erro ao carregar Dashboard: {e}")
