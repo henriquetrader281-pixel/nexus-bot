@@ -23,7 +23,8 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         c2.progress(calor_num / 100)
         c2.write(f"🌡️ {calor_num}°C")
         
-        if c3.button("Selecionar", key=f"btn_{idx}_{mkt_alvo}"):
+        # Atualizado: use_container_width -> width='stretch'
+        if c3.button("Selecionar", key=f"btn_{idx}_{mkt_alvo}", width='stretch'):
             st.session_state.sel_nome = nome
             st.session_state.sel_link = link
             st.toast(f"Selecionado: {nome}")
@@ -40,7 +41,8 @@ def login():
     with col2:
         senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
         senha = st.text_input("Acesso:", type="password")
-        if st.button("Entrar", use_container_width=True):
+        # Atualizado: width='stretch'
+        if st.button("Entrar", width='stretch'):
             if senha == senha_mestra:
                 st.session_state.autenticado = True
                 st.rerun()
@@ -73,13 +75,14 @@ with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
     c_mkt1, c_mkt2, c_mkt3 = st.columns(3)
-    if c_mkt1.button("🧡 Shopee", use_container_width=True): 
+    # Atualizado: width='stretch' em todos os botões de marketplace
+    if c_mkt1.button("🧡 Shopee", width='stretch'): 
         st.session_state.mkt_global = "Shopee"
         st.rerun()
-    if c_mkt2.button("💛 Mercado Livre", use_container_width=True): 
+    if c_mkt2.button("💛 Mercado Livre", width='stretch'): 
         st.session_state.mkt_global = "Mercado Livre"
         st.rerun()
-    if c_mkt3.button("💙 Amazon", use_container_width=True): 
+    if c_mkt3.button("💙 Amazon", width='stretch'): 
         st.session_state.mkt_global = "Amazon"
         st.rerun()
 
@@ -90,7 +93,8 @@ with tabs[0]:
     with col_sel2:
         foco_nicho = st.text_input("🎯 Foco do Scanner (Mudar Nicho):", value="Cozinha Criativa", key="nicho_ativo")
 
-    if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
+    # Atualizado: width='stretch'
+    if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", width='stretch'):
         with st.spinner(f"IA minerando {qtd_produtos} produtos em '{foco_nicho}'..."):
             
             prompt_scanner = f"""Atue como um analista de produtos virais da {st.session_state.mkt_global}.
@@ -147,7 +151,6 @@ NOME: Nome do Produto | CALOR: 95 | VALOR: R$ 49,90 | TICKET: Baixo | URL: https
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
-    # 🎯 A MÁGICA ACONTECE AQUI: Agora ele puxa o código limpo e seguro do arsenal.py!
     arsenal.exibir_arsenal(miny, motor_ia)
 
 # --- ABA 2: RADAR ---
@@ -155,14 +158,14 @@ with tabs[2]:
     st.header("🌍 Inteligência Radar")
     c_eua, c_br = st.columns(2)
     
-    if c_eua.button("🇺🇸 Scanner TikTok USA"): 
+    if c_eua.button("🇺🇸 Scanner TikTok USA", width='stretch'): 
         st.info("Buscando produtos virais nos EUA...")
         try:
             radar_engine.buscar_trends_usa()
         except:
             pass
             
-    if c_br.button(f"🇧🇷 Trends {st.session_state.mkt_global}"): 
+    if c_br.button(f"🇧🇷 Trends {st.session_state.mkt_global}", width='stretch'): 
         st.success(f"Analisando tendências na {st.session_state.mkt_global}...")
 
 # --- ABA 3: ESTÚDIO ---
