@@ -6,10 +6,12 @@ def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
     # --- ROTA DE INTELIGÊNCIA (Arsenal/Estúdio/Copy) ---
     if any(k in nicho for k in ["AIDA", "Copywriter", "Ignore", "###", "Roteiro"]):
         try:
-            # 🔱 CONFIGURAÇÃO BLINDADA
-            genai.configure(
-                api_key=st.secrets["GEMINI_API_KEY"],
-                transport='rest' # 🚀 Força o uso de REST para evitar erros de versão gRPC/Beta
+       # Dentro do mineracao.py
+genai.configure(
+    api_key=st.secrets["GEMINI_API_KEY"],
+    transport='rest' # 🚀 Isso aqui mata o erro 404
+)
+model = genai.GenerativeModel('gemini-1.5-flash')
             )
             
             # Tentamos o Flash, que é o mais resiliente a erros 404
