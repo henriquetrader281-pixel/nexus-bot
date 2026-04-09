@@ -8,3 +8,4 @@ opencv-python-headless
 pillow
 moviepy
 openai
+spotipy
