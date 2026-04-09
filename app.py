@@ -1,5 +1,6 @@
 import streamlit as st
 import arsenal 
+import trends
 import estudio
 import pandas as pd
 import update
