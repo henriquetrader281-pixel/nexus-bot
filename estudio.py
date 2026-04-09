@@ -8,132 +8,106 @@ from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 import nexus_copy as nxcopy
 import update
 
-# --- 1. MOTOR DE CAÇA REFORÇADO (Scraper V3) ---
+# --- 1. MOTOR DE CAPTURA ---
 def caçar_video_shopee(url_produto):
-    if not url_produto or "/search" in url_produto:
-        return None
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-    }
-    
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        res = requests.get(url_produto, headers=headers, timeout=15)
-        html = res.text
-        
-        # 🎯 BUSCA AGRESSIVA: Encontra MP4 mesmo "escondido" em JSON ou scripts
-        # Procura por links que contenham .mp4 e servidores conhecidos da Shopee
-        padroes = [
-            r'https?://[^\s"\'\\]+?\.mp4',                      # Links limpos
-            r'https?[:\\/]+[^"\'\s]+?\.mp4',                    # Links com escapes (\/)
-            r'https?://(?:cv|video|play|live)[^"\'\s]*?\.shopee[^"\'\s]*' # CDNs da Shopee
-        ]
-        
-        for p in padroes:
-            achados = re.findall(p, html)
-            if achados:
-                # Limpeza profunda: Remove aspas, barras extras e códigos de escape
-                link_limpo = achados[0].replace('\\u002f', '/').replace('\\u002F', '/').replace('\\/', '/').replace('"', '').replace("'", "")
-                if ".mp4" in link_limpo:
-                    return link_limpo
+        res = requests.get(url_produto, headers=headers, timeout=10)
+        # Tenta localizar MP4 no código (limpa escapes de JSON)
+        links = re.findall(r'https://[^\s"\'\\]+?\.mp4', res.text.replace('\\/', '/'))
+        if links: return links[0]
         return None
-    except Exception as e:
-        st.error(f"Erro no rastreio: {e}")
-        return None
-
-def baixar_video(url_video):
-    try:
-        res = requests.get(url_video, stream=True, timeout=20)
-        path = "video_bruto.mp4"
-        with open(path, "wb") as f:
-            for chunk in res.iter_content(chunk_size=1024):
-                if chunk: f.write(chunk)
-        return path
     except: return None
 
-# --- 2. MOTOR DE EDIÇÃO (Pillow + MoviePy) ---
-def criar_adesivo_legenda(texto, w, h):
-    # Cria a tarja preta com a copy branca
-    img = Image.new('RGBA', (w, h // 4), (0, 0, 0, 180))
-    draw = ImageDraw.Draw(img)
-    try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 25)
-    except: font = ImageFont.load_default()
-    
-    # Quebra de linha simples para não sair da tela
-    linhas = [texto[i:i+35] for i in range(0, len(texto), 35)]
-    draw.text((20, 20), "\n".join(linhas[:3]), font=font, fill="white")
-    return np.array(img)
-
+# --- 2. MOTOR DE EDIÇÃO (Aura de Viral) ---
 def renderizar_final(video_path, texto):
-    clip = VideoFileClip(video_path).subclip(0, 15)
-    w, h = clip.size
-    img_array = criar_adesivo_legenda(texto, w, h)
-    legenda = ImageClip(img_array).set_duration(clip.duration).set_position(('center', 'bottom'))
-    
-    output = "reels_nexus_pronto.mp4"
-    CompositeVideoClip([clip, legenda]).write_videofile(output, fps=24, codec="libx264")
-    return output
-
-# --- 3. INTERFACE DO ESTÚDIO ---
-def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio Nexus Absolute: Automação Total")
-    
-    # --- PASSO 1: RASTREIO AUTOMÁTICO ---
-    with st.expander("🔍 1. Rastrear Vídeo da Shopee", expanded=True):
-        # 💡 MELHORIA: Puxa o link do Scanner (st.session_state) automaticamente
-        link_scanner = st.session_state.get('sel_link', '')
-        url_input = st.text_input("Link do Produto para Captura:", value=link_scanner)
+    try:
+        clip = VideoFileClip(video_path).subclip(0, 15) # Limita a 15s para Reels
+        w, h = clip.size
         
-        if st.button("🛰️ INICIAR CAÇA AO VÍDEO", width='stretch'):
-            if url_input:
-                with st.spinner("Rastreando vídeo nos servidores da Shopee..."):
-                    link_mp4 = caçar_video_shopee(url_input)
-                    if link_mp4:
-                        path = baixar_video(link_mp4)
-                        if path:
-                            st.session_state.video_local = path
-                            st.success("🎯 Vídeo localizado e capturado!")
-                            st.video(path)
-                    else:
-                        st.error("Não encontramos o vídeo. Tente outro anúncio deste mesmo produto.")
-            else:
-                st.warning("Selecione um produto no Scanner ou cole o link aqui.")
+        # Cria a tarja preta semi-transparente
+        img = Image.new('RGBA', (w, h // 4), (0, 0, 0, 180))
+        draw = ImageDraw.Draw(img)
+        try: 
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+        except: 
+            font = ImageFont.load_default()
+        
+        # Quebra de linha automática para o texto
+        linhas = [texto[i:i+35] for i in range(0, len(texto), 35)]
+        draw.text((20, 20), "\n".join(linhas[:3]), font=font, fill="white")
+        
+        legenda_img = ImageClip(np.array(img)).set_duration(clip.duration).set_position(('center', 'bottom'))
+        
+        output = "reels_final_nexus.mp4"
+        CompositeVideoClip([clip, legenda_img]).write_videofile(output, fps=24, codec="libx264", audio_codec="aac")
+        return output
+    except Exception as e:
+        st.error(f"Erro na renderização: {e}")
+        return None
 
-    # --- PASSO 2: REFINO DA COPY ---
-    copy_ativa = st.session_state.get("copy_ativa", "")
-    if copy_ativa:
-        st.divider()
+# --- 3. INTERFACE (O QUE MUDOU AFINAL) ---
+def exibir_estudio(miny, motor_ia):
+    st.markdown("### 🎬 Estúdio Nexus: Captura & Edição")
+
+    # 💡 NOVA MELHORIA: Selector de Método
+    metodo = st.radio("Como queres o vídeo do produto?", ["🛰️ Automático (URL)", "📤 Upload Manual (PC/Telemóvel)"], horizontal=True)
+
+    caminho_video = None
+
+    if metodo == "🛰️ Automático (URL)":
+        # Puxa o link do Scanner automaticamente
+        link_origem = st.session_state.get('sel_link', '')
+        url_input = st.text_input("Link do Produto:", value=link_origem)
+        
+        if st.button("🛰️ INICIAR CAÇA"):
+            with st.spinner("Rastreando..."):
+                link_mp4 = caçar_video_shopee(url_input)
+                if link_mp4:
+                    st.session_state.video_ativo = link_mp4
+                    st.success("🎯 Vídeo localizado!")
+                else:
+                    st.error("A Shopee bloqueou o robô. Usa o 'Upload Manual' abaixo.")
+
+    else:
+        # 💡 NOVA MELHORIA: Upload de arquivo que tu baixaste
+        arquivo = st.file_uploader("Sobe o vídeo bruto que descarregaste:", type=["mp4", "mov"])
+        if arquivo:
+            with open("temp_video.mp4", "wb") as f:
+                f.write(arquivo.getbuffer())
+            st.session_state.video_ativo = "temp_video.mp4"
+            st.success("✅ Vídeo pronto para edição!")
+
+    # --- ÁREA DE EDIÇÃO ---
+    if "video_ativo" in st.session_state:
+        st.video(st.session_state.video_ativo)
+        
+        # Puxa a copy do Arsenal
+        copy_base = st.session_state.get("copy_ativa", "")
+        
         with st.container(border=True):
-            st.markdown("#### 📝 Refino de Legenda")
-            legenda_editada = st.text_area("Ajuste sua legenda aqui:", value=copy_ativa, height=200)
+            st.markdown("#### 📝 Ajuste de Legenda")
+            legenda_final = st.text_area("Texto que aparecerá no vídeo:", value=copy_base, height=150)
             
-            # 💎 Botão Gatilho ManyChat
-            if st.button("💎 ADICIONAR GATILHO MANYCHAT", width='stretch'):
-                gatilho = "\n\n🔥 Comenta 'EU QUERO' que te envio o link no seu Direct agora! 🚀"
-                if gatilho not in legenda_editada:
-                    legenda_editada += gatilho
-                    st.session_state.copy_ativa = legenda_editada
+            if st.button("💎 ADICIONAR GATILHO MANYCHAT"):
+                gatilho = "\n\n🔥 Comenta 'EU QUERO' que te envio o link! 🚀"
+                if gatilho not in legenda_final:
+                    legenda_final += gatilho
+                    st.session_state.copy_ativa = legenda_final
                     st.rerun()
 
-        # --- PASSO 3: RENDERIZAÇÃO ---
-        if st.button("⚡ RENDERIZAR REELS AUTOMÁTICO", type="primary", width='stretch'):
-            if "video_local" in st.session_state:
-                with st.spinner("Editando vídeo com a sua copy..."):
-                    video_pronto = renderizar_final(st.session_state.video_local, legenda_editada)
-                    if video_pronto:
-                        st.balloons()
-                        with open(video_pronto, "rb") as f:
-                            st.download_button("📥 BAIXAR REELS FINALIZADO", f, file_name="reels_viral.mp4", width='stretch')
-            else:
-                st.warning("⚠️ Caça o vídeo no Passo 1 primeiro!")
+        if st.button("⚡ RENDERIZAR REELS FINAL", type="primary", width='stretch'):
+            with st.spinner("O Nexus está a criar o teu Reels..."):
+                resultado = renderizar_final(st.session_state.video_ativo, legenda_final)
+                if resultado:
+                    st.balloons()
+                    with open(resultado, "rb") as f:
+                        st.download_button("📥 DESCARREGAR REELS PRONTO", f, file_name="reels_nexus.mp4", width='stretch')
 
-    # --- PASSO 4: REGISTRO NO DASHBOARD ---
+    # --- SALVAR NO DASHBOARD ---
     st.divider()
     if st.button("🚀 SALVAR NO RAIO-X E FINALIZAR", width='stretch'):
-        nome_cru = st.session_state.get('sel_nome', 'Produto')
-        nome_limpo = nome_cru.split('|')[0].replace("NOME:", "").strip()
-        link_final = st.session_state.get('sel_link', '#')
-        
-        if update.aplicar_seo_viral(nome_limpo, link_final, "Shopee"):
-            st.success("✅ Salvo no Dashboard com sucesso!")
-            st.toast("Dados enviados para o Raio-X")
+        nome = st.session_state.get('sel_nome', 'Produto').split('|')[0]
+        link = st.session_state.get('sel_link', '#')
+        if update.aplicar_seo_viral(nome, link, "Shopee"):
+            st.success("✅ Registado no Dashboard de Performance!")
