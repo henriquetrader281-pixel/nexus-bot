@@ -1,35 +1,47 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, ColorClip
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 
-def processar_video_viral(video_path, texto_copy, output_name="video_final.mp4"):
+def criar_imagem_legenda(texto, largura, altura):
+    # 1. Cria uma imagem transparente (RGBA)
+    img = Image.new('RGBA', (largura, altura // 4), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    # 2. Configura a fonte (O Streamlit já tem fontes padrão no Linux)
     try:
-        # 1. Carrega o vídeo original (baixado da Shopee)
-        clip = VideoFileClip(video_path).subclip(0, 15) # Limita a 15s para Reels
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+    except:
+        font = ImageFont.load_default()
+
+    # 3. Desenha uma tarja semi-transparente
+    draw.rectangle([0, 0, largura, altura // 4], fill=(0, 0, 0, 160))
+    
+    # 4. Escreve o texto centralizado
+    # Nota: O Pillow precisa de um ajuste manual de quebra de linha se o texto for longo
+    draw.text((20, 20), texto, font=font, fill=(255, 255, 255, 255))
+    
+    return np.array(img)
+
+def renderizar_reels_automatico(video_bruto_path, texto_copy):
+    try:
+        # Carrega o vídeo original
+        clip = VideoFileClip(video_bruto_path).subclip(0, 15)
         w, h = clip.size
 
-        # 2. Cria uma tarja preta semi-transparente para o texto não "sumir" no fundo
-        # Colocamos no fundo do vídeo (estilo legenda de filme)
-        tarja = ColorClip(size=(w, h // 4), color=(0,0,0)).set_opacity(0.6)
-        tarja = tarja.set_duration(clip.duration).set_position(('center', 'bottom'))
-
-        # 3. Cria o Texto da Copy (Atenção: Requer ImageMagick no servidor)
-        # Escolhemos uma fonte impactante e cor branca
-        texto = TextClip(
-            texto_copy, 
-            fontsize=30, 
-            color='white', 
-            font='Arial-Bold',
-            method='caption',
-            size=(w * 0.8, None)
-        ).set_duration(clip.duration).set_position(('center', h - (h // 5)))
-
-        # 4. Faz a "Montagem" das camadas
-        video_final = CompositeVideoClip([clip, tarja, texto])
-
-        # 5. Renderiza o ficheiro final
-        video_final.write_videofile(output_name, fps=24, codec="libx264")
+        # Gera a imagem da legenda usando Pillow
+        img_array = criar_imagem_legenda(texto_copy, w, h)
         
-        return output_name
+        # Transforma a imagem em um clip de vídeo "parado"
+        legenda_clip = ImageClip(img_array).set_duration(clip.duration).set_position(('center', 'bottom'))
+
+        # Faz a fusão
+        video_final = CompositeVideoClip([clip, legenda_clip])
+        
+        output_path = "reels_nexus_pronto.mp4"
+        video_final.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac")
+        
+        return output_path
     except Exception as e:
         st.error(f"Erro na renderização: {e}")
         return None
