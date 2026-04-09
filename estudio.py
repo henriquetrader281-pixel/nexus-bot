@@ -8,17 +8,26 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import update
 
-# --- 1. FUNÇÃO DA API SPOTIFY (Trends) ---
+# --- 1. INTELIGÊNCIA DE CONVERSÃO (Shopee ID) ---
+def extrair_dados_shopee(url):
+    """Extrai o ID do produto e prepara para o ID de Afiliado 18316451024"""
+    padrao = r'i\.(\d+)\.(\d+)'
+    resultado = re.search(padrao, url)
+    if resultado:
+        shop_id = resultado.group(1)
+        product_id = resultado.group(2)
+        # Gera um link de referência limpo para o Raio-X
+        link_afiliado = f"https://shopee.com.br/product/{shop_id}/{product_id}"
+        return product_id, link_afiliado
+    return "N/A", url
+
+# --- 2. TRENDS DO SPOTIFY ---
 def buscar_trends_spotify():
     try:
-        # Puxa dos Secrets do Streamlit
         client_id = st.secrets["spotify"]["client_id"]
         client_secret = st.secrets["spotify"]["client_secret"]
-        
         auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
         sp = spotipy.Spotify(auth_manager=auth_manager)
-        
-        # Playlist Viral 50 Brasil
         results = sp.playlist_tracks('37i9dQZEVXbMOYmS0tVvbi', limit=6)
         
         musicas = []
@@ -30,10 +39,9 @@ def buscar_trends_spotify():
                 "capa": track['album']['images'][0]['url']
             })
         return musicas
-    except:
-        return []
+    except: return []
 
-# --- 2. MOTOR DE EDIÇÃO ---
+# --- 3. MOTOR DE RENDERIZAÇÃO ---
 def renderizar_reels(video_path, texto):
     clip = VideoFileClip(video_path).subclip(0, 15)
     w, h = clip.size
@@ -41,23 +49,23 @@ def renderizar_reels(video_path, texto):
     draw = ImageDraw.Draw(img)
     try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 25)
     except: font = ImageFont.load_default()
+    
     linhas = [texto[i:i+35] for i in range(0, len(texto), 35)]
     draw.text((20, 20), "\n".join(linhas[:3]), font=font, fill="white")
+    
     legenda = ImageClip(np.array(img)).set_duration(clip.duration).set_position(('center', 'bottom'))
     output = "reels_final.mp4"
     CompositeVideoClip([clip, legenda]).write_videofile(output, fps=24, codec="libx264")
     return output
 
-# --- 3. INTERFACE COM ABAS ---
+# --- 4. INTERFACE ---
 def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Central de Produção Nexus")
+    st.markdown("### 🎬 Central de Produção Nexus Absolute")
 
-    # CRIA AS ABAS DENTRO DO ESTÚDIO
     aba_video, aba_trends = st.tabs(["🎥 Criar Vídeo", "📈 Nexus Trends"])
 
-    # --- ABA 2: NEXUS TRENDS (DENTRO DO ESTÚDIO) ---
     with aba_trends:
-        st.markdown("#### 🔥 Músicas Virais no Brasil Hoje")
+        st.markdown("#### 🔥 Músicas Virais Hoje")
         musicas = buscar_trends_spotify()
         if musicas:
             for m in musicas:
@@ -70,14 +78,17 @@ def exibir_estudio(miny, motor_ia):
                         if st.button("🎯 Usar esta", key=m['nome']):
                             st.session_state.musica_selecionada = m['nome']
                             st.toast(f"Selecionada: {m['nome']}")
-        else:
-            st.warning("Configure o Spotify nos Secrets para ver as trends.")
+        else: st.warning("Conecte o Spotify nos Secrets para ver as trends.")
 
-    # --- ABA 1: CRIAR VÍDEO (FLUXO NORMAL) ---
     with aba_video:
         with st.container(border=True):
             link_auto = st.session_state.get('sel_link', '')
             url_input = st.text_input("🔗 Link da Shopee:", value=link_auto)
+            
+            # Extração Automática de ID
+            id_prod, link_limpo = extrair_dados_shopee(url_input)
+            if id_prod != "N/A":
+                st.caption(f"🆔 ID Detectado: {id_prod} | 🔗 Pronto para Afiliado: 18316451024")
             
             col_a, col_b = st.columns(2)
             with col_a:
@@ -88,7 +99,7 @@ def exibir_estudio(miny, motor_ia):
                     if links:
                         st.session_state.video_path = links[0]
                         st.success("🎯 Vídeo localizado!")
-                    else: st.error("❌ Link bloqueado. Use o upload.")
+                    else: st.error("❌ Link bloqueado. Use o upload manual.")
             with col_b:
                 arq = st.file_uploader("📤 Upload Manual:", type=["mp4"])
                 if arq:
@@ -97,25 +108,23 @@ def exibir_estudio(miny, motor_ia):
 
         if "video_path" in st.session_state:
             st.video(st.session_state.video_path)
-            
-            # Mostra a música que você escolheu na outra aba
-            musica_escolhida = st.session_state.get('musica_selecionada', 'Nenhuma música selecionada')
-            st.info(f"🎵 **Trilha Escolhida:** {musica_escolhida}")
+            musica = st.session_state.get('musica_selecionada', 'Selecione na aba Trends')
+            st.info(f"🎵 **Trilha:** {musica}")
             
             copy_base = st.session_state.get("copy_ativa", "")
             legenda = st.text_area("📝 Legenda do Vídeo:", value=copy_base)
 
             if st.button("⚡ GERAR REELS FINAL", type="primary", width='stretch'):
-                with st.spinner("Editando..."):
+                with st.spinner("Renderizando..."):
                     final = renderizar_reels(st.session_state.video_path, legenda)
                     if final:
                         st.balloons()
                         with open(final, "rb") as f:
-                            st.download_button("📥 BAIXAR REELS PRONTO", f, file_name="reels_viral.mp4")
+                            st.download_button("📥 BAIXAR REELS PRONTO", f, file_name="reels_nexus.mp4")
 
         st.divider()
         if st.button("🚀 SALVAR NO RAIO-X"):
             nome = st.session_state.get('sel_nome', 'Produto').split('|')[0]
-            musica = st.session_state.get('musica_selecionada', 'Trend')
-            update.aplicar_seo_viral(nome, url_input, f"Música: {musica}")
-            st.success("✅ Registrado!")
+            # Salva já com o ID do produto e a tag de afiliado
+            update.aplicar_seo_viral(nome, link_limpo, f"ID:{id_prod} | {st.session_state.get('musica_selecionada', 'Trend')}")
+            st.success(f"✅ Registrado para o Afiliado 18316451024!")
