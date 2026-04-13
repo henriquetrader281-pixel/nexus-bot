@@ -37,7 +37,7 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.session_state.sel_link = link
             st.toast(f"Alvo Selecionado: {nome}")
 
-# --- 3. SISTEMA DE ACESSO (Restaurado conforme o teu ficheiro original) ---
+# --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -74,8 +74,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# Adicionada a aba "📈 TRENDS" para ligar ao teu trends.py
-# Linha 79: Definição das 6 Abas do Nexus V101
+# Linha 79: Definição das 6 Abas
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -147,7 +146,7 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (O Módulo do Spotify) ---
+# --- ABA 2: TRENDS (Spotify) ---
 with tabs[2]:
     trends.exibir_trends()
 
