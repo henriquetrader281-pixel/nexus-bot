@@ -1,0 +1,50 @@
+import google.generativeai as genai
+import json
+
+# Configuração da API
+genai.configure(api_key="SUA_CHAVE_AQUI")
+
+def get_realtime_nexus_trends():
+    # Inicializa o modelo com a capacidade de busca do Google
+    # Isso permite que ele acesse dados de hoje (13/04/2026)
+    model = genai.GenerativeModel(
+        model_name='gemini-3-flash',
+        tools=[{"google_search": {}}]
+    )
+
+    # Prompt focado em cruzamento de dados para o seu perfil de trader/developer
+    prompt = """
+    Aja como um analista de dados senior de redes sociais. 
+    Data de hoje: 13 de Abril de 2026.
+    
+    Tarefa:
+    1. Pesquise as 5 músicas/áudios que estão no 'Top Breaking' do TikTok Creative Center Brasil hoje.
+    2. Verifique quais dessas 5 músicas já possuem volume de uso crescente no Instagram Reels.
+    3. Cruze com o Google Trends para ver qual termo/música tem maior volume de busca direta.
+    
+    Retorne o resultado em formato JSON para processamento automático:
+    {
+        "trend_report": [
+            {
+                "rank": 1,
+                "termo_musica": "nome",
+                "plataforma_origem": "TikTok/Reels",
+                "score_confianca": "0-100",
+                "razao_viral": "breve explicação",
+                "sugestao_aida": "gancho para Atenção no framework AIDA"
+            }
+        ]
+    }
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        # O Gemini retornará o texto com o JSON
+        return response.text
+    except Exception as e:
+        return f"Erro na análise: {e}"
+
+# Execução do monitoramento
+print("--- Iniciando Monitoramento Nexus Absolute (Real-Time) ---")
+relatorio_tendencias = get_realtime_nexus_trends()
+print(relatorio_tendencias)
