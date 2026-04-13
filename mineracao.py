@@ -1,14 +1,14 @@
 import streamlit as st
 from groq import Groq
 
-@st.cache_data(show_spinner=False) # <--- ADICIONE ESTA LINHA EXATAMENTE AQUI
+@st.cache_data(show_spinner=False)
 def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # 🎯 ROTA DE COPY E ESTRATÉGIA (Arsenal e Estúdio)
-    # Se o prompt for de marketing, usamos temperatura 0.7 para ser criativo
+    # Tudo o que estiver abaixo também precisa de 4 espaços de recuo
     if any(k in nicho for k in ["AIDA", "Copywriter", "###", "Roteiro"]):
         try:
+            # Continuação do código...
             chat = client.chat.completions.create(
                 messages=[{"role": "user", "content": nicho}],
                 model="llama-3.3-70b-versatile",
