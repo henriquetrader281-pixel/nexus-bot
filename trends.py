@@ -1,15 +1,14 @@
 import streamlit as st
 import requests
 
-# O cache faz 1 crédito durar 24 horas no seu navegador
+# Cache de 24h para economizar seus 150 créditos
 @st.cache_data(ttl=86400)
-def buscar_musicas_looter(api_key, api_host):
-    # Endpoint de tendências da Instagram Looter (ajuste se o nome for diferente no painel)
-    url = f"https://{api_host}/v1/reels/trending" 
+def buscar_trends_insta_120(api_key, api_host):
+    url = f"https://{api_host}/v1/trending_reels" # Verifique se o endpoint é este no painel
     
     headers = {
-        "X-RapidAPI-Key": api_key,
-        "X-RapidAPI-Host": api_host
+        "x-rapidapi-key": api_key,
+        "x-rapidapi-host": api_host
     }
 
     try:
@@ -17,43 +16,47 @@ def buscar_musicas_looter(api_key, api_host):
         if response.status_code == 200:
             return response.json()
         return None
-    except:
+    except Exception as e:
         return None
 
 def exibir_trends():
-    st.header("📈 Nexus Trends: Instagram Looter")
-    st.write("Minerando áudios virais com limite de 150 requisições.")
-
+    st.header("📈 Nexus Trends: Instagram 120")
+    
     if "rapidapi" not in st.secrets:
-        st.error("Configure a chave 'rapidapi' nos Secrets.")
+        st.error("Chave 'rapidapi' não encontrada nos Secrets.")
         return
 
-    # Botão para forçar a atualização (limpar o cache e gastar 1 crédito)
-    if st.button("🔄 ATUALIZAR ONDAS VIRAIS (-1 Crédito)"):
+    # Botão de emergência para resetar o cache
+    if st.sidebar.button("🔄 Resetar Trends (-1 Crédito)"):
         st.cache_data.clear()
         st.rerun()
 
-    dados = buscar_musicas_looter(
+    dados = buscar_trends_insta_120(
         st.secrets["rapidapi"]["api_key"], 
         st.secrets["rapidapi"]["api_host"]
     )
 
     if dados:
-        st.success("Tendências carregadas (em cache 🛡️)")
-        # Lógica de exibição baseada no retorno da Looter
-        # Ajuste as chaves ['items'] ou ['data'] conforme o JSON da API
-        reels = dados.get('data', [])[:10]
+        st.success("Dados carregados via Instagram 120 (Cache Ativo 🛡️)")
         
-        for reel in reels:
+        # O JSON dessa API costuma vir em 'data' ou 'reels'
+        items = dados.get('data', [])[:10]
+        
+        for item in items:
             with st.container(border=True):
                 col1, col2 = st.columns([1, 4])
-                # Imagem de capa ou ícone do Instagram
-                col1.image("https://cdn-icons-png.flaticon.com/512/174/174855.png", width=60)
+                # Tenta pegar a capa do vídeo ou usa um ícone
+                capa = item.get('display_url', "https://cdn-icons-png.flaticon.com/512/174/174855.png")
+                col1.image(capa, width=80)
+                
                 with col2:
-                    audio_nome = reel.get('audio_title', 'Áudio Viral')
-                    st.markdown(f"**🎵 {audio_nome}**")
-                    if st.button(f"🎯 Selecionar para Estúdio", key=audio_nome):
-                        st.session_state.musica_selecionada = audio_nome
-                        st.toast(f"Áudio '{audio_nome}' pronto para o Nexus!")
+                    # Extrai info da música
+                    music = item.get('music_info', {})
+                    titulo = music.get('title', 'Áudio Viral')
+                    st.markdown(f"**🎵 {titulo}**")
+                    
+                    if st.button(f"🎯 Usar no Estúdio", key=f"sel_{titulo}"):
+                        st.session_state.musica_selecionada = titulo
+                        st.toast(f"Áudio '{titulo}' pronto para o vídeo!")
     else:
-        st.info("Clique em 'Atualizar' para buscar as tendências do dia.")
+        st.warning("Nenhum dado retornado. Verifique se o endpoint está correto na RapidAPI.")
