@@ -7,6 +7,21 @@ from nexus_video_engine import generate_daily_reels
 def render_studio_tab():
     st.header("🎥 Nexus Studio: Produção de Reels")
     
+    # --- O SEGREDO ESTÁ AQUI ---
+    # Ele verifica se existe algo selecionado no Scanner/Arsenal. 
+    # Se não houver, fica vazio.
+    link_selecionado = st.session_state.get("sel_link", "")
+    
+    if link_selecionado:
+        st.success(f"✅ Produto detectado: {st.session_state.get('sel_nome', 'Sem nome')}")
+    
+    # O 'value' faz o link aparecer automaticamente na caixa
+    url = st.text_input("Link do Produto (Shopee):", value=link_selecionado)
+    # ---------------------------
+
+    if st.button("🚀 GERAR VÍDEOS AGORA", width='stretch'):
+        # ... resto do código
+    
     url = st.text_input("Cole o link da Shopee aqui:", placeholder="https://shopee.com.br/produto...")
     
     if st.button("🚀 Gerar 3 Vídeos (AIDA)", width='stretch'):
