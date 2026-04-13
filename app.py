@@ -1,3 +1,4 @@
+from studio_tab import render_studio_tab
 import streamlit as st
 import arsenal 
 import trends
@@ -162,7 +163,7 @@ with tabs[2]:
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
-    estudio.exibir_estudio(miny, motor_ia)
+    render_studio_tab()
 
 # --- ABA 4: DASHBOARD ---
 with tabs[4]:
