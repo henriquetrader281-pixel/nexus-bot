@@ -74,7 +74,8 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+# --- LINHA 84: ADICIONADA A ABA TRENDS ---
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
 with tabs[0]:
@@ -93,7 +94,8 @@ with tabs[0]:
             Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
             Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
             """
-            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+            # O CACHE JÁ ATUA DENTRO DESTA FUNÇÃO NO ARQUIVO MINERACAO.PY
+            resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd_produtos)
             st.session_state.res_busca = resultado
     
     if st.session_state.res_busca:
@@ -106,7 +108,6 @@ with tabs[0]:
             
             if "|" in linha_limpa:
                 try:
-                    # 1. Extração por dicionário (Lógica Blindada)
                     partes_lista = [p.strip() for p in linha_limpa.split('|')]
                     dados = {}
                     for p in partes_lista:
@@ -114,7 +115,6 @@ with tabs[0]:
                             k, v = p.split(':', 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # 2. Busca do Nome com Fallback
                     nome_final = "Produto Desconhecido"
                     for chave in dados.keys():
                         if "NOME" in chave:
@@ -124,7 +124,6 @@ with tabs[0]:
                     if nome_final == "Produto Desconhecido" and partes_lista:
                         nome_final = partes_lista[0].replace("NOME:", "").strip()
 
-                    # 3. Busca de Ticket e Valor
                     ticket_val = "Médio"
                     for chave in dados.keys():
                         if "TICKET" in chave: ticket_val = dados[chave]; break
@@ -148,23 +147,27 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: RADAR ---
+# --- ABA 2: TRENDS (LINHA 127: ADICIONADA LÓGICA) ---
 with tabs[2]:
+    trends.exibir_trends()
+
+# --- ABA 3: ESTÚDIO (RENUMERADA) ---
+with tabs[3]:
+    estudio.exibir_estudio(miny, motor_ia)
+
+# --- ABA 4: DASHBOARD (RENUMERADA) ---
+with tabs[4]:
+    st.header("📊 Dashboard de Performance")
+    try:
+        update.dashboard_performance_simples()
+    except Exception as e:
+        st.error(f"Erro ao carregar Dashboard: {e}")
+
+# --- ABA 5: RADAR (RENUMERADA) ---
+with tabs[5]:
     st.header("🌍 Inteligência Radar")
     c_eua, c_br = st.columns(2)
     if c_eua.button("🇺🇸 Scanner TikTok USA", width='stretch'): 
         st.info("Buscando tendências internacionais...")
     if c_br.button(f"🇧🇷 Trends {st.session_state.mkt_global}", width='stretch'): 
         st.success("Analisando volume de buscas Brasil...")
-
-# --- ABA 3: ESTÚDIO ---
-with tabs[3]:
-    estudio.exibir_estudio(miny, motor_ia)
-
-# --- ABA 4: DASHBOARD ---
-with tabs[4]:
-    st.header("📊 Dashboard de Performance")
-    try:
-        update.dashboard_performance_simples() # Garanta que esse nome de função existe no update.py
-    except Exception as e:
-        st.error(f"Erro ao carregar Dashboard: {e}")
