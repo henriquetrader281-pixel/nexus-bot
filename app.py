@@ -1,14 +1,14 @@
 import streamlit as st
-import arsenal 
-import trends # <--- Linha 3: Garantir que não há espaços antes
+import arsenal
+import trends
 import estudio
 import pandas as pd
 import update
-import radar_engine 
+import radar_engine
 import os
 import urllib.parse
 from datetime import datetime
-import mineracao as miny # <--- Linha 11: Se der erro, apague o espaço antes do 'import'
+import mineracao as miny
 
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
