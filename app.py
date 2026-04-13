@@ -9,7 +9,17 @@ import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
-
+# TESTE DE DIAGNÓSTICO - PODE APAGAR DEPOIS
+if "spotify" in st.secrets:
+    st.sidebar.success("✅ Categoria [spotify] encontrada!")
+    # Verifica se os campos internos existem
+    if "client_id" in st.secrets["spotify"]:
+        st.sidebar.write("ID: Detectado")
+    else:
+        st.sidebar.error("❌ client_id não encontrado dentro de [spotify]")
+else:
+    st.sidebar.error("❌ Categoria [spotify] NÃO detectada nos Secrets")
+    st.sidebar.info(f"Categorias detectadas: {list(st.secrets.keys())}")
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
