@@ -1,6 +1,6 @@
 import streamlit as st
 import arsenal 
-import trends
+import trends # <--- Linha 3: Garantir que não há espaços antes
 import estudio
 import pandas as pd
 import update
@@ -8,7 +8,8 @@ import radar_engine
 import os
 import urllib.parse
 from datetime import datetime
-import mineracao as miny
+import mineracao as miny # <--- Linha 11: Se der erro, apague o espaço antes do 'import'
+
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
@@ -73,7 +74,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# --- LINHA 84: ADICIONADA A ABA TRENDS ---
+# --- ALTERAÇÃO LINHA 84: ADICIONADA ABA TRENDS E REORDENADO ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -89,11 +90,7 @@ with tabs[0]:
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"""
-            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
-            Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
-            """
-            # O CACHE JÁ ATUA DENTRO DESTA FUNÇÃO NO ARQUIVO MINERACAO.PY
+            # AJUSTE PARA O CACHE: Passamos as variáveis direto para a função bater com o cache
             resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd_produtos)
             st.session_state.res_busca = resultado
     
@@ -102,71 +99,4 @@ with tabs[0]:
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            linha_limpa = linha.replace("**", "").replace("*", "").strip()
-            
-            if "|" in linha_limpa:
-                try:
-                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
-                    dados = {}
-                    for p in partes_lista:
-                        if ':' in p:
-                            k, v = p.split(':', 1)
-                            dados[k.strip().upper()] = v.strip()
-                    
-                    nome_final = "Produto Desconhecido"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
-                    
-                    if nome_final == "Produto Desconhecido" and partes_lista:
-                        nome_final = partes_lista[0].replace("NOME:", "").strip()
-
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave: ticket_val = dados[chave]; break
-                    
-                    if ticket_val in filtro_ticket:
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        
-                        renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            dados.get("VALOR", "R$ ---"), 
-                            int(c_str) if c_str else 0, 
-                            ticket_val, 
-                            dados.get("URL", "#"), 
-                            st.session_state.mkt_global
-                        )
-                except:
-                    continue
-
-# --- ABA 1: ARSENAL ---
-with tabs[1]:  
-    arsenal.exibir_arsenal(miny, motor_ia)
-
-# --- ABA 2: TRENDS (LINHA 127: ADICIONADA LÓGICA) ---
-with tabs[2]:
-    trends.exibir_trends()
-
-# --- ABA 3: ESTÚDIO (RENUMERADA) ---
-with tabs[3]:
-    estudio.exibir_estudio(miny, motor_ia)
-
-# --- ABA 4: DASHBOARD (RENUMERADA) ---
-with tabs[4]:
-    st.header("📊 Dashboard de Performance")
-    try:
-        update.dashboard_performance_simples()
-    except Exception as e:
-        st.error(f"Erro ao carregar Dashboard: {e}")
-
-# --- ABA 5: RADAR (RENUMERADA) ---
-with tabs[5]:
-    st.header("🌍 Inteligência Radar")
-    c_eua, c_br = st.columns(2)
-    if c_eua.button("🇺🇸 Scanner TikTok USA", width='stretch'): 
-        st.info("Buscando tendências internacionais...")
-    if c_br.button(f"🇧🇷 Trends {st.session_state.mkt_global}", width='stretch'): 
-        st.success("Analisando volume de buscas Brasil...")
+        for idx, linha
