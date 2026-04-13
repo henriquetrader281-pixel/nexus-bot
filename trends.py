@@ -1,11 +1,15 @@
 import streamlit as st
 import requests
 
-# Cache de 24h para economizar seus 150 créditos
-@st.cache_data(ttl=86400)
-def buscar_trends_insta_120(api_key, api_host):
-    url = f"https://{api_host}/v1/trending_reels" # Verifique se o endpoint é este no painel
-    
+@st.cache_data(ttl=86400) # Cache de 24 horas
+def buscar_trends_insta_120():
+    if "rapidapi" not in st.secrets:
+        return None
+        
+    api_key = st.secrets["rapidapi"]["api_key"]
+    api_host = st.secrets["rapidapi"]["api_host"]
+    url = f"https://{api_host}/v1/trending_reels"
+
     headers = {
         "x-rapidapi-key": api_key,
         "x-rapidapi-host": api_host
@@ -13,50 +17,35 @@ def buscar_trends_insta_120(api_key, api_host):
 
     try:
         response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except Exception as e:
+        return response.json() if response.status_code == 200 else None
+    except:
         return None
 
 def exibir_trends():
     st.header("📈 Nexus Trends: Instagram 120")
     
-    if "rapidapi" not in st.secrets:
-        st.error("Chave 'rapidapi' não encontrada nos Secrets.")
-        return
-
-    # Botão de emergência para resetar o cache
-    if st.sidebar.button("🔄 Resetar Trends (-1 Crédito)"):
+    if st.sidebar.button("🔄 Forçar Atualização (-1 Crédito)"):
         st.cache_data.clear()
         st.rerun()
 
-    dados = buscar_trends_insta_120(
-        st.secrets["rapidapi"]["api_key"], 
-        st.secrets["rapidapi"]["api_host"]
-    )
+    dados = buscar_trends_insta_120()
 
     if dados:
-        st.success("Dados carregados via Instagram 120 (Cache Ativo 🛡️)")
-        
-        # O JSON dessa API costuma vir em 'data' ou 'reels'
+        st.caption("🛡️ Cache Ativo (Dados atualizados nas últimas 24h)")
         items = dados.get('data', [])[:10]
         
         for item in items:
             with st.container(border=True):
-                col1, col2 = st.columns([1, 4])
-                # Tenta pegar a capa do vídeo ou usa um ícone
-                capa = item.get('display_url', "https://cdn-icons-png.flaticon.com/512/174/174855.png")
-                col1.image(capa, width=80)
+                c1, c2 = st.columns([1, 4])
+                capa = item.get('display_url', "")
+                if capa: c1.image(capa, width=80)
                 
-                with col2:
-                    # Extrai info da música
+                with c2:
                     music = item.get('music_info', {})
                     titulo = music.get('title', 'Áudio Viral')
                     st.markdown(f"**🎵 {titulo}**")
-                    
-                    if st.button(f"🎯 Usar no Estúdio", key=f"sel_{titulo}"):
+                    if st.button(f"🎯 Usar Áudio", key=f"trend_{titulo}"):
                         st.session_state.musica_selecionada = titulo
-                        st.toast(f"Áudio '{titulo}' pronto para o vídeo!")
+                        st.toast("Áudio marcado para o próximo vídeo!")
     else:
-        st.warning("Nenhum dado retornado. Verifique se o endpoint está correto na RapidAPI.")
+        st.error("Erro ao conectar com a API. Verifica as chaves nos Secrets.")
