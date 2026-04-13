@@ -9,9 +9,36 @@ import urllib.parse
 from datetime import datetime
 import mineracao as miny
 from studio_tab import render_studio_tab
+import google.generativeai as genai  # <--- NOVO IMPORT
+import json
 
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
+
+# --- NOVO: LÓGICA DE INTELIGÊNCIA DE TENDÊNCIAS ---
+def get_nexus_intelligence():
+    try:
+        # Configura a chave a partir do secrets do Streamlit
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel(
+            model_name='gemini-3-flash',
+            tools=[{"google_search": {}}]
+        )
+        
+        hoje = datetime.now().strftime("%d/%m/%Y")
+        prompt = f"""
+        Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels.
+        Cruze com Google Search para validar volume de busca.
+        Retorne APENAS um JSON puro no formato:
+        {{"trends": [
+            {{"musica": "nome", "score": 95, "razao": "...", "aida_hook": "..."}}
+        ]}}
+        """
+        response = model.generate_content(prompt)
+        clean_json = response.text.replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
+    except Exception as e:
+        return {"error": str(e)}
 
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
@@ -74,7 +101,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# Definição das 6 Abas conforme solicitado
+# Definição das 6 Abas
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -146,9 +173,29 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (Instagram/RapidAPI) ---
+# --- ABA 2: TRENDS (Integrada com Nexus Intelligence) ---
 with tabs[2]:
     trends.exibir_trends()
+    
+    st.divider()
+    st.subheader("🔱 Nexus Intelligence: Monitor Global")
+    
+    with st.expander("📊 Sincronizar Cruzamento de Dados (TikTok + Reels + Google)", expanded=False):
+        if st.button("EXECUTAR ANÁLISE EM TEMPO REAL"):
+            with st.spinner("Acessando satélites de dados..."):
+                intel_data = get_nexus_intelligence()
+                if "trends" in intel_data:
+                    for item in intel_data["trends"]:
+                        c1, c2 = st.columns([3, 1])
+                        with c1:
+                            st.write(f"🎵 **{item['musica']}**")
+                            st.caption(f"Justificativa: {item['razao']}")
+                            st.code(f"AIDA: {item['aida_hook']}", language="text")
+                        with c2:
+                            st.metric("Confiança", f"{item['score']}%")
+                        st.divider()
+                else:
+                    st.error("Erro na resposta da IA.")
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
