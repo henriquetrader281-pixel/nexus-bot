@@ -1,10 +1,20 @@
 import streamlit as st
 
-def obter_trends_globais(regiao="USA"):
-    """
-    Simula ou conecta com APIs de tendências.
-    """
-    if regiao == "USA":
-        return "🇺🇸 [RADAR EUA]: 1. Smart Watch V9 | 2. Protetor Solar UV-C | 3. Mini Seladora Pro"
-    else:
-        return "🇧🇷 [TRENDS BR]: 1. Mop Giratório | 2. Fone Bluetooth Gamer | 3. Utensílios de Silicone"
+def exibir_radar():
+    st.header("🌍 Inteligência Radar")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🇺🇸 Mercado EUA")
+        if st.button("Varrer TikTok USA", width='stretch'):
+            st.info("Analisando tendências de exportação...")
+            st.write("1. **Smart Watch V9** (Explodindo)")
+            st.write("2. **Mini Seladora Pro** (Alta conversão)")
+            
+    with col2:
+        st.subheader("🇧🇷 Mercado Brasil")
+        if st.button("Varrer Shopee BR", width='stretch'):
+            st.success("Analisando volume de buscas local...")
+            st.write("1. **Mop Giratório** (Topo de vendas)")
+            st.write("2. **Utensílios de Silicone** (Estável)")
