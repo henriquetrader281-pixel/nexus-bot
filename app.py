@@ -2,7 +2,6 @@ from studio_tab import render_studio_tab
 import streamlit as st
 import arsenal 
 import trends
-import estudio
 import pandas as pd
 import update
 import radar_engine 
@@ -10,17 +9,7 @@ import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
-# TESTE DE DIAGNÓSTICO - PODE APAGAR DEPOIS
-if "spotify" in st.secrets:
-    st.sidebar.success("✅ Categoria [spotify] encontrada!")
-    # Verifica se os campos internos existem
-    if "client_id" in st.secrets["spotify"]:
-        st.sidebar.write("ID: Detectado")
-    else:
-        st.sidebar.error("❌ client_id não encontrado dentro de [spotify]")
-else:
-    st.sidebar.error("❌ Categoria [spotify] NÃO detectada nos Secrets")
-    st.sidebar.info(f"Categorias detectadas: {list(st.secrets.keys())}")
+
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
@@ -85,7 +74,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# Linha 79: Definição das 6 Abas
+# Definição das 6 Abas
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -157,7 +146,7 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (Spotify) ---
+# --- ABA 2: TRENDS (Instagram/RapidAPI) ---
 with tabs[2]:
     trends.exibir_trends()
 
