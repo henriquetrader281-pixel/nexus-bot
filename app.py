@@ -1,10 +1,10 @@
 import streamlit as st
-import arsenal
+import arsenal 
 import trends
 import estudio
 import pandas as pd
 import update
-import radar_engine
+import radar_engine 
 import os
 import urllib.parse
 from datetime import datetime
@@ -37,7 +37,7 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.session_state.sel_link = link
             st.toast(f"Alvo Selecionado: {nome}")
 
-# --- 3. SISTEMA DE ACESSO ---
+# --- 3. SISTEMA DE ACESSO (Restaurado conforme o teu ficheiro original) ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -74,7 +74,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# 6 TABS para incluir TRENDS
+# Adicionada a aba "📈 TRENDS" para ligar ao teu trends.py
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -85,7 +85,7 @@ with tabs[0]:
     with col_sel1:
         qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
     
-    with col_sel2: # FIX: Adicionado os dois pontos (:)
+    with col_sel2:
         foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
@@ -146,7 +146,7 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS ---
+# --- ABA 2: TRENDS (Ligação ao trends.py) ---
 with tabs[2]:
     trends.exibir_trends()
 
