@@ -72,8 +72,9 @@ st.session_state.mkt_global = st.sidebar.selectbox(
     index=["Shopee", "Mercado Livre", "Amazon"].index(st.session_state.mkt_global)
 )
 
-motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["llama-3.3-70b-versatile", "gpt-4o-mini", "gemini-1.5-pro"])
+motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
+# 6 TABS para incluir TRENDS
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -84,12 +85,16 @@ with tabs[0]:
     with col_sel1:
         qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
     
-    with col_sel2: # <--- LINHA 88 CORRIGIDA AQUI
+    with col_sel2: # FIX: Adicionado os dois pontos (:)
         foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd_produtos)
+            prompt_scanner = f"""
+            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
+            Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
+            """
+            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
     if st.session_state.res_busca:
