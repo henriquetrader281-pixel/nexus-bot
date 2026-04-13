@@ -9,3 +9,4 @@ pillow
 moviepy
 openai
 spotipy
+numpy
