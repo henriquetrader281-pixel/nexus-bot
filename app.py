@@ -75,6 +75,7 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
 # Adicionada a aba "📈 TRENDS" para ligar ao teu trends.py
+# Linha 79: Definição das 6 Abas do Nexus V101
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -146,7 +147,7 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (Ligação ao trends.py) ---
+# --- ABA 2: TRENDS (O Módulo do Spotify) ---
 with tabs[2]:
     trends.exibir_trends()
 
