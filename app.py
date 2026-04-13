@@ -69,12 +69,11 @@ st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox(
     "Marketplace Ativo:", 
     ["Shopee", "Mercado Livre", "Amazon"], 
-    index=["Shopee", "Mercado Livre", "Amazon"].index(st.session_state.mkt_global)
+    index=0
 )
 
-motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
+motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["llama-3.3-70b-versatile", "gemini-1.5-pro"])
 
-# --- ALTERAÇÃO LINHA 84: ADICIONADA ABA TRENDS E REORDENADO ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -90,7 +89,6 @@ with tabs[0]:
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            # AJUSTE PARA O CACHE: Passamos as variáveis direto para a função bater com o cache
             resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd_produtos)
             st.session_state.res_busca = resultado
     
@@ -143,7 +141,7 @@ with tabs[0]:
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (AQUI ENTRA O TRENDS.PY) ---
+# --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
 
