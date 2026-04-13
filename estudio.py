@@ -8,20 +8,45 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import update
 
-# --- 1. INTELIGÊNCIA DE CONVERSÃO (Shopee ID) ---
+# --- 1. INTELIGÊNCIA DE CONVERSÃO & SCRAPING AVANÇADO ---
 def extrair_dados_shopee(url):
-    """Extrai o ID do produto e prepara para o ID de Afiliado 18316451024"""
     padrao = r'i\.(\d+)\.(\d+)'
     resultado = re.search(padrao, url)
     if resultado:
         shop_id = resultado.group(1)
         product_id = resultado.group(2)
-        # Gera um link de referência limpo para o Raio-X
         link_afiliado = f"https://shopee.com.br/product/{shop_id}/{product_id}"
-        return product_id, link_afiliado
-    return "N/A", url
+        return shop_id, product_id, link_afiliado
+    return None, "N/A", url
 
-# --- 2. TRENDS DO SPOTIFY ---
+def super_scraper_video(url):
+    """Simula a lógica do copiarlink para achar o vídeo escondido"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        conteudo = res.text
+        
+        # Tentativa 1: Link direto .mp4 (Padrão simples)
+        links_diretos = re.findall(r'https://[^\s"\'\\]+?\.mp4', conteudo.replace('\\/', '/'))
+        if links_diretos:
+            return links_diretos[0]
+            
+        # Tentativa 2: Buscar por video_id (Onde os sites de download focam)
+        # A Shopee guarda os vídeos em servidores MMS
+        v_id_match = re.search(r'"video_id":"([^"]+)"', conteudo)
+        if v_id_match:
+            v_id = v_id_match.group(1)
+            # URL padrão dos servidores de mídia da Shopee
+            return f"https://video.shopee.com.br/api/v4/1111/mms/{v_id}.mp4"
+            
+        return None
+    except:
+        return None
+
+# --- 2. TRENDS DO SPOTIFY (Mantido igual) ---
 def buscar_trends_spotify():
     try:
         client_id = st.secrets["spotify"]["client_id"]
@@ -41,7 +66,7 @@ def buscar_trends_spotify():
         return musicas
     except: return []
 
-# --- 3. MOTOR DE RENDERIZAÇÃO ---
+# --- 3. MOTOR DE RENDERIZAÇÃO (Mantido igual) ---
 def renderizar_reels(video_path, texto):
     clip = VideoFileClip(video_path).subclip(0, 15)
     w, h = clip.size
@@ -59,7 +84,7 @@ def renderizar_reels(video_path, texto):
     return output
 
 # --- 4. INTERFACE ---
-def exibir_estudio(miny, motor_ia):
+def exibir_estudio(miny=None, motor_ia=None):
     st.markdown("### 🎬 Central de Produção Nexus Absolute")
 
     aba_video, aba_trends = st.tabs(["🎥 Criar Vídeo", "📈 Nexus Trends"])
@@ -78,7 +103,7 @@ def exibir_estudio(miny, motor_ia):
                         if st.button("🎯 Usar esta", key=m['nome']):
                             st.session_state.musica_selecionada = m['nome']
                             st.toast(f"Selecionada: {m['nome']}")
-        else: st.warning("Conecte o Spotify nos Secrets para ver as trends.")
+        else: st.warning("Conecte o Spotify nos Secrets.")
 
     with aba_video:
         with st.container(border=True):
@@ -86,20 +111,20 @@ def exibir_estudio(miny, motor_ia):
             url_input = st.text_input("🔗 Link da Shopee:", value=link_auto)
             
             # Extração Automática de ID
-            id_prod, link_limpo = extrair_dados_shopee(url_input)
-            if id_prod != "N/A":
-                st.caption(f"🆔 ID Detectado: {id_prod} | 🔗 Pronto para Afiliado: 18316451024")
+            s_id, p_id, link_limpo = extrair_dados_shopee(url_input)
+            if p_id != "N/A":
+                st.caption(f"🆔 ID Detectado: {p_id} | 🔗 Link Limpo Gerado")
             
             col_a, col_b = st.columns(2)
             with col_a:
-                if st.button("🛰️ CAPTURAR VÍDEO", width='stretch'):
-                    headers = {"User-Agent": "Mozilla/5.0"}
-                    res = requests.get(url_input, headers=headers)
-                    links = re.findall(r'https://[^\s"\'\\]+?\.mp4', res.text.replace('\\/', '/'))
-                    if links:
-                        st.session_state.video_path = links[0]
-                        st.success("🎯 Vídeo localizado!")
-                    else: st.error("❌ Link bloqueado. Use o upload manual.")
+                if st.button("🛰️ CAPTURAR VÍDEO (Super Scraper)", width='stretch'):
+                    with st.spinner("Nexus minerando o vídeo..."):
+                        video_url = super_scraper_video(url_input)
+                        if video_url:
+                            st.session_state.video_path = video_url
+                            st.success("🎯 Vídeo localizado com sucesso!")
+                        else:
+                            st.error("❌ Não foi possível extrair automaticamente. Tente o upload manual.")
             with col_b:
                 arq = st.file_uploader("📤 Upload Manual:", type=["mp4"])
                 if arq:
@@ -125,6 +150,5 @@ def exibir_estudio(miny, motor_ia):
         st.divider()
         if st.button("🚀 SALVAR NO RAIO-X"):
             nome = st.session_state.get('sel_nome', 'Produto').split('|')[0]
-            # Salva já com o ID do produto e a tag de afiliado
-            update.aplicar_seo_viral(nome, link_limpo, f"ID:{id_prod} | {st.session_state.get('musica_selecionada', 'Trend')}")
+            update.aplicar_seo_viral(nome, link_limpo, f"ID:{p_id} | {st.session_state.get('musica_selecionada', 'Trend')}")
             st.success(f"✅ Registrado para o Afiliado 18316451024!")
