@@ -74,7 +74,6 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["llama-3.3-70b-versatile", "gpt-4o-mini", "gemini-1.5-pro"])
 
-# Configuração das 6 Abas do Nexus V101
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
@@ -85,4 +84,84 @@ with tabs[0]:
     with col_sel1:
         qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
     
-    with col_sel2
+    with col_sel2: # <--- LINHA 88 CORRIGIDA AQUI
+        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
+
+    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
+        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
+            resultado = miny.minerar_produtos(foco_nicho, st.session_state.mkt_global, motor_ia, qtd_produtos)
+            st.session_state.res_busca = resultado
+    
+    if st.session_state.res_busca:
+        st.divider()
+        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        
+        linhas = st.session_state.res_busca.split('\n')
+        for idx, linha in enumerate(linhas):
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in linha_limpa:
+                try:
+                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
+                    dados = {}
+                    for p in partes_lista:
+                        if ':' in p:
+                            k, v = p.split(':', 1)
+                            dados[k.strip().upper()] = v.strip()
+                    
+                    nome_final = "Produto Desconhecido"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
+                            break
+                    
+                    if nome_final == "Produto Desconhecido" and partes_lista:
+                        nome_final = partes_lista[0].replace("NOME:", "").strip()
+
+                    ticket_val = "Médio"
+                    for chave in dados.keys():
+                        if "TICKET" in chave: ticket_val = dados[chave]; break
+                    
+                    if ticket_val in filtro_ticket:
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        
+                        renderizar_card_produto(
+                            idx, 
+                            nome_final, 
+                            dados.get("VALOR", "R$ ---"), 
+                            int(c_str) if c_str else 0, 
+                            ticket_val, 
+                            dados.get("URL", "#"), 
+                            st.session_state.mkt_global
+                        )
+                except:
+                    continue
+
+# --- ABA 1: ARSENAL ---
+with tabs[1]:  
+    arsenal.exibir_arsenal(miny, motor_ia)
+
+# --- ABA 2: TRENDS ---
+with tabs[2]:
+    trends.exibir_trends()
+
+# --- ABA 3: ESTÚDIO ---
+with tabs[3]:
+    estudio.exibir_estudio(miny, motor_ia)
+
+# --- ABA 4: DASHBOARD ---
+with tabs[4]:
+    st.header("📊 Dashboard de Performance")
+    try:
+        update.dashboard_performance_simples()
+    except Exception as e:
+        st.error(f"Erro ao carregar Dashboard: {e}")
+
+# --- ABA 5: RADAR ---
+with tabs[5]:
+    st.header("🌍 Inteligência Radar")
+    c_eua, c_br = st.columns(2)
+    if c_eua.button("🇺🇸 Scanner TikTok USA", width='stretch'): 
+        st.info("Buscando tendências internacionais...")
+    if c_br.button(f"🇧🇷 Trends {st.session_state.mkt_global}", width='stretch'): 
+        st.success("Analisando volume de buscas Brasil...")
