@@ -6,16 +6,46 @@ from nexus_video_engine import generate_daily_reels
 # Essa biblioteca permite que a Thread converse com o Streamlit sem dar erro
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
-# 1. FUNÇÃO INVISÍVEL (Roda no Fundo)
-def rodar_motor_no_fundo(url):
+# 1. Atualize a função invisível no topo do arquivo:
+def rodar_motor_no_fundo(url, musica_trend): # <-- Adicione musica_trend aqui
     try:
         os.makedirs("video", exist_ok=True)
-        videos = generate_daily_reels(url)
+        # Passa a música para o motor
+        videos = generate_daily_reels(url, musica_trend) 
         st.session_state["last_videos"] = videos
         st.session_state["status_motor"] = "concluido"
     except Exception as e:
         st.session_state["erro_motor"] = str(e)
         st.session_state["status_motor"] = "erro"
+
+# 2. Dentro do render_studio_tab(), adicione o aviso visual:
+def render_studio_tab():
+    st.header("🎥 Nexus Studio: Produção de Reels")
+    
+    # ... (código do link_selecionado que você já tem) ...
+
+    # --- NOVIDADE: PUXA O ÁUDIO DO TRENDS ---
+    musica_trend = st.session_state.get("musica_selecionada", "")
+    if musica_trend:
+        st.info(f"🎵 Áudio Viral do Trends ativo: **{musica_trend}**")
+    # ----------------------------------------
+    
+    url = st.text_input("Link do Produto (Shopee):", value=link_selecionado)
+
+    if st.button("🚀 GERAR 3 VÍDEOS AGORA", width='stretch'):
+        if not url:
+            st.error("Selecione um produto no Scanner primeiro!")
+        else:
+            st.session_state["status_motor"] = "rodando"
+            
+            # --- NOVIDADE: PASSA A MÚSICA PARA A THREAD ---
+            t = threading.Thread(target=rodar_motor_no_fundo, args=(url, musica_trend))
+            # ----------------------------------------------
+            add_script_run_ctx(t)
+            t.start()
+            st.rerun()
+            
+    # ... (resto do código continua igual)
 
 # 2. ABA DO ESTÚDIO
 def render_studio_tab():
