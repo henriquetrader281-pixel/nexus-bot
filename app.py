@@ -1,16 +1,16 @@
 import streamlit as st
-import arsenal 
+import arsenal
 import trends
 import pandas as pd
 import update
-import radar_engine 
+import radar_engine
 import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
 from studio_tab import render_studio_tab
 
-# --- 1. CONFIGURAÇÃO DE TELA ---
+# --- CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
