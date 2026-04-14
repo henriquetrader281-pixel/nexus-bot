@@ -1,41 +1,59 @@
 import streamlit as st
 
 def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio de Automação Nexus 🔱")
+    st.markdown("### 🎬 Estúdio Automatizado Nexus | Google Labs 🔱")
     
     if "sel_nome" not in st.session_state:
-        st.warning("⚠️ Selecione um produto primeiro.")
+        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
         return
 
-    produto = st.session_state.sel_nome.split('|')[0].strip()
+    # Isola o nome para evitar confusão na IA
+    produto = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
 
-    # --- BOTÃO DE EXECUÇÃO TOTAL ---
-    if st.button(f"🚀 EXECUTAR AUTOMAÇÃO TOTAL: {produto}", use_container_width=True):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            with st.spinner("🤖 Gerando Legenda AIDA..."):
-                # Executa a copy e já salva na sessão automaticamente
-                prompt_aida = f"Gere legenda AIDA para {produto} com ID 18316451024."
-                st.session_state.copy_final = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
-                st.success("Legenda Gerada!")
+    # --- LINHA DE COMANDO: GERAÇÃO DE MUNIÇÃO ---
+    c1, c2 = st.columns([1, 1])
+    
+    with c1:
+        if st.button("📝 GERAR COPY & PROMPT", use_container_width=True):
+            with st.spinner("Preparando comandos..."):
+                # Pedimos o AIDA e o Prompt em Inglês de uma vez só
+                prompt_master = f"""
+                Ignore listas. Produto: {produto}.
+                1. Gere legenda AIDA em Português (com ID 18316451024).
+                2. Gere um Prompt VISUAL em INGLÊS para vídeo cinematográfico.
+                Separe por '###'
+                """
+                res = miny.minerar_produtos(prompt_master, "Shopee", motor_ia)
+                st.session_state.micao_nexus = res.split('###')
+                st.rerun()
 
-        with col2:
-            with st.spinner("🎬 Preparando Prompt de Vídeo..."):
-                # Gera o prompt técnico que será enviado para a IA de vídeo
-                prompt_ia_video = f"Create a 4k cinematic product video for {produto}, professional lighting."
-                st.session_state.prompt_ia_video = miny.minerar_produtos(prompt_ia_video, "Shopee", motor_ia)
-                st.success("Prompt de Vídeo Pronto!")
+    # --- EXIBIÇÃO DA MUNIÇÃO ---
+    if "micao_nexus" in st.session_state:
+        copy_pt = st.session_state.micao_nexus[0].strip()
+        prompt_en = st.session_state.micao_nexus[1].strip() if len(st.session_state.micao_nexus) > 1 else ""
 
-    # --- ÁREA DE SAÍDA AUTOMÁTICA ---
-    if "copy_final" in st.session_state:
-        st.text_area("📄 Copy Pronta para Postar:", value=st.session_state.copy_final, height=150)
+        with st.expander("📄 LEGENDA PARA POSTAR", expanded=False):
+            st.text_area("Copie aqui:", value=copy_pt, height=150)
+
+        st.success("🎯 PROMPT PARA COLAR NO GOOGLE LABS:")
+        st.code(prompt_en, language="text")
+        st.caption("Clique no ícone de copiar no canto do bloco acima ☝️")
+
+        st.divider()
+
+        # --- INTEGRAÇÃO DO GOOGLE LABS DENTRO DO NEXUS ---
+        st.markdown("#### 📺 Gerador de Vídeo (Execução Direta)")
         
-        st.markdown("#### 🎥 Gerador de Vídeo Automático")
-        # Aqui é onde o Nexus "colaria" o comando se as ferramentas tivessem API aberta
-        st.info(f"O Nexus preparou o comando: '{st.session_state.prompt_ia_video}'")
+        # Link do projeto específico que você mandou
+        url_google = "https://labs.google/fx/pt/tools/flow/project/b7c52242-fa5a-4370-9975-61cc86da1483"
         
-        # Simulando a integração automática
-        if st.button("▶️ ENVIAR PARA FILA DE RENDERIZAÇÃO"):
-            st.warning("Conectando aos servidores de vídeo... (Requer integração API Luma/Runway)")
-            # Aqui entrará o código de requisição POST para gerar o vídeo automático
+        # Criando a janela interna (IFrame)
+        # Nota: Alguns sites bloqueiam exibição em IFrame por segurança. 
+        # Se o Google bloquear, o botão de 'Abrir em Nova Aba' servirá como backup.
+        st.components.v1.iframe(url_google, height=600, scrolling=True)
+        
+        if st.button("🌍 Não carregou? Abrir Google Labs em tela cheia"):
+            st.markdown(f'<a href="{url_google}" target="_blank">Clique aqui para abrir</a>', unsafe_allow_value=True)
+
+    else:
+        st.info("Clique no botão acima para preparar a automação do produto.")
