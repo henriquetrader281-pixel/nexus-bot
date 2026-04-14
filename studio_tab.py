@@ -1,106 +1,41 @@
 import streamlit as st
-import os
-import threading
-from pathlib import Path
-from nexus_video_engine import generate_daily_reels
-# Essa biblioteca permite que a Thread converse com o Streamlit sem dar erro
-from streamlit.runtime.scriptrunner import add_script_run_ctx
 
-# 1. Atualize a função invisível no topo do arquivo:
-def rodar_motor_no_fundo(url, musica_trend): # <-- Adicione musica_trend aqui
-    try:
-        os.makedirs("video", exist_ok=True)
-        # Passa a música para o motor
-        videos = generate_daily_reels(url, musica_trend) 
-        st.session_state["last_videos"] = videos
-        st.session_state["status_motor"] = "concluido"
-    except Exception as e:
-        st.session_state["erro_motor"] = str(e)
-        st.session_state["status_motor"] = "erro"
-
-# 2. Dentro do render_studio_tab(), adicione o aviso visual:
-def render_studio_tab():
-    st.header("🎥 Nexus Studio: Produção de Reels")
+def exibir_estudio(miny, motor_ia):
+    st.markdown("### 🎬 Estúdio de Automação Nexus 🔱")
     
-    # ... (código do link_selecionado que você já tem) ...
+    if "sel_nome" not in st.session_state:
+        st.warning("⚠️ Selecione um produto primeiro.")
+        return
 
-    # --- NOVIDADE: PUXA O ÁUDIO DO TRENDS ---
-    musica_trend = st.session_state.get("musica_selecionada", "")
-    if musica_trend:
-        st.info(f"🎵 Áudio Viral do Trends ativo: **{musica_trend}**")
-    # ----------------------------------------
-    
-    url = st.text_input("Link do Produto (Shopee):", value=link_selecionado)
+    produto = st.session_state.sel_nome.split('|')[0].strip()
 
-    if st.button("🚀 GERAR 3 VÍDEOS AGORA", width='stretch'):
-        if not url:
-            st.error("Selecione um produto no Scanner primeiro!")
-        else:
-            st.session_state["status_motor"] = "rodando"
-            
-            # --- NOVIDADE: PASSA A MÚSICA PARA A THREAD ---
-            t = threading.Thread(target=rodar_motor_no_fundo, args=(url, musica_trend))
-            # ----------------------------------------------
-            add_script_run_ctx(t)
-            t.start()
-            st.rerun()
-            
-    # ... (resto do código continua igual)
+    # --- BOTÃO DE EXECUÇÃO TOTAL ---
+    if st.button(f"🚀 EXECUTAR AUTOMAÇÃO TOTAL: {produto}", use_container_width=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            with st.spinner("🤖 Gerando Legenda AIDA..."):
+                # Executa a copy e já salva na sessão automaticamente
+                prompt_aida = f"Gere legenda AIDA para {produto} com ID 18316451024."
+                st.session_state.copy_final = miny.minerar_produtos(prompt_aida, "Shopee", motor_ia)
+                st.success("Legenda Gerada!")
 
-# 2. ABA DO ESTÚDIO
-def render_studio_tab():
-    st.header("🎥 Nexus Studio: Produção de Reels")
-    
-    link_selecionado = st.session_state.get("sel_link", "")
-    nome_selecionado = st.session_state.get("sel_nome", "")
-    
-    if link_selecionado:
-        st.success(f"🎯 Produto Selecionado: **{nome_selecionado}**")
-    
-    url = st.text_input("Link do Produto (Shopee):", value=link_selecionado)
+        with col2:
+            with st.spinner("🎬 Preparando Prompt de Vídeo..."):
+                # Gera o prompt técnico que será enviado para a IA de vídeo
+                prompt_ia_video = f"Create a 4k cinematic product video for {produto}, professional lighting."
+                st.session_state.prompt_ia_video = miny.minerar_produtos(prompt_ia_video, "Shopee", motor_ia)
+                st.success("Prompt de Vídeo Pronto!")
 
-    # Inicia o status do motor se você acabou de abrir o app
-    if "status_motor" not in st.session_state:
-        st.session_state["status_motor"] = "parado"
-
-    if st.button("🚀 GERAR 3 VÍDEOS AGORA", width='stretch'):
-        if not url:
-            st.error("Selecione um produto no Scanner primeiro!")
-        else:
-            # Muda o status e avisa o sistema que começou a rodar
-            st.session_state["status_motor"] = "rodando"
-            
-            # Cria a Thread (O trabalhador invisível)
-            t = threading.Thread(target=rodar_motor_no_fundo, args=(url,))
-            add_script_run_ctx(t) # Conecta o trabalhador ao seu Session State
-            t.start()
-            
-            # Recarrega a tela instantaneamente para liberar seu mouse
-            st.rerun()
-
-    # --- MENSAGEM ENQUANTO RODA ---
-    if st.session_state["status_motor"] == "rodando":
-        st.info("⚙️ **O motor está trabalhando em segundo plano!** Você já pode navegar nas abas 📈 Trends e 🌍 Radar livremente.")
-        st.spinner("Renderizando os 3 vídeos...")
-
-    # --- SE OCORRER UM ERRO ---
-    if st.session_state["status_motor"] == "erro":
-        st.error(f"Erro no motor: {st.session_state.get('erro_motor')}")
-        if st.button("Limpar Erro"):
-            st.session_state["status_motor"] = "parado"
-            st.rerun()
-
-    # --- EXIBIÇÃO DOS VÍDEOS (Quando Termina) ---
-    if st.session_state["status_motor"] == "concluido" and "last_videos" in st.session_state:
-        st.success("✅ Todos os vídeos foram gerados com sucesso!")
-        st.divider()
-        cols = st.columns(3)
-        for i, v_path in enumerate(st.session_state["last_videos"]):
-            with cols[i]:
-                st.write(f"Variação {i+1}")
-                if os.path.exists(v_path):
-                    st.video(str(v_path))
-                    if st.button(f"📲 Postar V{i+1}", key=f"p_{i}"):
-                        st.info("Enviando para o nexus_poster.py...")
-                else:
-                    st.error("Arquivo de vídeo não encontrado.")
+    # --- ÁREA DE SAÍDA AUTOMÁTICA ---
+    if "copy_final" in st.session_state:
+        st.text_area("📄 Copy Pronta para Postar:", value=st.session_state.copy_final, height=150)
+        
+        st.markdown("#### 🎥 Gerador de Vídeo Automático")
+        # Aqui é onde o Nexus "colaria" o comando se as ferramentas tivessem API aberta
+        st.info(f"O Nexus preparou o comando: '{st.session_state.prompt_ia_video}'")
+        
+        # Simulando a integração automática
+        if st.button("▶️ ENVIAR PARA FILA DE RENDERIZAÇÃO"):
+            st.warning("Conectando aos servidores de vídeo... (Requer integração API Luma/Runway)")
+            # Aqui entrará o código de requisição POST para gerar o vídeo automático
