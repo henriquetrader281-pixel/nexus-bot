@@ -8,8 +8,9 @@ import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
-from studio_tab import render_studio_tab
-import google.generativeai as genai  # <--- NOVO IMPORT
+import estudio  # <--- CORRIGIDO
+import postador # <--- NOVO: POSTADOR AUTOMÁTICO
+import google.generativeai as genai
 import json
 
 # --- 1. CONFIGURAÇÃO DE TELA ---
@@ -18,17 +19,15 @@ st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="�
 # --- NOVO: LÓGICA DE INTELIGÊNCIA DE TENDÊNCIAS ---
 def get_nexus_intelligence():
     try:
-        # Configura a chave a partir do secrets do Streamlit
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(
-            model_name='gemini-3-flash',
+            model_name='gemini-1.5-flash', # Versão estável
             tools=[{"google_search": {}}]
         )
         
         hoje = datetime.now().strftime("%d/%m/%Y")
         prompt = f"""
         Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels.
-        Cruze com Google Search para validar volume de busca.
         Retorne APENAS um JSON puro no formato:
         {{"trends": [
             {{"musica": "nome", "score": 95, "razao": "...", "aida_hook": "..."}}
@@ -74,7 +73,7 @@ def login():
     with col2:
         senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
         senha = st.text_input("Acesso:", type="password")
-        if st.button("AUTENTICAR", width='stretch'):
+        if st.button("AUTENTICAR", use_container_width=True):
             if senha == senha_mestra:
                 st.session_state.autenticado = True
                 st.rerun()
@@ -101,114 +100,62 @@ st.session_state.mkt_global = st.sidebar.selectbox(
 
 motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
 
-# Definição das 6 Abas
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD", "🌍 RADAR"])
+# 🔄 Adicionado a Aba POSTADOR no menu
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
-    
     with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
+        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa")
 
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", width='stretch'):
-        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"""
-            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
-            Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
-            """
+    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
+        with st.spinner(f"Minerando produtos virais..."):
+            prompt_scanner = f"Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'. Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
     if st.session_state.res_busca:
-        st.divider()
-        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
-        
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            linha_limpa = linha.replace("**", "").replace("*", "").strip()
-            
-            if "|" in linha_limpa:
+            if "|" in linha:
                 try:
-                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
-                    dados = {}
-                    for p in partes_lista:
-                        if ':' in p:
-                            k, v = p.split(':', 1)
-                            dados[k.strip().upper()] = v.strip()
-                    
-                    nome_final = "Produto Desconhecido"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
-                    
-                    if nome_final == "Produto Desconhecido" and partes_lista:
-                        nome_final = partes_lista[0].replace("NOME:", "").strip()
-
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave: ticket_val = dados[chave]; break
-                    
-                    if ticket_val in filtro_ticket:
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        
-                        renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            dados.get("VALOR", "R$ ---"), 
-                            int(c_str) if c_str else 0, 
-                            ticket_val, 
-                            dados.get("URL", "#"), 
-                            st.session_state.mkt_global
-                        )
-                except:
-                    continue
+                    partes = [p.strip() for p in linha.replace("**", "").split('|')]
+                    nome_f = partes[0].replace("NOME:", "").strip()
+                    calor_f = partes[1].replace("CALOR:", "").strip()
+                    renderizar_card_produto(idx, nome_f, "R$ ---", calor_f, "Médio", "#", st.session_state.mkt_global)
+                except: continue
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
     arsenal.exibir_arsenal(miny, motor_ia)
 
-# --- ABA 2: TRENDS (Integrada com Nexus Intelligence) ---
+# --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
-    
     st.divider()
-    st.subheader("🔱 Nexus Intelligence: Monitor Global")
-    
-    with st.expander("📊 Sincronizar Cruzamento de Dados (TikTok + Reels + Google)", expanded=False):
-        if st.button("EXECUTAR ANÁLISE EM TEMPO REAL"):
-            with st.spinner("Acessando satélites de dados..."):
-                intel_data = get_nexus_intelligence()
-                if "trends" in intel_data:
-                    for item in intel_data["trends"]:
-                        c1, c2 = st.columns([3, 1])
-                        with c1:
-                            st.write(f"🎵 **{item['musica']}**")
-                            st.caption(f"Justificativa: {item['razao']}")
-                            st.code(f"AIDA: {item['aida_hook']}", language="text")
-                        with c2:
-                            st.metric("Confiança", f"{item['score']}%")
-                        st.divider()
-                else:
-                    st.error("Erro na resposta da IA.")
+    if st.button("📊 EXECUTAR ANÁLISE MONITOR GLOBAL"):
+        intel_data = get_nexus_intelligence()
+        if "trends" in intel_data:
+            for item in intel_data["trends"]:
+                st.write(f"🎵 **{item['musica']}** - Confiança: {item['score']}%")
+                st.caption(item['razao'])
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]:
-    render_studio_tab()
+    estudio.exibir_estudio(miny, motor_ia) # <--- CORRIGIDO
 
-# --- ABA 4: DASHBOARD ---
+# --- ABA 4: POSTADOR ---
 with tabs[4]:
-    st.header("📊 Dashboard de Performance")
-    try:
-        update.dashboard_performance_simples()
-    except Exception as e:
-        st.error(f"Erro ao carregar Dashboard: {e}")
+    postador.exibir_postador(miny, motor_ia) # <--- INTEGRADO
 
-# --- ABA 5: RADAR ---
+# --- ABA 5: DASHBOARD ---
 with tabs[5]:
+    update.dashboard_performance_simples()
+
+# --- ABA 6: RADAR ---
+with tabs[6]:
     radar_engine.exibir_radar()
