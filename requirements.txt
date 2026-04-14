@@ -1,7 +1,6 @@
-streamlit>=1.35.0
+streamlit
 google-generativeai
 groq
 pandas
 requests
 pillow
-ayrshare
