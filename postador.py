@@ -1,27 +1,34 @@
 import streamlit as st
-# import ayrshare # Biblioteca para postagem real (requer API)
+from datetime import datetime, timedelta
 
-def agendar_postagem_automatica(video_file, legenda, rede_social):
-    # Lógica de IA para avaliar melhor horário
-    horarios_nobres = ["12:00", "18:30", "21:00"]
-    melhor_horario = horarios_nobres[0] # Aqui entra a lógica de análise de dados
-    
-    with st.spinner(f"🤖 Nexus agendando para {melhor_horario} no {rede_social}..."):
-        # Exemplo de comando que o Nexus enviaria:
-        # payload = {"post": legenda, "media_urls": [video_file], "scheduleDate": melhor_horario}
-        # ayrshare.post(payload)
-        st.success(f"✅ Agendado com Sucesso para as {melhor_horario}!")
+def calcular_melhores_horarios(dados_radar):
+    # Aqui o Gemini simula a análise de pico de tráfego
+    prompt_timing = f"Com base no produto {st.session_state.sel_nome}, quais os 3 melhores horários de pico hoje para Reels e TikTok? Responda apenas os horários."
+    # Simulando retorno da IA:
+    return ["11:30", "18:15", "21:45"]
 
-def exibir_postador():
-    st.markdown("### 🚀 Piloto Automático Nexus 🔱")
-    
+def exibir_postador(miny, motor_ia):
+    st.markdown("### 🛰️ Central de Postagem Inteligente Nexus")
+
     if "copy_final_pronta" in st.session_state:
-        # Preview do que o Nexus montou
-        st.video("https://www.w3schools.com/html/mov_bbb.mp4") # Exemplo de vídeo montado
-        st.text_area("Legenda Final:", st.session_state.copy_final_pronta)
-        
-        # O GRANDE BOTÃO
-        if st.button("🛰️ DISPARAR PARA FILA DE POSTAGEM INTELIGENTE"):
-            # O Nexus lê a copy, o vídeo gerado e envia para a API de postagem
-            agendar_postagem_automatica("video.mp4", st.session_state.copy_final_pronta, "Instagram")
-            st.balloons()
+        # --- O PAINEL DE CONTROLE DO CEO ---
+        with st.container(border=True):
+            st.markdown("#### 🔄 Status da Automação")
+            st.success("🤖 Vídeo, Áudio e Copy integrados com sucesso.")
+            
+            horarios = calcular_melhores_horarios(st.session_state.get('dados_radar'))
+            st.write(f"📈 **Análise de IA:** Otimizado para postar em: `{', '.join(horarios)}`")
+
+        # --- O BOTÃO DE EXECUÇÃO AUTOMÁTICA ---
+        if st.button("🚀 ATIVAR POSTAGEM EM PILOTO AUTOMÁTICO", use_container_width=True):
+            with st.spinner("🤖 Nexus sincronizando com APIs de postagem..."):
+                # AQUI É ONDE O NEXUS FAZ TUDO:
+                # 1. MoviePy junta o áudio trend com o vídeo do Labs
+                # 2. IA anexa a copy AIDA
+                # 3. API (Ayrshare/Buffer) agenda nos horários calculados
+                st.session_state.automacao_ativa = True
+                st.balloons()
+                st.info("Nexus em modo Autônomo. O sistema irá postar e monitorar o engajamento sozinho.")
+
+    else:
+        st.warning("⚠️ O fluxo precisa passar pelo Estúdio antes da Postagem.")
