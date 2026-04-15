@@ -103,31 +103,29 @@ motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-p
 # 🔄 Adicionado a Aba POSTADOR no menu
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
-with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    col_sel1, col_sel2 = st.columns([1, 2])
-    with col_sel1:
-        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
-    with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa")
-
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
-        with st.spinner(f"Minerando produtos virais..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'. Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
-            st.session_state.res_busca = resultado
-    
-    if st.session_state.res_busca:
-        linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            if "|" in linha:
-                try:
-                    partes = [p.strip() for p in linha.replace("**", "").split('|')]
-                    nome_f = partes[0].replace("NOME:", "").strip()
-                    calor_f = partes[1].replace("CALOR:", "").strip()
-                    renderizar_card_produto(idx, nome_f, "R$ ---", calor_f, "Médio", "#", st.session_state.mkt_global)
-                except: continue
+# --- ABA 0: SCANNER (DENTRO DO APP.PY) ---
+if st.session_state.res_busca:
+    linhas = st.session_state.res_busca.split('\n')
+    for idx, linha in enumerate(linhas):
+        if "|" in linha:
+            try:
+                # Limpa a linha e separa os dados
+                partes = [p.strip() for p in linha.replace("**", "").split('|')]
+                dados = {}
+                for p in partes:
+                    if ":" in p:
+                        k, v = p.split(':', 1)
+                        dados[k.strip().upper()] = v.strip()
+                
+                # Captura os dados reais
+                nome_f = dados.get("NOME", "Produto")
+                calor_f = dados.get("CALOR", "0").replace("°C", "").replace("%", "")
+                preco_f = dados.get("VALOR", "R$ ---") # <--- AQUI PEGA O PREÇO
+                ticket_f = dados.get("TICKET", "Médio")
+                url_f = dados.get("URL", "#")
+                
+                renderizar_card_produto(idx, nome_f, preco_f, calor_f, ticket_f, url_f, st.session_state.mkt_global)
+            except: continue
 
 # --- ABA 1: ARSENAL ---
 with tabs[1]:  
