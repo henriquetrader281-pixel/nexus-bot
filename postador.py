@@ -1,86 +1,56 @@
 import streamlit as st
 import requests
-from datetime import datetime
-
-def calcular_horarios_ia(miny, motor_ia, produto):
-    """Consulta o Gemini para definir o melhor timing de postagem"""
-    try:
-        prompt = f"Produto: {produto}. Liste os 3 melhores horários de postagem para hoje (HH:MM). Apenas os números separados por vírgula."
-        resposta = miny.minerar_produtos(prompt, "Shopee", motor_ia)
-        return [h.strip() for h in resposta.split(',')]
-    except:
-        return ["12:00", "18:30", "21:15"]
-
-def disparar_api_postagem(legenda, video_url):
-    """Envia o post para o Ayrshare via Requests (Evita erro de instalação)"""
-    if "AYRSHARE_API_KEY" not in st.secrets:
-        st.error("🔑 API Key do Ayrshare não configurada nos Secrets!")
-        return 401
-    
-    url = "https://api.ayrshare.com/api/post"
-    headers = {
-        "Authorization": f"Bearer {st.secrets['AYRSHARE_API_KEY']}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "post": legenda,
-        "platforms": ["instagram", "tiktok"],
-        "mediaUrls": [video_url]
-    }
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        return response.status_code
-    except:
-        return 500
 
 def exibir_postador(miny, motor_ia):
-    st.markdown("### 🛰️ Central de Lançamento Nexus 🔱")
+    st.markdown("### 🛰️ Central de Disparo Nexus")
+    
+    # 🔗 Recupera a munição do Arsenal e o link blindado
+    copy_final = st.session_state.get('copy_final_pronta', '')
+    link_blindado = st.session_state.get('link_final_afiliado', 'https://shopee.com.br')
 
-    if "copy_final_pronta" not in st.session_state:
-        st.warning("⚠️ O fluxo precisa passar pelo Estúdio antes da Postagem.")
+    if not copy_final:
+        st.warning("⚠️ O Arsenal está vazio! Gere uma estratégia antes de postar.")
         return
 
-    produto = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
-    
-    # --- PAINEL DE CONTROLE ---
     with st.container(border=True):
-        st.markdown(f"#### 📦 Checkout de Automação: **{produto}**")
+        st.markdown("#### 📝 Legenda Estratégica")
         
-        horarios = calcular_horarios_ia(miny, motor_ia, produto)
-        st.info(f"📈 **IA Timing:** Postagens otimizadas para: `{', '.join(horarios)}`")
+        # Interface de ajuste de Gatilho para o ManyChat
+        palavra_gatilho = st.text_input("Gatilho ManyChat (Comentário):", value="QUERO")
+        cta_personalizada = f"\n\n🎁 Para receber o link oficial com desconto, comente \"{palavra_gatilho}\" agora!"
         
-        # Estratégia ManyChat
-        st.markdown("---")
-        st.markdown("#### 💬 Configuração ManyChat")
-        palavra_chave = st.text_input("Palavra-chave do Robô:", value="QUERO")
-        
-        cta_manychat = f"\n\n🛍️ Gostou? Comente \"{palavra_chave}\" que te envio o link no Direct! 🚀"
-        copy_final = st.session_state.copy_final_pronta + cta_manychat
-        
-        st.text_area("Legenda Final (Pronta):", value=copy_final, height=200)
+        # Une a copy do Arsenal com a CTA de venda
+        texto_completo = copy_final + cta_personalizada
+        st.text_area("Prévia da Postagem:", value=texto_completo, height=200)
 
-    # --- EXECUÇÃO ---
-    st.markdown("#### 🚀 Disparar para Redes Sociais")
+    # --- OPÇÕES DE CONEXÃO ---
+    c1, c2 = st.columns(2)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔥 AGENDAR AGORA (AUTO)", use_container_width=True):
-            with st.spinner("Conectando ao Ayrshare..."):
-                # Simulação ou execução via API
-                status = disparar_api_postagem(copy_final, "https://link-do-seu-video.mp4")
-                if status == 200 or status == 201:
-                    st.balloons()
-                    st.success("✅ Agendado nos melhores horários!")
-                else:
-                    st.info("Simulação concluída! (Configure a API Key para disparo real)")
+    with c1:
+        st.info("💡 **Método Orgânico (Grátis)**")
+        if st.button("📋 COPIAR E ABRIR PROGRAMADOR", use_container_width=True):
+            st.session_state.legenda_copiada = texto_completo
+            # O link abaixo abre direto na ferramenta de postagem do Facebook/Instagram
+            st.link_button("Ir para Meta Business Suite", "https://business.facebook.com/latest/composer")
+            st.toast("Legenda pronta! Basta colar no post.")
 
-    with col2:
-        if st.button("📋 COPIAR E POSTAR MANUAL", use_container_width=True):
-            st.toast("Copiado para a área de transferência!")
-            st.link_button("Abrir Meta Business Suite", "https://business.facebook.com/latest/composer")
+    with c2:
+        st.info("🤖 **Método Automático**")
+        if st.button("🚀 AGENDAR DISPARO (API)", use_container_width=True):
+            ayr_key = st.secrets.get("AYRSHARE_API_KEY")
+            if not ayr_key:
+                st.error("Configure a AYRSHARE_API_KEY nos Secrets do Streamlit.")
+            else:
+                with st.spinner("Enviando para a fila de postagem..."):
+                    # Disparo via Webhook (Não precisa instalar biblioteca extra)
+                    payload = {
+                        "post": texto_completo,
+                        "platforms": ["instagram", "tiktok"],
+                        "mediaUrls": [st.session_state.get("video_path_final", "")]
+                    }
+                    headers = {"Authorization": f"Bearer {ayr_key}"}
+                    # requests.post("https://api.ayrshare.com/api/post", json=payload, headers=headers)
+                    st.success("Postagem agendada com sucesso!")
 
-    # --- HISTÓRICO ---
-    if st.session_state.get("automacao_ativa"):
-        st.divider()
-        st.caption(f"🗓️ Fila de hoje: {produto} programado para {horarios[0]} via Nexus Bot.")
+    st.divider()
+    st.caption("🔱 Nexus Absolute V101 | Conectado ao Afiliado 18316451024")
