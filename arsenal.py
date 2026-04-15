@@ -33,7 +33,7 @@ def exibir_arsenal(miny, motor_ia):
         st.divider()
 
         # Botão padrão 2026
-        if st.button("🔥 GERAR ESTRATÉGIAS VIRAIS (AIDA)", width='stretch'):
+        if st.button("🔥 GERAR ESTRATÉGIAS VIRAIS (AIDA)", use_container_width=True):
             with st.spinner("Conectando ao Cérebro de Marketing Gemini Plus..."):
                 
                 # 🧠 Chamando a função do arquivo nexus_copy.py
@@ -41,7 +41,7 @@ def exibir_arsenal(miny, motor_ia):
                 
                 try:
                     # Dispara para o motor (já blindado contra erro 404 no mineracao.py)
-                    resultado_bruto = miny.minerar_produtos(prompt_mestre, mkt, "gemini-1.5-pro")
+                    resultado_bruto = miny.minerar_produtos(prompt_mestre, mkt, motor_ia)
                     
                     # 🧼 Limpa saudações da IA usando o nexus_copy
                     resultado = nxcopy.limpar_copy(resultado_bruto)
@@ -60,8 +60,13 @@ def exibir_arsenal(miny, motor_ia):
                     st.markdown(f"#### 💎 Estratégia de Elite V{i+1}")
                     st.write(texto_copy)
                     
-                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}", width='stretch'):
-                        st.session_state.copy_ativa = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_final}"
-                        st.toast(f"Munição V{i+1} enviada ao Estúdio!")
+                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}", use_container_width=True):
+                        # --- AS ÚNICAS ALTERAÇÕES PARA CONEXÃO TOTAL ---
+                        micao_final = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_final}"
+                        st.session_state.copy_ativa = micao_final # Envia para Estúdio
+                        st.session_state.copy_final_pronta = micao_final # Envia para Postador
+                        st.session_state.sel_link_blindado = link_final # Salva link para backup
+                        # -----------------------------------------------
+                        st.toast(f"Munição V{i+1} enviada ao Estúdio e Postador!")
     else:
         st.warning("⚠️ Selecione um produto no Scanner primeiro.")
