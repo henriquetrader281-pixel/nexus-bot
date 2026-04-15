@@ -103,19 +103,50 @@ motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-p
 # 🔄 Adicionado a Aba POSTADOR no menu
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (DENTRO DO APP.PY) ---
 if st.session_state.res_busca:
-    linhas = st.session_state.res_busca.split('\n')
-    for idx, linha in enumerate(linhas):
-        if "|" in linha:
-            try:
-                # Limpa a linha e separa os dados
-                partes = [p.strip() for p in linha.replace("**", "").split('|')]
-                dados = {}
-                for p in partes:
-                    if ":" in p:
-                        k, v = p.split(':', 1)
-                        dados[k.strip().upper()] = v.strip()
+        st.divider()
+        linhas = st.session_state.res_busca.split('\n')
+        
+        for idx, linha in enumerate(linhas):
+            # Limpa a linha de negritos e espaços extras
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in linha_limpa:
+                try:
+                    # Criamos um dicionário para mapear os dados independente da ordem
+                    dados = {}
+                    partes = [p.strip() for p in linha_limpa.split('|')]
+                    
+                    for p in partes:
+                        if ":" in p:
+                            chave, valor = p.split(":", 1)
+                            dados[chave.strip().upper()] = valor.strip()
+                    
+                    # --- EXTRAÇÃO INTELIGENTE DO NOME ---
+                    # Tenta pegar pela chave 'NOME', se não achar, pega a primeira parte antes do primeiro '|'
+                    nome_final = dados.get("NOME")
+                    if not nome_final:
+                        nome_final = partes[0].replace("NOME", "").replace(":", "").strip()
+                    
+                    # Extração dos outros dados com valores padrão (Fallbacks)
+                    calor_final = dados.get("CALOR", "0").split('°')[0].strip()
+                    preco_final = dados.get("VALOR", dados.get("PREÇO", "R$ ---"))
+                    ticket_final = dados.get("TICKET", "Médio")
+                    url_final = dados.get("URL", dados.get("LINK", "#"))
+
+                    # Renderiza o Card com os dados limpos
+                    renderizar_card_produto(
+                        idx, 
+                        nome_final, 
+                        preco_final, 
+                        calor_final, 
+                        ticket_final, 
+                        url_final, 
+                        st.session_state.mkt_global
+                    )
+                except Exception as e:
+                    # Se uma linha der erro, ele pula para a próxima sem travar o Nexus
+                    continue
                 
                 # Captura os dados reais
                 nome_f = dados.get("NOME", "Produto")
