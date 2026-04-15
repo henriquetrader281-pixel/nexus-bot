@@ -4,4 +4,6 @@ groq
 pandas
 requests
 pillow
-spotipy
+moviepy==1.0.3
+proglog
+imageio==2.25.1
