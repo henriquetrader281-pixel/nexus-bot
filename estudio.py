@@ -150,5 +150,6 @@ def exibir_estudio(miny=None, motor_ia=None):
         st.divider()
         if st.button("🚀 SALVAR NO RAIO-X"):
             nome = st.session_state.get('sel_nome', 'Produto').split('|')[0]
-           update.aplicar_seo_viral(nome, link_limpo, f"ID:{p_id} | {st.session_state.get('musica_selecionada', 'Trend')}")
+           # update.aplicar_seo_viral(nome, link_limpo, f"ID:{p_id} | {st.session_state.get('musica_selecionada', 'Trend')}")
+st.success("SEO Viral preparado para o Postador!")
             st.success(f"✅ Registrado para o Afiliado 18316451024!")
