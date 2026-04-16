@@ -29,7 +29,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (RESTURADA) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -39,9 +39,11 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         with c1:
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
-            st.caption(f"💰 {valor} | 🎫 {ticket}")
+            # Ticket de volta ao Card
+            st.caption(f"💰 {valor} | 🎫 Ticket: {ticket}")
         with c2:
             try:
+                # Limpa o calor para a barra azul funcionar
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -93,7 +95,7 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (Versão Blindada) ---
+# --- ABA 0: SCANNER (COMPLETO) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
@@ -110,77 +112,9 @@ with tabs[0]:
     if st.session_state.res_busca:
         st.divider()
         
-        # 🎫 FILTRO VISUAL DE TICKET
+        # FILTRO VISUAL DE TICKET
         filtro_ticket = st.multiselect(
             "Filtrar por Ticket:", 
             ["Baixo", "Médio", "Alto"], 
             default=["Baixo", "Médio", "Alto"]
         )
-        
-        linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            l_limpa = linha.replace("**", "").replace("*", "").strip()
-            
-            if "|" in l_limpa:
-                try:
-                    partes = [p.strip() for p in l_limpa.split('|')]
-                    dados = {}
-                    for p in partes:
-                        if ':' in p:
-                            k, v = p.split(':', 1)
-                            dados[k.strip().upper()] = v.strip()
-                    
-                    # 🔱 BUSCA FLEXÍVEL DE NOME
-                    nome_final = "Produto Desconhecido"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
-                    
-                    # Fallback por posição
-                    if nome_final == "Produto Desconhecido" and partes:
-                        nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
-
-                    # 🎫 CAPTURA DO TICKET
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave:
-                            ticket_val = dados[chave]
-                            break
-
-                    # 🌡️ EXTRAÇÃO DO CALOR
-                    c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                    calor_num = int(c_str) if c_str else 0
-                    
-                    # 🚀 FILTRAGEM E RENDERIZAÇÃO
-                    if ticket_val in filtro_ticket:
-                        renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            dados.get("VALOR", "R$ ---"), 
-                            calor_num, 
-                            ticket_val, 
-                            dados.get("URL", "#"), 
-                            st.session_state.mkt_global
-                        )
-                except:
-                    continue
-
-# --- CONEXÃO COM AS OUTRAS ABAS ---
-with tabs[1]: 
-    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-
-with tabs[2]: 
-    trends.exibir_trends()
-
-with tabs[3]: 
-    estudio.exibir_estudio(miny, motor_ia)
-
-with tabs[4]: 
-    postador.exibir_postador(miny, motor_ia)
-
-with tabs[5]: 
-    update.dashboard_performance_simples()
-
-with tabs[6]: 
-    radar_engine.exibir_radar()
