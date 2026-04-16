@@ -96,20 +96,65 @@ debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=Fal
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
-with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+for idx, linha in enumerate(linhas):
+            # 1. Limpeza total de lixo visual
+            l_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in l_limpa:
+                try:
+                    # 2. Divide a linha em partes e mapeia num dicionário
+                    partes_brutas = [p.strip() for p in l_limpa.split('|')]
+                    dados = {}
+                    for p in partes_brutas:
+                        if ":" in p:
+                            k, v = p.split(":", 1)
+                            # Remove números de lista (ex: '1. NOME' vira 'NOME')
+                            k_clean = "".join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
+                            dados[k_clean] = v.strip()
+                    
+                    # 🔱 3. RESGATE DO NOME (NÃO ACEITA 'CALOR' NO NOME)
+                    nome_f = ""
+                    # Busca direta pela chave
+                    for chave in dados.keys():
+                        if "NOME" in chave or "PRODUTO" in chave:
+                            nome_f = dados[chave]
+                            break
+                    
+                    # Validação: Se o nome capturado contém 'CALOR' ou está vazio, busca em outras partes
+                    if not nome_f or "CALOR" in nome_f.upper():
+                        for pb in partes_brutas:
+                            if ":" in pb:
+                                cabecalho, conteudo = pb.split(":", 1)
+                                if "CALOR" not in cabecalho.upper() and "URL" not in cabecalho.upper():
+                                    nome_f = conteudo.strip()
+                                    break
 
-    col_sel1, col_sel2 = st.columns([1, 2])
-    with col_sel1:
-        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
-    with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
+                    # 4. EXTRAÇÃO DO CALOR (MATA O ERRO DE 0°C)
+                    # Pega apenas os números, ignorando o texto 'CALOR:'
+                    calor_raw = dados.get("CALOR", "0")
+                    c_str = "".join(filter(str.isdigit, str(calor_raw)))
+                    calor_num = int(c_str) if c_str else 0
 
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
-        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            # O PROMPT DEVE FICAR SEM ESPAÇOS NA MARGEM ESQUERDA:
-            prompt_scanner = f"""Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'.
+                    # 5. DEMAIS DADOS E LINK
+                    valor_f = dados.get("VALOR", "---")
+                    ticket_f = dados.get("TICKET", "Médio")
+                    
+                    link_raw = dados.get("URL", dados.get("LINK", "#"))
+                    link_f = str(link_raw).replace(" ", "").replace("(", "").replace(")", "").strip()
+
+                    # 6. RENDERIZAÇÃO
+                    if ticket_f in filtro_ticket:
+                        renderizar_card_produto(
+                            idx, 
+                            nome_f, 
+                            valor_f, 
+                            calor_num, 
+                            ticket_f, 
+                            link_f, 
+                            st.session_state.mkt_global
+                        )
+                except:
+                    continue
 Use estes critérios de TICKET:
 - BAIXO: Até R$ 50
 - MÉDIO: R$ 51 até R$ 200
