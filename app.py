@@ -87,7 +87,7 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 # No app.py, altera para esta configuração:
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # "gemini-1.5-flash-latest" resolve o erro 404 de modelo não encontrado
+    # ALTERAÇÃO: Usa o sufixo '-latest' para evitar o erro 404 que viste
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # --- 5. INTERFACE PRINCIPAL ---
