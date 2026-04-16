@@ -32,7 +32,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LÓGICA BLINDADA) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -40,13 +40,11 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            # Garante que o nome não venha vazio
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                # Limpeza de calor: extrai apenas números para a barra azul funcionar
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -94,87 +92,55 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-if st.session_state.res_busca:
+# --- ABA 0: SCANNER ---
+with tabs[0]:
+    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+    col_sel1, col_sel2 = st.columns([1, 2])
+    with col_sel1:
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
+    with col_sel2:
+        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
+
+    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando produtos com Groq..."):
+            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+    
+    if st.session_state.res_busca:
         st.divider()
         for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
-            # Limpeza radical: remove negritos e espaços extras antes de processar
             linha_processada = linha.replace("**", "").strip()
             
             if "|" in linha_processada:
                 try:
                     partes = [p.strip() for p in linha_processada.split('|')]
                     dados = {}
-                    
                     for p in partes:
                         if ":" in p:
-                            # Divide no primeiro ":" e limpa chaves/valores
                             k_v = p.split(":", 1)
-                            chave = k_v[0].strip().upper()
-                            valor = k_v[1].strip()
-                            dados[chave] = valor
+                            dados[k_v[0].strip().upper()] = k_v[1].strip()
                     
-                    # --- CAPTURA DE NOME (MÉTODO À PROVA DE FALHAS) ---
-                    # 1. Tenta achar pela chave NOME
+                    # Extração de Nome Blindada
                     n_f = dados.get("NOME")
-                    
-                    # 2. Se não achar, pega o que estiver antes do primeiro ":" da linha
                     if not n_f:
-                        primeira_coluna = partes[0]
-                        n_f = primeira_coluna.split(":", 1)[-1].strip() if ":" in primeira_coluna else primeira_coluna
+                        n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
-                    # --- CAPTURA DE DEMAIS DADOS ---
                     v_f = dados.get("VALOR", "R$ ---")
                     t_f = dados.get("TICKET", "Médio")
                     u_f = dados.get("URL", "#")
 
-                    # --- TRATAMENTO DE CALOR (Para a barra azul) ---
+                    # Tratamento de Calor
                     c_raw = dados.get("CALOR", "0")
-                    # Extrai apenas os números (remove % , °C, etc)
                     c_num = "".join(filter(str.isdigit, str(c_raw)))
                     c_f = int(c_num) if c_num else 0
-                    
-                    # Fallback Calor: Se veio zerado, tenta pegar qualquer número da 2ª parte
                     if c_f == 0 and len(partes) > 1:
-                        fallback_c = "".join(filter(str.isdigit, partes[1]))
-                        c_f = int(fallback_c) if fallback_c else 0
-
-                    # Renderiza o Card com o nome forçado
-                    renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
-                    
-                except Exception as e:
-                    continue
-    if st.session_state.res_busca:
-        st.divider()
-        linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            linha_limpa = linha.strip()
-            if "|" in linha_limpa:
-                try:
-                    partes = [p.strip() for p in linha_limpa.split('|')]
-                    dados = {}
-                    for p in partes:
-                        p_analise = p.replace("*", "").strip()
-                        if ":" in p_analise:
-                            k, v = p_analise.split(":", 1)
-                            dados[k.strip().upper()] = v.strip()
-                    
-                    # LÓGICA DE CAPTURA DE NOME ROBUSTA (Resolve o erro do nome sumir)
-                    n_f = dados.get("NOME")
-                    if not n_f:
-                        primeira_parte = partes[0].replace("*", "").strip()
-                        n_f = primeira_parte.split(":")[-1].strip() if ":" in primeira_parte else primeira_parte
-                    
-                    v_f = dados.get("VALOR", "R$ ---")
-                    c_f = dados.get("CALOR", "0")
-                    t_f = dados.get("TICKET", "Médio")
-                    u_f = dados.get("URL", "#")
+                        c_f = int("".join(filter(str.isdigit, partes[1]))) if any(i.isdigit() for i in partes[1]) else 0
 
                     renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
                 except: continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
-    # Passa o Gemini (motor_ia_obj) para o Arsenal para gerar copys com AIDA e CTA
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]:
