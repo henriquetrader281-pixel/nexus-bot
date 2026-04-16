@@ -20,9 +20,7 @@ st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="�
 def get_nexus_intelligence():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash-latest'
-        )
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
         hoje = datetime.now().strftime("%d/%m/%Y")
         prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON: {{\"trends\": [{{\"musica\": \"nome\", \"score\": 95, \"razao\": \"...\", \"aida_hook\": \"...\"}}]}}"
         response = model.generate_content(prompt)
@@ -83,7 +81,6 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # Ajustado para a versão estável que evita erro 404
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # --- 5. INTERFACE PRINCIPAL ---
@@ -111,7 +108,8 @@ with tabs[0]:
         st.divider()
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            linha_p = linha.replace("**", "").strip()
+            # Limpeza de asteriscos para não bugar a leitura das chaves
+            linha_p = linha.replace("**", "").replace("*", "").strip()
             if "|" in linha_p:
                 try:
                     partes = [p.strip() for p in linha_p.split('|')]
@@ -121,23 +119,28 @@ with tabs[0]:
                             k, v = p.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # Nome Flexível
-                    n_f = dados.get("NOME")
-                    if not n_f:
-                        for chave in dados.keys():
-                            if "NOME" in chave: n_f = dados[chave]; break
-                    if not n_f: n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    # Lógica de Nome que você gosta (Busca flexível)
+                    n_f = "Produto Detectado"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            n_f = dados[chave]
+                            break
+                    
+                    # Fallback de Nome por posição
+                    if n_f == "Produto Detectado" and partes:
+                        n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
                     v_f = dados.get("VALOR", "R$ ---")
-                    c_f = dados.get("CALOR", "0")
+                    c_raw = dados.get("CALOR", "0")
                     t_f = dados.get("TICKET", "Médio")
                     u_f = dados.get("URL", "#")
 
-                    renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
+                    renderizar_card_produto(idx, n_f, v_f, c_raw, t_f, u_f, st.session_state.mkt_global)
                 except: continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
+    # Envia o motor Gemini configurado para o Arsenal
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]:
