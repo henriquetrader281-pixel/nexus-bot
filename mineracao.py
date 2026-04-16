@@ -2,15 +2,20 @@ import streamlit as st
 from groq import Groq
 
 @st.cache_data
-def minerar_produtos(prompt, marketplace, _motor_ia): # Adicione o _ aqui
+def minerar_produtos(prompt, marketplace, _motor_ia):
+    # Inicializa o cliente Groq usando a chave dos Secrets
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
-    # Tudo o que estiver abaixo também precisa de 4 espaços de recuo
-    if any(k in nicho for k in ["AIDA", "Copywriter", "###", "Roteiro"]):
+    # --- FIX NameError: Define 'nicho' localmente para as verificações ---
+    # Usamos o próprio conteúdo do prompt para identificar a rota
+    conteudo_analise = prompt
+    
+    # 📝 ROTA DE COPY (Arsenal)
+    # Se o prompt contiver palavras de copy, usa temperatura 0.7 (mais criativo)
+    if any(k in conteudo_analise for k in ["AIDA", "Copywriter", "###", "Roteiro"]):
         try:
-            # Continuação do código...
             chat = client.chat.completions.create(
-                messages=[{"role": "user", "content": nicho}],
+                messages=[{"role": "user", "content": prompt}],
                 model="llama-3.3-70b-versatile",
                 temperature=0.7 
             )
@@ -19,12 +24,11 @@ def minerar_produtos(prompt, marketplace, _motor_ia): # Adicione o _ aqui
             return f"Erro Groq Copy: {str(e)}"
     
     # 🔍 ROTA DE VARREDURA (Scanner)
-    # Para listas, usamos temperatura 0.2 para ser preciso
+    # Se for lista de produtos, usa temperatura 0.2 (mais preciso e técnico)
     else:
         try:
-            url_mkt = "https://shopee.com.br/search?keyword="
-            prompt = f"Liste {qtd} produtos de {nicho}. Formato: NOME: [nome] | CALOR: [95] | VALOR: R$ [0,00] | TICKET: Baixo | URL: {url_mkt}[nome]"
-            
+            # Não precisamos de 'qtd' ou redefinir 'prompt' aqui, 
+            # pois o 'prompt' que vem do app.py já está montado com volume e nicho.
             chat = client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model="llama-3.3-70b-versatile",
