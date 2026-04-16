@@ -18,7 +18,6 @@ st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="�
 
 # --- INTELIGÊNCIA DE TENDÊNCIAS (NÍVEL ELITE) ---
 def get_nexus_intelligence():
-    """Busca as 5 tendências elite cruzando TikTok e Instagram via Gemini"""
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(
@@ -26,25 +25,12 @@ def get_nexus_intelligence():
             tools=[{"google_search": {}}]
         )
         hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"""
-        Aja como um especialista em tendências virais de e-commerce. 
-        Analise tendências de HOJE ({hoje}) no TikTok Brasil e Instagram Reels para o nicho de Achadinhos/Shopee.
-        Identifique as 5 músicas ou estilos de áudio em curva ascendente.
-        Retorne APENAS um JSON puro no formato: 
-        {{"trends": [{{"musica": "nome", "score": 95, "razao": "explicação", "aida_hook": "gancho viral"}}]}}
-        """
+        prompt = f"Analise tendências de HOJE ({hoje}) no TikTok Brasil e Reels. Retorne APENAS JSON: {{\"trends\": [{{\"musica\": \"nome\", \"score\": 95, \"razao\": \"...\", \"aida_hook\": \"...\"}}]}}"
         response = model.generate_content(prompt)
-        # Limpeza de Markdown para garantir JSON puro
         clean_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
     except Exception as e:
-        # Fallback de segurança para não travar a interface
-        return {
-            "trends": [
-                {"musica": "Brazilian Funk Instrumental", "score": 98, "razao": "Alta conversão em cortes rápidos", "aida_hook": "SÓ 17 REAIS? 😱"},
-                {"musica": "Aesthetic Lofi Beats", "score": 92, "razao": "Viral para nicho de organização", "aida_hook": "VOCÊ PRECISA DISSO! ✨"}
-            ]
-        }
+        return {"trends": [{"musica": "Brazilian Funk Instrumental", "score": 98, "razao": "Alta conversão", "aida_hook": "SÓ 17 REAIS? 😱"}]}
 
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
@@ -58,7 +44,9 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                calor_num = min(max(int(str(calor).strip()), 0), 100)
+                # Limpeza Elite: Garante que calor seja apenas números
+                c_limpo = "".join(filter(str.isdigit, str(calor)))
+                calor_num = min(max(int(c_limpo), 0), 100) if c_limpo else 0
             except:
                 calor_num = 0
             st.progress(calor_num / 100)
@@ -67,13 +55,11 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.session_state.sel_nome = nome
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
-            # Rastro de comissão registrado para o Dashboard
             update.registrar_mineracao(nome, link, calor_num)
             st.toast(f"Alvo Selecionado: {nome}")
 
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
-
 def login():
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -106,49 +92,46 @@ motor_ia_nome = st.sidebar.selectbox("Cérebro de IA:", ["gemini-1.5-flash", "ge
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- Dentro da aba SCANNER no app.py ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=1)
     with col_sel2:
-        # Key garante que o valor fique no session_state
         foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
     if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
         with st.spinner("Minerando produtos com Groq..."):
-            # O prompt já vai montado com todas as variáveis necessárias
-            prompt_scanner = f"Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            
-            # Chamada usando o nome da IA (string) para o cache aceitar
+            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia_nome)
+            
     if st.session_state.res_busca:
         st.divider()
         for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
             linha_limpa = linha.replace("**", "").replace("*", "").strip()
             if "|" in linha_limpa:
                 try:
-                    dados = {}
+                    # EXTRAÇÃO ROBUSTA (ELITE)
                     partes = [p.strip() for p in linha_limpa.split('|')]
+                    dados = {}
                     for p in partes:
                         if ":" in p:
                             k, v = p.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
+                    # Nome: se não achar a chave, pega a primeira parte antes do primeiro |
                     n_f = dados.get("NOME", partes[0].split(':')[-1] if ":" in partes[0] else partes[0])
                     v_f = dados.get("VALOR", "R$ ---")
-                    c_f = dados.get("CALOR", "0").replace("°C", "").replace("%", "")
+                    # Calor: pega apenas números para a barra de progresso
+                    c_f = dados.get("CALOR", "0")
                     t_f = dados.get("TICKET", "Médio")
                     u_f = dados.get("URL", "#")
 
                     renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
                 except: continue
 
-# --- ABA 1: ARSENAL ---
+# Manter demais abas conectadas
 with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-
-# --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
     if st.button("📊 EXECUTAR ANÁLISE MONITOR GLOBAL", use_container_width=True):
@@ -158,14 +141,7 @@ with tabs[2]:
                 st.session_state.cache_trends = intel["trends"]
                 st.rerun()
 
-# --- ABA 3: ESTÚDIO ---
 with tabs[3]: estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
-
-# --- ABA 4: POSTADOR ---
 with tabs[4]: postador.exibir_postador(miny, st.session_state.motor_ia_obj)
-
-# --- ABA 5: DASHBOARD ---
 with tabs[5]: update.dashboard_performance_simples()
-
-# --- ABA 6: RADAR ---
 with tabs[6]: radar_engine.exibir_radar()
