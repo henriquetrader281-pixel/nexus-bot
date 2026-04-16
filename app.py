@@ -37,24 +37,27 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
-            st.markdown(f"**{ico} {n_exibir}**")
+            st.markdown(f"**{ico} {nome}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                # Limpeza do calor para garantir que a barra azul funcione
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
                 calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
+        
+        # O botão agora salva os dados puros, sem tentar limpar de novo
         if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = n_exibir
+            st.session_state.sel_nome = nome
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
-            update.registrar_mineracao(n_exibir, link, calor_num)
-            st.toast(f"Alvo Selecionado: {n_exibir}")
+            try:
+                update.registrar_mineracao(nome, link, calor_num)
+            except:
+                pass # Evita travar se o banco de dados falhar
+            st.toast(f"Alvo Selecionado: {nome}")
 
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: 
@@ -77,14 +80,16 @@ def login():
 if not st.session_state.autenticado: login()
 
 # --- 4. ESTADO DA SESSÃO ---
-if "res_busca" not in st.session_state: st.session_state.res_busca = ""
-if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
-if "sel_link" not in st.session_state: st.session_state.sel_link = ""
+for key in ["res_busca", "sel_nome", "sel_link"]:
+    if key not in st.session_state: st.session_state[key] = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 if "motor_ia_obj" not in st.session_state:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
+    except Exception as e:
+        st.error("Erro ao iniciar o Gemini. Verifique a GEMINI_API_KEY nos Secrets.")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
@@ -93,7 +98,7 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (Versão Blindada com Ticket e Nome) ---
+# --- ABA 0: SCANNER (Motor de Extração Blindado) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
@@ -103,63 +108,54 @@ with tabs[0]:
         foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
     if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando produtos com Groq..."):
-            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+        with st.spinner("Minerando produtos virais..."):
+            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato OBRIGATÓRIO: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [https://...]"
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
     
     if st.session_state.res_busca:
         st.divider()
-        
-        # Filtro de Ticket Ativo
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
+            # Limpeza inicial severa
             linha_p = linha.replace("**", "").replace("*", "").strip()
-            if "|" in linha_p:
+            
+            # Só processa se tiver um link válido e o separador
+            if "|" in linha_p and ("URL:" in linha_p.upper() or "HTTP" in linha_p.upper()):
                 try:
                     partes = [p.strip() for p in linha_p.split('|')]
                     dados = {}
+                    
+                    # Constrói o dicionário de forma segura
                     for p in partes:
                         if ":" in p:
                             k, v = p.split(":", 1)
-                            dados[k.strip().upper()] = v.strip()
+                            # Remove números de listas (ex: "1. NOME" vira "NOME")
+                            k_clean = ''.join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
+                            dados[k_clean] = v.strip()
                     
-                    # 🔱 LÓGICA DE NOME FLEXÍVEL (RESTURADA)
-                    nome_final = "Produto Detectado"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
-                    if nome_final == "Produto Detectado" and partes:
-                        nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    # Extração garantida
+                    nome_final = dados.get("NOME", "Produto Detectado")
+                    link_final = dados.get("URL", "#").replace(" ", "")
+                    valor_final = dados.get("VALOR", "---")
+                    ticket_val = dados.get("TICKET", "Médio")
+                    c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
                     
-                    # 🎫 LÓGICA DE TICKET (RESTURADA)
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave:
-                            ticket_val = dados[chave]
-                            break
-                    
-                    # 🚀 RENDERIZAÇÃO COM FILTRO
-                    if ticket_val in filtro_ticket:
-                        # Extração de calor limpa
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        
+                    if ticket_val in filtro_ticket and link_final != "#":
                         renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            dados.get("VALOR", "---"), 
-                            int(c_str) if c_str else 0, 
-                            ticket_val, 
-                            dados.get("URL", "#"), 
-                            st.session_state.mkt_global
+                            idx, nome_final, valor_final, int(c_str) if c_str else 0, 
+                            ticket_val, link_final, st.session_state.mkt_global
                         )
-                except: continue
+                except Exception as e:
+                    continue # Se a linha falhar totalmente, pula para a próxima sem travar
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
-    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+    if "motor_ia_obj" in st.session_state:
+        arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+    else:
+        st.error("Cérebro IA offline. Dê reboot no sistema.")
 
 with tabs[2]: trends.exibir_trends()
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
