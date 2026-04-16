@@ -35,22 +35,37 @@ def exibir_postador(miny, motor_ia):
             st.toast("Legenda pronta! Basta colar no post.")
 
     with c2:
-        st.info("🤖 **Método Automático**")
-        if st.button("🚀 AGENDAR DISPARO (API)", use_container_width=True):
-            ayr_key = st.secrets.get("AYRSHARE_API_KEY")
-            if not ayr_key:
-                st.error("Configure a AYRSHARE_API_KEY nos Secrets do Streamlit.")
+        st.info("🤖 **Método Buffer (Ativo)**")
+        if st.button("🚀 AGENDAR DISPARO (BUFFER)", use_container_width=True):
+            # Recupera as novas chaves do Buffer nos Secrets
+            buffer_token = st.secrets.get("BUFFER_ACCESS_TOKEN")
+            profile_id = st.secrets.get("BUFFER_PROFILE_ID")
+            
+            if not buffer_token or not profile_id:
+                st.error("Configure BUFFER_ACCESS_TOKEN e BUFFER_PROFILE_ID nos Secrets do Streamlit.")
             else:
-                with st.spinner("Enviando para a fila de postagem..."):
-                    # Disparo via Webhook (Não precisa instalar biblioteca extra)
+                with st.spinner("Enviando para a fila do Buffer..."):
+                    # Endpoint oficial do Buffer para criar posts
+                    url = "https://api.bufferapp.com/1/updates/create.json"
+                    headers = {"Authorization": f"Bearer {buffer_token}"}
+                    
+                    # O Buffer prefere receber os dados como Data (form-urlencoded)
                     payload = {
-                        "post": texto_completo,
-                        "platforms": ["instagram", "tiktok"],
-                        "mediaUrls": [st.session_state.get("video_path_final", "")]
+                        "profile_ids[]": [profile_id],
+                        "text": texto_completo,
+                        "media[video]": st.session_state.get("video_path_final", ""),
+                        "shorten": False
                     }
-                    headers = {"Authorization": f"Bearer {ayr_key}"}
-                    # requests.post("https://api.ayrshare.com/api/post", json=payload, headers=headers)
-                    st.success("Postagem agendada com sucesso!")
+                    
+                    try:
+                        response = requests.post(url, data=payload, headers=headers)
+                        if response.status_code == 200:
+                            st.success("✅ Nexus enviou a munição para a fila do Buffer!")
+                            st.balloons()
+                        else:
+                            st.error(f"Erro no Buffer: {response.text}")
+                    except Exception as e:
+                        st.error(f"Falha na conexão: {e}")
 
     st.divider()
     st.caption("🔱 Nexus Absolute V101 | Conectado ao Afiliado 18316451024")
