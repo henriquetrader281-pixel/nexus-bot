@@ -83,9 +83,11 @@ if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
+# --- Dentro do Estado da Sessão no app.py ---
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    # ALTERAÇÃO: Usar o modelo 'gemini-1.5-pro' para evitar o erro 404 do print
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
