@@ -107,29 +107,45 @@ with tabs[0]:
     if st.session_state.res_busca:
         st.divider()
         linhas = st.session_state.res_busca.split('\n')
+    # --- SUBSTITUIR APENAS ESTE BLOCO DENTRO DO FOR ---
         for idx, linha in enumerate(linhas):
-            linha_p = linha.replace("**", "").replace("*", "").strip()
-            if "|" in linha_p:
+            l_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in l_limpa:
                 try:
-                    partes = [p.strip() for p in linha_p.split('|')]
+                    partes = [p.strip() for p in l_limpa.split('|')]
                     dados = {}
                     for p in partes:
-                        if ":" in p:
-                            k, v = p.split(":", 1)
+                        if ':' in p:
+                            k, v = p.split(':', 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # Lógica de Nome Robusta
-                    nome_final = "Produto Detectado"
+                    # 🔱 BUSCA FLEXÍVEL DE NOME (O QUE RESOLVE)
+                    nome_final = "Produto Desconhecido"
                     for chave in dados.keys():
-                        if "NOME" in chave:
+                        if "NOME" in chave: # Se a chave tiver a palavra NOME, ele pega
                             nome_final = dados[chave]
                             break
-                    if nome_final == "Produto Detectado" and partes:
-                        nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
-                    renderizar_card_produto(idx, nome_final, dados.get("VALOR", "---"), dados.get("CALOR", "0"), dados.get("TICKET", "Médio"), dados.get("URL", "#"), st.session_state.mkt_global)
-                except: continue
+                    # FALLBACK: Se não achar a palavra NOME, pega a 1ª posição da linha
+                    if nome_final == "Produto Desconhecido" and partes:
+                        nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
 
+                    # EXTRAÇÃO DO CALOR (GARANTE A BARRA AZUL)
+                    c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                    
+                    # ENVIO PARA O CARD
+                    renderizar_card_produto(
+                        idx, 
+                        nome_final, 
+                        dados.get("VALOR", "R$ ---"), 
+                        int(c_str) if c_str else 0, 
+                        dados.get("TICKET", "Médio"), 
+                        dados.get("URL", "#"), 
+                        st.session_state.mkt_global
+                    )
+                except:
+                    continue
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
