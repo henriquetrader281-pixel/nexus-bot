@@ -1,8 +1,6 @@
 import streamlit as st
 import requests
 import re
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
