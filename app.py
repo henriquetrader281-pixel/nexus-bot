@@ -110,7 +110,12 @@ with tabs[0]:
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato obrigatório por linha: NOME: [nome do produto] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+          prompt_scanner = f"""
+Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
+NÃO use markdown nos links. 
+FORMATO OBRIGATÓRIO POR LINHA:
+NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link_direto_sem_formatacao]
+"""
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
 
     if st.session_state.res_busca:
