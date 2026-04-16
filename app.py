@@ -94,56 +94,78 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
+# --- ABA 0: SCANNER (Lógica Blindada) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+    
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
+        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
+    
     with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
+        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
 
-    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando produtos com Groq..."):
-            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
+        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
+            prompt_scanner = f"Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            # Certifique-se que sua função minerar_produtos aceita esses 3 argumentos
+            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+            st.session_state.res_busca = resultado
     
     if st.session_state.res_busca:
         st.divider()
-        for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
-            # Limpeza radical de asteriscos da linha
-            linha_processada = linha.replace("**", "").strip()
+        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        
+        linhas = st.session_state.res_busca.split('\n')
+        for idx, linha in enumerate(linhas):
+            # LIMPEZA RADICAL: Remove asteriscos de negrito que a IA coloca e espaços extras
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
-            if "|" in linha_processada:
+            if "|" in linha_limpa:
                 try:
-                    partes = [p.strip() for p in linha_processada.split('|')]
+                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
                     dados = {}
-                    for p in partes:
-                        if ":" in p:
-                            k_v = p.split(":", 1)
-                            dados[k_v[0].strip().upper()] = k_v[1].strip()
+                    for p in partes_lista:
+                        if ':' in p:
+                            k, v = p.split(':', 1)
+                            dados[k.strip().upper()] = v.strip()
                     
-                    # EXTRAÇÃO DE NOME (PLANO A: Chave | PLANO B: Posição)
-                    n_f = dados.get("NOME")
-                    if not n_f:
-                        n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    # --- CAPTURA DE NOME ROBUSTA ---
+                    nome_final = ""
+                    # Busca flexível por qualquer chave que contenha "NOME"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
+                            break
                     
-                    v_f = dados.get("VALOR", "R$ ---")
-                    t_f = dados.get("TICKET", "Médio")
-                    u_f = dados.get("URL", "#")
+                    # FALLBACK: Se não achar a chave, pega o texto da primeira coluna (antes do primeiro |)
+                    if not nome_final and partes_lista:
+                        primeira_parte = partes_lista[0]
+                        nome_final = primeira_parte.split(':', 1)[-1].strip() if ':' in primeira_parte else primeira_parte
 
-                    # TRATAMENTO DE CALOR (Para a barra de progresso)
-                    c_raw = dados.get("CALOR", "0")
-                    c_num = "".join(filter(str.isdigit, str(c_raw)))
-                    c_f = int(c_num) if c_num else 0
+                    # --- CAPTURA DE TICKET ---
+                    ticket_val = "Médio"
+                    for chave in dados.keys():
+                        if "TICKET" in chave: 
+                            ticket_val = dados[chave]
+                            break
                     
-                    # Se falhar o calor, tenta achar na segunda parte da linha
-                    if c_f == 0 and len(partes) > 1:
-                        c_f_alt = "".join(filter(str.isdigit, partes[1]))
-                        c_f = int(c_f_alt) if c_f_alt else 0
-
-                    renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
-                except: continue
+                    # --- RENDERIZAÇÃO ---
+                    if ticket_val in filtro_ticket:
+                        # Extrai apenas números do calor para a barra de progresso
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        
+                        renderizar_card_produto(
+                            idx, 
+                            nome_final if nome_final else "Produto Identificado", 
+                            dados.get("VALOR", "R$ ---"), 
+                            int(c_str) if c_str else 0, 
+                            ticket_val, 
+                            dados.get("URL", "#"), 
+                            st.session_state.mkt_global
+                        )
+                except Exception as e:
+                    continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
