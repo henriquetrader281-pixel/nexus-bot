@@ -82,13 +82,14 @@ if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
+# No app.py, procure o bloco do motor_ia_obj e deixe assim:
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # 🔱 Como tens Gemini Plus, usamos o modelo PRO para copys perfeitas
+        # 🔱 ATENÇÃO: Como você tem o PLUS, usamos o 1.5-PRO
         st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
-        st.error(f"Erro ao ligar o motor Pro: {e}")
+        st.error(f"Falha ao carregar motor Pro: {e}")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
