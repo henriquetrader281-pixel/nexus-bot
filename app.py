@@ -82,9 +82,9 @@ if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 if "motor_ia_obj" not in st.session_state:
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # 🔱 MUDANÇA: Usando a nomenclatura que o servidor v1beta reconhece
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
     except:
         st.error("Erro ao iniciar Gemini.")
 
