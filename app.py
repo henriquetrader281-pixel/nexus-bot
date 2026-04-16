@@ -32,7 +32,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LÓGICA BLINDADA) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -40,11 +40,13 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
+            # Garante que o nome não venha vazio
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
+                # Limpeza de calor: extrai apenas números para a barra azul funcionar
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -109,6 +111,7 @@ with tabs[0]:
     if st.session_state.res_busca:
         st.divider()
         for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
+            # Limpeza radical de asteriscos da linha
             linha_processada = linha.replace("**", "").strip()
             
             if "|" in linha_processada:
@@ -120,7 +123,7 @@ with tabs[0]:
                             k_v = p.split(":", 1)
                             dados[k_v[0].strip().upper()] = k_v[1].strip()
                     
-                    # Extração de Nome Blindada
+                    # EXTRAÇÃO DE NOME (PLANO A: Chave | PLANO B: Posição)
                     n_f = dados.get("NOME")
                     if not n_f:
                         n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
@@ -129,23 +132,27 @@ with tabs[0]:
                     t_f = dados.get("TICKET", "Médio")
                     u_f = dados.get("URL", "#")
 
-                    # Tratamento de Calor
+                    # TRATAMENTO DE CALOR (Para a barra de progresso)
                     c_raw = dados.get("CALOR", "0")
                     c_num = "".join(filter(str.isdigit, str(c_raw)))
                     c_f = int(c_num) if c_num else 0
+                    
+                    # Se falhar o calor, tenta achar na segunda parte da linha
                     if c_f == 0 and len(partes) > 1:
-                        c_f = int("".join(filter(str.isdigit, partes[1]))) if any(i.isdigit() for i in partes[1]) else 0
+                        c_f_alt = "".join(filter(str.isdigit, partes[1]))
+                        c_f = int(c_f_alt) if c_f_alt else 0
 
                     renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
                 except: continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
+    # Chama o Arsenal passando o motor Gemini para copys persuasivas
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]:
     trends.exibir_trends()
-    if st.button("📊 EXECUTAR ANÁLISE GLOBAL"):
+    if st.button("📊 EXECUTAR ANÁLISE GLOBAL", key="btn_trends_global"):
         intel = get_nexus_intelligence()
         if "trends" in intel:
             for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
