@@ -56,7 +56,8 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.toast(f"Alvo Selecionado: {n_exibir}")
 
 # --- 3. SISTEMA DE ACESSO ---
-if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if "autenticado" not in st.session_state: 
+    st.session_state.autenticado = False
 
 def login():
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
@@ -68,10 +69,12 @@ def login():
             if senha == senha_mestra:
                 st.session_state.autenticado = True
                 st.rerun()
-            else: st.error("Senha incorreta.")
+            else: 
+                st.error("Senha incorreta.")
     st.stop()
 
-if not st.session_state.autenticado: login()
+if not st.session_state.autenticado: 
+    login()
 
 # --- 4. ESTADO DA SESSÃO ---
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
@@ -107,7 +110,7 @@ with tabs[0]:
     if st.session_state.res_busca:
         st.divider()
         linhas = st.session_state.res_busca.split('\n')
-    # --- SUBSTITUIR APENAS ESTE BLOCO DENTRO DO FOR ---
+        
         for idx, linha in enumerate(linhas):
             l_limpa = linha.replace("**", "").replace("*", "").strip()
             
@@ -120,18 +123,18 @@ with tabs[0]:
                             k, v = p.split(':', 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # 🔱 BUSCA FLEXÍVEL DE NOME (O QUE RESOLVE)
+                    # 🔱 BUSCA FLEXÍVEL DE NOME
                     nome_final = "Produto Desconhecido"
                     for chave in dados.keys():
-                        if "NOME" in chave: # Se a chave tiver a palavra NOME, ele pega
+                        if "NOME" in chave:
                             nome_final = dados[chave]
                             break
                     
-                    # FALLBACK: Se não achar a palavra NOME, pega a 1ª posição da linha
+                    # FALLBACK
                     if nome_final == "Produto Desconhecido" and partes:
                         nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
 
-                    # EXTRAÇÃO DO CALOR (GARANTE A BARRA AZUL)
+                    # EXTRAÇÃO DO CALOR
                     c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
                     
                     # ENVIO PARA O CARD
@@ -146,12 +149,22 @@ with tabs[0]:
                     )
                 except:
                     continue
+
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
-with tabs[2]: trends.exibir_trends()
-with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
-with tabs[4]: postador.exibir_postador(miny, motor_ia)
-with tabs[5]: update.dashboard_performance_simples()
-with tabs[6]: radar_engine.exibir_radar()
+with tabs[2]: 
+    trends.exibir_trends()
+
+with tabs[3]: 
+    estudio.exibir_estudio(miny, motor_ia)
+
+with tabs[4]: 
+    postador.exibir_postador(miny, motor_ia)
+
+with tabs[5]: 
+    update.dashboard_performance_simples()
+
+with tabs[6]: 
+    radar_engine.exibir_radar()
