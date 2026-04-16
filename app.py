@@ -74,7 +74,8 @@ def login():
 if not st.session_state.autenticado: login()
 
 # --- 4. ESTADO DA SESSÃO E DEFINIÇÕES GLOBAIS ---
-motor_ia = "groq" # Define globalmente para evitar NameError na linha 165
+# --- 4. ESTADO DA SESSÃO E MOTOR IA ---
+motor_ia = "groq" 
 
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
@@ -82,11 +83,12 @@ if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 if "motor_ia_obj" not in st.session_state:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # 🔱 MUDANÇA: Usando a nomenclatura que o servidor v1beta reconhece
-    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
-    except:
-        st.error("Erro ao iniciar Gemini.")
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # Usando 'gemini-1.5-flash' para evitar o erro 404
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"Erro ao iniciar motor IA: {e}")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
