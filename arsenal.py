@@ -40,19 +40,19 @@ def exibir_arsenal(miny, motor_ia_gemini):
             with st.spinner("Gemini moldando roteiros de elite..."):
                 prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
                 
-                try:
-                    # Tenta gerar o conteúdo. Se gemini-1.5-flash falhar, o app.py já terá o pro configurado
-                    response = motor_ia_gemini.generate_content(prompt)
-                    resultado = nxcopy.limpar_copy(response.text)
-                    
-                    if "###" in resultado:
-                        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 15]
-                    else:
-                        st.session_state.res_arsenal = [resultado.strip()]
-                    st.rerun()
-                except Exception as e:
-                    # Exibe o erro de forma mais amigável
-                    st.error(f"Erro na IA: Certifique-se de que o modelo está correto no app.py. Detalhe: {e}")
+                # --- No arsenal.py, dentro do botão de gerar copy ---
+try:
+    # Tenta gerar o conteúdo com o motor vindo do app.py
+    response = motor_ia_gemini.generate_content(prompt)
+    
+    if response and response.text:
+        resultado = nxcopy.limpar_copy(response.text)
+        # ... resto da sua lógica de split por ### ...
+    else:
+        st.error("A IA retornou uma resposta vazia. Tente novamente.")
+except Exception as e:
+    st.error(f"Erro na IA (Gemini): {e}")
+    st.info("Dica: Verifique se a sua GEMINI_API_KEY está correta nos Secrets do Streamlit.")
 
         if "res_arsenal" in st.session_state:
             for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
