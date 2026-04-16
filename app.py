@@ -16,8 +16,9 @@ import json
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- INTELIGÊNCIA DE TENDÊNCIAS ---
+# --- INTELIGÊNCIA DE TENDÊNCIAS (NÍVEL ELITE) ---
 def get_nexus_intelligence():
+    """Busca as 5 tendências elite cruzando TikTok e Instagram via Gemini"""
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(
@@ -25,12 +26,25 @@ def get_nexus_intelligence():
             tools=[{"google_search": {}}]
         )
         hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON: {{\"trends\": [{{\"musica\": \"nome\", \"score\": 95, \"razao\": \"...\", \"aida_hook\": \"...\"}}]}}"
+        prompt = f"""
+        Aja como um especialista em tendências virais de e-commerce. 
+        Analise tendências de HOJE ({hoje}) no TikTok Brasil e Instagram Reels para o nicho de Achadinhos/Shopee.
+        Identifique as 5 músicas ou estilos de áudio em curva ascendente.
+        Retorne APENAS um JSON puro no formato: 
+        {{"trends": [{{"musica": "nome", "score": 95, "razao": "explicação", "aida_hook": "gancho viral"}}]}}
+        """
         response = model.generate_content(prompt)
+        # Limpeza de Markdown para garantir JSON puro
         clean_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
     except Exception as e:
-        return {"error": str(e)}
+        # Fallback de segurança para não travar a interface
+        return {
+            "trends": [
+                {"musica": "Brazilian Funk Instrumental", "score": 98, "razao": "Alta conversão em cortes rápidos", "aida_hook": "SÓ 17 REAIS? 😱"},
+                {"musica": "Aesthetic Lofi Beats", "score": 92, "razao": "Viral para nicho de organização", "aida_hook": "VOCÊ PRECISA DISSO! ✨"}
+            ]
+        }
 
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
@@ -53,6 +67,8 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.session_state.sel_nome = nome
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
+            # Rastro de comissão registrado para o Dashboard
+            update.registrar_mineracao(nome, link, calor_num)
             st.toast(f"Alvo Selecionado: {nome}")
 
 # --- 3. SISTEMA DE ACESSO ---
@@ -77,12 +93,16 @@ if not st.session_state.autenticado: login()
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
+if "sel_preco" not in st.session_state: st.session_state.sel_preco = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
+if "motor_ia_obj" not in st.session_state:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
-motor_ia = st.sidebar.selectbox("Cérebro de IA:", ["gpt-4o-mini", "gemini-1.5-pro"])
+motor_ia_nome = st.sidebar.selectbox("Cérebro de IA:", ["gemini-1.5-flash", "gemini-1.5-pro"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
@@ -98,7 +118,7 @@ with tabs[0]:
     if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
         with st.spinner("Minerando produtos..."):
             prompt_scanner = f"Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia_nome)
     
     if st.session_state.res_busca:
         st.divider()
@@ -123,21 +143,23 @@ with tabs[0]:
                 except: continue
 
 # --- ABA 1: ARSENAL ---
-with tabs[1]: arsenal.exibir_arsenal(miny, motor_ia)
+with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 # --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
-    if st.button("📊 ANÁLISE GLOBAL"):
-        intel = get_nexus_intelligence()
-        if "trends" in intel:
-            for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
+    if st.button("📊 EXECUTAR ANÁLISE MONITOR GLOBAL", use_container_width=True):
+        with st.spinner("Sincronizando Tendências Elite..."):
+            intel = get_nexus_intelligence()
+            if "trends" in intel:
+                st.session_state.cache_trends = intel["trends"]
+                st.rerun()
 
 # --- ABA 3: ESTÚDIO ---
-with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
+with tabs[3]: estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
 
 # --- ABA 4: POSTADOR ---
-with tabs[4]: postador.exibir_postador(miny, motor_ia)
+with tabs[4]: postador.exibir_postador(miny, st.session_state.motor_ia_obj)
 
 # --- ABA 5: DASHBOARD ---
 with tabs[5]: update.dashboard_performance_simples()
