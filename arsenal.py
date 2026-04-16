@@ -16,23 +16,27 @@ def aplicar_id_afiliado(link, mkt):
 def exibir_arsenal(miny, motor_ia):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
     
+    # Recupera o nicho definido no Scanner
+    nicho_atual = st.session_state.get('foco_nicho', 'Ofertas')
+    
     if st.session_state.get("sel_nome"):
         mkt = st.session_state.get('mkt_global', 'Shopee')
+        # Limpeza profunda para o nome não sumir nem bugar a IA
         nome_bruto = st.session_state.sel_nome
-        
-        # Limpeza para a IA focar apenas no nome do produto
         nome_limpo = nome_bruto.split('|')[0].replace("NOME:", "").replace("*", "").strip()
+        
+        # Correção: Garante que o link use o ID antes de qualquer ação
         link_final = aplicar_id_afiliado(st.session_state.sel_link, mkt)
+        st.session_state.link_final_afiliado = link_final # Persiste o link com ID
         
         with st.container(border=True):
             st.success(f"📦 **Produto Selecionado:** {nome_limpo}")
-            st.caption(f"🔗 Link com ID: {link_final}")
+            st.code(f"🔗 Link Ativo: {link_final}", language="text")
         
         if st.button("🔥 GERAR ESTRATÉGIAS VIRAIS (AIDA)", use_container_width=True):
             with st.spinner("IA Groq gerando Copys..."):
-                nicho = st.session_state.get('foco_nicho', 'Ofertas')
                 prompt = nxcopy.gerar_prompt_aida(nome_limpo, estilo="agressivo")
-                prompt += f" Considere o nicho {nicho}."
+                prompt += f" Considere o nicho {nicho_atual}."
                 
                 resultado_bruto = miny.minerar_produtos(prompt, mkt, "groq")
                 resultado = nxcopy.limpar_copy(resultado_bruto)
@@ -47,10 +51,9 @@ def exibir_arsenal(miny, motor_ia):
             for i, texto_copy in enumerate(st.session_state.res_arsenal[:5]):
                 with st.container(border=True):
                     st.write(texto_copy)
-                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}"):
+                    if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}", use_container_width=True):
                         micao_final = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_final}"
                         st.session_state.copy_ativa = micao_final
-                        st.session_state.link_final_afiliado = link_final
-                        st.toast(f"Munição V{i+1} enviada!")
+                        st.toast(f"Munição V{i+1} enviada com ID!")
     else:
         st.warning("⚠️ Selecione um produto no Scanner primeiro.")
