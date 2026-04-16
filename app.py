@@ -81,11 +81,11 @@ if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
-# Motor IA: gemini-2.0-flash (substituto estável do 1.5-pro)
+# Motor IA: gemini-1.5-flash (free tier disponível)
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-2.0-flash')
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Falha ao carregar motor IA: {e}")
 
@@ -93,29 +93,36 @@ if "motor_ia_obj" not in st.session_state:
 st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
 
+# DEBUG toggle na sidebar
+debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=False)
+
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
 # --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    
+
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
         qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
-    
     with col_sel2:
         foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato obrigatório por linha: NOME: [nome do produto] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
-    
+
     if st.session_state.res_busca:
+        if debug_scanner:
+            st.text_area("🔬 Raw output da IA:", st.session_state.res_busca, height=300)
+        
         st.divider()
         filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
         linhas = st.session_state.res_busca.split('\n')
+        produtos_renderizados = 0
+
         for idx, linha in enumerate(linhas):
             linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
@@ -128,33 +135,36 @@ with tabs[0]:
                 for p in partes_lista:
                     if ':' in p:
                         k, v = p.split(':', 1)
-                        # Remove números, pontos e espaços da chave (ex: "1. NOME" -> "NOME")
                         k_clean = "".join([c for c in k if not c.isdigit()]).replace(".", "").strip().upper()
                         dados[k_clean] = v.strip()
 
-                # --- EXTRAÇÃO DO NOME (blindada) ---
-                # Prioridade: chave com NOME/PRODUTO, mas valor NÃO pode conter R$ ou CALOR
+                # --- EXTRAÇÃO DO NOME ---
                 nome_f = None
                 for k in dados:
                     if "NOME" in k or "PRODUTO" in k:
-                        candidato = dados[k]
-                        # Rejeita se o valor parecer preço ou número de calor
-                        if "R$" not in candidato and not candidato.replace(" ", "").isdigit():
+                        candidato = dados[k].strip()
+                        if "R$" not in candidato and not candidato.replace(",","").replace(".","").isdigit():
                             nome_f = candidato
                             break
 
-                # Fallback: primeira parte que não é preço/calor/ticket/url
+                # Fallback: primeira parte não-reservada
                 if not nome_f:
-                    campos_reservados = {"CALOR", "VALOR", "TICKET", "URL", "LINK"}
+                    campos_reservados = {"CALOR", "VALOR", "TICKET", "URL", "LINK", "PRECO", "PREÇO"}
                     for k, v in dados.items():
-                        if k not in campos_reservados and "R$" not in v and "http" not in v.lower():
+                        skip = any(res in k for res in campos_reservados)
+                        if not skip and "R$" not in v and not v.startswith("http") and len(v) > 3:
                             nome_f = v
                             break
 
+                # Último fallback: primeira parte bruta da linha
                 if not nome_f:
+                    primeira_parte = partes_lista[0] if partes_lista else ""
+                    nome_f = primeira_parte.split(":", 1)[1].strip() if ":" in primeira_parte else primeira_parte.strip()
+
+                if not nome_f or len(nome_f) < 3:
                     nome_f = "Produto Detectado"
 
-                # --- EXTRAÇÃO DO LINK (blindada) ---
+                # --- EXTRAÇÃO DO LINK ---
                 link_f = "#"
                 for k, v in dados.items():
                     if "URL" in k or "LINK" in k or v.startswith("http"):
@@ -163,16 +173,24 @@ with tabs[0]:
 
                 # --- DEMAIS CAMPOS ---
                 valor_f = dados.get("VALOR", "---")
-                ticket_val = dados.get("TICKET", "Médio")
+                ticket_val = dados.get("TICKET", "Médio").strip()
+                if "ALTO" in ticket_val.upper(): ticket_val = "Alto"
+                elif "BAIXO" in ticket_val.upper(): ticket_val = "Baixo"
+                else: ticket_val = "Médio"
+
                 calor_raw = dados.get("CALOR", "0")
                 c_str = "".join(filter(str.isdigit, str(calor_raw)))
-                calor_num = int(c_str) if c_str else 0
+                calor_num = min(int(c_str), 100) if c_str else 0
 
                 if ticket_val in filtro_ticket:
                     renderizar_card_produto(idx, nome_f, valor_f, calor_num, ticket_val, link_f, st.session_state.mkt_global)
+                    produtos_renderizados += 1
 
             except Exception:
                 continue
+
+        if produtos_renderizados == 0:
+            st.warning("⚠️ Nenhum produto renderizado. Ative '🔬 Debug Scanner' na sidebar para ver o formato bruto da IA e me mande o resultado.")
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
