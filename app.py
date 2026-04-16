@@ -93,12 +93,12 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
+# --- ABA 0: SCANNER (Versão Restaurada com Ticket e Nome Flexível) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
+        qtd_produtos = st.selectbox("Volume:", [5, 10, 15], index=0)
     with col_sel2:
         foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
@@ -109,9 +109,17 @@ with tabs[0]:
     
     if st.session_state.res_busca:
         st.divider()
-        linhas = st.session_state.res_busca.split('\n')
         
+        # 🎫 REINTRODUZ O FILTRO VISUAL DE TICKET
+        filtro_ticket = st.multiselect(
+            "Filtrar por Ticket:", 
+            ["Baixo", "Médio", "Alto"], 
+            default=["Baixo", "Médio", "Alto"]
+        )
+        
+        linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
+            # Limpeza radical de asteriscos para evitar erros de leitura
             l_limpa = linha.replace("**", "").replace("*", "").strip()
             
             if "|" in l_limpa:
@@ -122,6 +130,42 @@ with tabs[0]:
                         if ':' in p:
                             k, v = p.split(':', 1)
                             dados[k.strip().upper()] = v.strip()
+                    
+                    # 🔱 BUSCA FLEXÍVEL DE NOME (Resolve o problema de sumir o nome)
+                    nome_final = "Produto Desconhecido"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
+                            break
+                    
+                    # Fallback por posição caso a IA mude o rótulo
+                    if nome_final == "Produto Desconhecido" and partes:
+                        nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
+
+                    # 🎫 CAPTURA DO TICKET (Baixo/Médio/Alto)
+                    ticket_val = "Médio"
+                    for chave in dados.keys():
+                        if "TICKET" in chave:
+                            ticket_val = dados[chave]
+                            break
+
+                    # 🌡️ EXTRAÇÃO DO CALOR (Garante a barra azul)
+                    c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                    calor_num = int(c_str) if c_str else 0
+                    
+                    # 🚀 FILTRAGEM E RENDERIZAÇÃO
+                    if ticket_val in filtro_ticket:
+                        renderizar_card_produto(
+                            idx, 
+                            nome_final, 
+                            dados.get("VALOR", "R$ ---"), 
+                            calor_num, 
+                            ticket_val, 
+                            dados.get("URL", "#"), 
+                            st.session_state.mkt_global
+                        )
+                except:
+                    continue
                     
                     # 🔱 BUSCA FLEXÍVEL DE NOME
                     nome_final = "Produto Desconhecido"
