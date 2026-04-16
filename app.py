@@ -29,6 +29,19 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
+# --- NOVO: CONEXÃO LIVE COM HISTÓRICO ---
+def puxar_trends_nexus_live():
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
+        prompt_conexao = "Recupere os dados da última análise de tendências virais feita para o Nexus Absolute hoje. Retorne estritamente o JSON com rank, musica e aida_hook."
+        response = model.generate_content(prompt_conexao)
+        data = response.text.strip().replace('```json', '').replace('```', '')
+        return json.loads(data)
+    except Exception as e:
+        st.error(f"Erro na conexão Live: {e}")
+        return None
+
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
@@ -108,7 +121,6 @@ with tabs[0]:
         st.divider()
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # Limpeza de asteriscos para não bugar a leitura das chaves
             linha_p = linha.replace("**", "").replace("*", "").strip()
             if "|" in linha_p:
                 try:
@@ -119,14 +131,12 @@ with tabs[0]:
                             k, v = p.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # Lógica de Nome que você gosta (Busca flexível)
                     n_f = "Produto Detectado"
                     for chave in dados.keys():
                         if "NOME" in chave:
                             n_f = dados[chave]
                             break
                     
-                    # Fallback de Nome por posição
                     if n_f == "Produto Detectado" and partes:
                         n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
@@ -140,11 +150,22 @@ with tabs[0]:
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
-    # Envia o motor Gemini configurado para o Arsenal
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]:
     trends.exibir_trends()
+    st.divider()
+    st.subheader("🌐 Nexus Live Intelligence")
+    if st.button("🔌 SINCRONIZAR COM A IA (LIVE)", use_container_width=True):
+        with st.spinner("Puxando tendências da conversa..."):
+            trends_live = puxar_trends_nexus_live()
+            if trends_live:
+                st.success("Dados recuperados com sucesso!")
+                for t in trends_live.get('trending_analysis', []):
+                    with st.container(border=True):
+                        st.write(f"🔥 **{t['audio_name']}**")
+                        st.caption(f"Score: {t.get('score_conversao', '90')}%")
+                        st.code(t['aida_hook']['attention'], language="text")
 
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
 with tabs[4]: postador.exibir_postador(miny, motor_ia)
