@@ -94,20 +94,55 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
-with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    col_sel1, col_sel2 = st.columns([1, 2])
-    with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
-    with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
+if st.session_state.res_busca:
+        st.divider()
+        for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
+            # Limpeza radical: remove negritos e espaços extras antes de processar
+            linha_processada = linha.replace("**", "").strip()
+            
+            if "|" in linha_processada:
+                try:
+                    partes = [p.strip() for p in linha_processada.split('|')]
+                    dados = {}
+                    
+                    for p in partes:
+                        if ":" in p:
+                            # Divide no primeiro ":" e limpa chaves/valores
+                            k_v = p.split(":", 1)
+                            chave = k_v[0].strip().upper()
+                            valor = k_v[1].strip()
+                            dados[chave] = valor
+                    
+                    # --- CAPTURA DE NOME (MÉTODO À PROVA DE FALHAS) ---
+                    # 1. Tenta achar pela chave NOME
+                    n_f = dados.get("NOME")
+                    
+                    # 2. Se não achar, pega o que estiver antes do primeiro ":" da linha
+                    if not n_f:
+                        primeira_coluna = partes[0]
+                        n_f = primeira_coluna.split(":", 1)[-1].strip() if ":" in primeira_coluna else primeira_coluna
+                    
+                    # --- CAPTURA DE DEMAIS DADOS ---
+                    v_f = dados.get("VALOR", "R$ ---")
+                    t_f = dados.get("TICKET", "Médio")
+                    u_f = dados.get("URL", "#")
 
-    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando produtos com Groq..."):
-            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
-    
+                    # --- TRATAMENTO DE CALOR (Para a barra azul) ---
+                    c_raw = dados.get("CALOR", "0")
+                    # Extrai apenas os números (remove % , °C, etc)
+                    c_num = "".join(filter(str.isdigit, str(c_raw)))
+                    c_f = int(c_num) if c_num else 0
+                    
+                    # Fallback Calor: Se veio zerado, tenta pegar qualquer número da 2ª parte
+                    if c_f == 0 and len(partes) > 1:
+                        fallback_c = "".join(filter(str.isdigit, partes[1]))
+                        c_f = int(fallback_c) if fallback_c else 0
+
+                    # Renderiza o Card com o nome forçado
+                    renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
+                    
+                except Exception as e:
+                    continue
     if st.session_state.res_busca:
         st.divider()
         linhas = st.session_state.res_busca.split('\n')
