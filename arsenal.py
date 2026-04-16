@@ -48,14 +48,19 @@ def exibir_arsenal(miny, motor_ia_gemini):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
             try:
-                # Chamada blindada ao Gemini
-                response = motor_ia_gemini.generate_content(prompt)
-                
-                # Previne que o script quebre se a IA retornar vazio
-                if not response.text:
-                    raise ValueError("A IA retornou uma resposta vazia.")
-                    
-                resultado = nxcopy.limpar_copy(response.text)
+         # Dentro do botão de gerar copies:
+try:
+    # O motor_ia_gemini é o que configurámos no app.py acima
+    response = motor_ia_gemini.generate_content(prompt)
+    resultado = nxcopy.limpar_copy(response.text)
+    
+    if "###" in resultado:
+        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
+    else:
+        st.session_state.res_arsenal = [resultado.strip()]
+    st.rerun()
+except Exception as e:
+    st.error(f"O Gemini Pro encontrou um problema: {e}")
                 
                 # Split da copy
                 if "###" in resultado:
