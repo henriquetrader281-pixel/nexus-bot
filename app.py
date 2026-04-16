@@ -29,7 +29,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (RESTURADA) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -39,11 +39,10 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         with c1:
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
-            # Ticket de volta ao Card
-            st.caption(f"💰 {valor} | 🎫 Ticket: {ticket}")
+            st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                # Limpa o calor para a barra azul funcionar
+                # Limpeza do calor para garantir que a barra azul funcione
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -75,8 +74,7 @@ def login():
                 st.error("Senha incorreta.")
     st.stop()
 
-if not st.session_state.autenticado: 
-    login()
+if not st.session_state.autenticado: login()
 
 # --- 4. ESTADO DA SESSÃO ---
 if "res_busca" not in st.session_state: st.session_state.res_busca = ""
@@ -95,12 +93,12 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (COMPLETO) ---
+# --- ABA 0: SCANNER (Versão Blindada com Ticket e Nome) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [5, 10, 15], index=0)
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
     with col_sel2:
         foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
@@ -112,9 +110,59 @@ with tabs[0]:
     if st.session_state.res_busca:
         st.divider()
         
-        # FILTRO VISUAL DE TICKET
-        filtro_ticket = st.multiselect(
-            "Filtrar por Ticket:", 
-            ["Baixo", "Médio", "Alto"], 
-            default=["Baixo", "Médio", "Alto"]
-        )
+        # Filtro de Ticket Ativo
+        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        
+        linhas = st.session_state.res_busca.split('\n')
+        for idx, linha in enumerate(linhas):
+            linha_p = linha.replace("**", "").replace("*", "").strip()
+            if "|" in linha_p:
+                try:
+                    partes = [p.strip() for p in linha_p.split('|')]
+                    dados = {}
+                    for p in partes:
+                        if ":" in p:
+                            k, v = p.split(":", 1)
+                            dados[k.strip().upper()] = v.strip()
+                    
+                    # 🔱 LÓGICA DE NOME FLEXÍVEL (RESTURADA)
+                    nome_final = "Produto Detectado"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
+                            break
+                    if nome_final == "Produto Detectado" and partes:
+                        nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    
+                    # 🎫 LÓGICA DE TICKET (RESTURADA)
+                    ticket_val = "Médio"
+                    for chave in dados.keys():
+                        if "TICKET" in chave:
+                            ticket_val = dados[chave]
+                            break
+                    
+                    # 🚀 RENDERIZAÇÃO COM FILTRO
+                    if ticket_val in filtro_ticket:
+                        # Extração de calor limpa
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        
+                        renderizar_card_produto(
+                            idx, 
+                            nome_final, 
+                            dados.get("VALOR", "---"), 
+                            int(c_str) if c_str else 0, 
+                            ticket_val, 
+                            dados.get("URL", "#"), 
+                            st.session_state.mkt_global
+                        )
+                except: continue
+
+# --- CONEXÃO COM AS OUTRAS ABAS ---
+with tabs[1]: 
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+
+with tabs[2]: trends.exibir_trends()
+with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
+with tabs[4]: postador.exibir_postador(miny, motor_ia)
+with tabs[5]: update.dashboard_performance_simples()
+with tabs[6]: radar_engine.exibir_radar()
