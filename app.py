@@ -21,8 +21,7 @@ def get_nexus_intelligence():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            tools=[{"google_search": {}}]
+            model_name='gemini-1.5-flash-latest'
         )
         hoje = datetime.now().strftime("%d/%m/%Y")
         prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON: {{\"trends\": [{{\"musica\": \"nome\", \"score\": 95, \"razao\": \"...\", \"aida_hook\": \"...\"}}]}}"
@@ -32,7 +31,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LÓGICA BLINDADA) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -40,13 +39,11 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            # Garante que o nome não venha vazio
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                # Limpeza de calor: extrai apenas números para a barra azul funcionar
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -83,13 +80,10 @@ if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
-# --- Dentro do Estado da Sessão no app.py ---
-# No app.py, altera para esta configuração:
-# --- Procure este trecho no seu app.py ---
+
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    
-    # ALTERAÇÃO AQUI: Adicione o sufixo '-latest'
+    # Ajustado para a versão estável que evita erro 404
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # --- 5. INTERFACE PRINCIPAL ---
@@ -99,93 +93,55 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (Versão Restaurada de Alta Precisão) ---
+# --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
-    
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
     with col_sel2:
-        # Recupera o valor do nicho do estado da sessão se existir
-        nicho_padrao = st.session_state.get('foco_nicho', "Cozinha Criativa")
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value=nicho_padrao, key="nicho_input")
-        st.session_state.foco_nicho = foco_nicho
+        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
-        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"""
-            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
-            Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
-            """
-            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
-            st.session_state.res_busca = resultado
+    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando produtos com Groq..."):
+            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
     
     if st.session_state.res_busca:
         st.divider()
-        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
-        
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # A DIFERENÇA: Limpeza agressiva de asteriscos para evitar erros de split
-            linha_limpa = linha.replace("**", "").replace("*", "").strip()
-            
-            if "|" in linha_limpa:
+            linha_p = linha.replace("**", "").strip()
+            if "|" in linha_p:
                 try:
-                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
+                    partes = [p.strip() for p in linha_p.split('|')]
                     dados = {}
-                    for p in partes_lista:
-                        if ':' in p:
-                            k, v = p.split(':', 1)
+                    for p in partes:
+                        if ":" in p:
+                            k, v = p.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # A DIFERENÇA: Busca flexível por qualquer chave que contenha "NOME"
-                    nome_final = "Produto Desconhecido"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
+                    # Nome Flexível
+                    n_f = dados.get("NOME")
+                    if not n_f:
+                        for chave in dados.keys():
+                            if "NOME" in chave: n_f = dados[chave]; break
+                    if not n_f: n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
-                    # FALLBACK: Se a IA não enviou a chave, pega a 1ª coluna e limpa o rótulo
-                    if nome_final == "Produto Desconhecido" and partes_lista:
-                        nome_final = partes_lista[0].replace("NOME:", "").strip()
+                    v_f = dados.get("VALOR", "R$ ---")
+                    c_f = dados.get("CALOR", "0")
+                    t_f = dados.get("TICKET", "Médio")
+                    u_f = dados.get("URL", "#")
 
-                    # EXTRAÇÃO DE TICKET
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave: 
-                            ticket_val = dados[chave]
-                            break
-                    
-                    # FILTRO E RENDERIZAÇÃO
-                    if ticket_val in filtro_ticket:
-                        # A DIFERENÇA: Filtro de dígitos puro para o CALOR
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        
-                        renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            dados.get("VALOR", "R$ ---"), 
-                            int(c_str) if c_str else 0, 
-                            ticket_val, 
-                            dados.get("URL", "#"), 
-                            st.session_state.mkt_global
-                        )
-                except:
-                    continue
+                    renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
+                except: continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
-    # Chama o Arsenal passando o motor Gemini para copys persuasivas
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]:
     trends.exibir_trends()
-    if st.button("📊 EXECUTAR ANÁLISE GLOBAL", key="btn_trends_global"):
-        intel = get_nexus_intelligence()
-        if "trends" in intel:
-            for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
 
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
 with tabs[4]: postador.exibir_postador(miny, motor_ia)
