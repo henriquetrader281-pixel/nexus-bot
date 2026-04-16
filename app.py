@@ -85,51 +85,70 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "M
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
+# --- ABA 0: SCANNER (Versão Blindada Restaurada) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    c_s1, c_s2 = st.columns([1, 2])
-    qtd = c_s1.selectbox("Volume:", [15, 30, 45])
-    nicho = c_s2.text_input("🎯 Nicho:", value="Cozinha Criativa")
-
-    if st.button("🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste {qtd} produtos de {st.session_state.mkt_global} para '{nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, st.session_state.mkt_global, motor_ia)
     
-    # CORREÇÃO DO NAMEERROR: Só executa se houver algo na busca
+    col_sel1, col_sel2 = st.columns([1, 2])
+    with col_sel1:
+        qtd_produtos = st.selectbox("Quantidade de itens:", [15, 30, 45], index=1)
+    
+    with col_sel2:
+        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_ativo")
+
+    if st.button(f"🔥 Iniciar Varredura na {st.session_state.mkt_global}", use_container_width=True):
+        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
+            # Prompt reforçado para garantir o separador "|"
+            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Use este formato exato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
+            st.session_state.res_busca = resultado
+    
     if st.session_state.res_busca:
         st.divider()
-        filtro_ticket = st.multiselect("Filtrar:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
         
-        # Aqui criamos a variável 'linhas' com segurança
         linhas = st.session_state.res_busca.split('\n')
-        
         for idx, linha in enumerate(linhas):
-            l_p = linha.replace("**", "").replace("*", "").strip()
-            if "|" in l_p:
+            # LIMPEZA: Remove asteriscos que confundem o código
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in linha_limpa:
                 try:
-                    partes = [p.strip() for p in l_p.split('|')]
-                    dados = {}
-                    for p in partes:
-                        if ":" in p:
-                            k, v = p.split(":", 1)
-                            k_c = ''.join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
-                            dados[k_c] = v.strip()
+                    # LÓGICA DO APP (22): Transforma a linha em um dicionário de dados
+                    partes = {}
+                    for p in linha_limpa.split('|'):
+                        if ':' in p:
+                            chave, valor = p.split(':', 1)
+                            partes[chave.strip().upper()] = valor.strip()
                     
-                    # Lógica de Nome Blindada
-                    nome_f = ""
-                    for c in dados.keys():
-                        if "NOME" in c: nome_f = dados[c]; break
+                    # CAPTURA BLINDADA DOS DADOS
+                    nome_f = partes.get("NOME", "Produto Desconhecido")
+                    valor_f = partes.get("VALOR", "Consultar")
+                    ticket_f = partes.get("TICKET", "Médio")
+                    link_f = partes.get("URL", "#")
                     
-                    if not nome_f: # Fallback se falhar
-                        nome_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
-                    
-                    t_v = dados.get("TICKET", "Médio")
-                    if t_v in filtro_ticket:
-                        renderizar_card_produto(idx, nome_f, dados.get("VALOR", "---"), dados.get("CALOR", "0"), t_v, dados.get("URL", "#"), st.session_state.mkt_global)
-                except: continue
+                    # Se o nome vier com "CALOR:", nós corrigimos pegando a primeira parte do split
+                    if "CALOR" in nome_f.upper():
+                        nome_f = linha_limpa.split('|')[0].replace("NOME:", "").strip()
 
+                    # FILTRAGEM POR TICKET
+                    if ticket_f in filtro_ticket:
+                        # Extração de Calor (Garante que a barra azul não fique em 0)
+                        c_raw = partes.get("CALOR", "0")
+                        c_str = "".join(filter(str.isdigit, str(c_raw)))
+                        calor_num = int(c_str) if c_str else 0
+                        
+                        renderizar_card_produto(
+                            idx, 
+                            nome_f, 
+                            valor_f, 
+                            calor_num,
+                            ticket_f,
+                            link_f,
+                            st.session_state.mkt_global
+                        )
+                except Exception as e:
+                    continue
 # --- OUTRAS ABAS ---
 with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 with tabs[2]: trends.exibir_trends()
