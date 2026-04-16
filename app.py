@@ -86,9 +86,9 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     # 🔱 CORREÇÃO: Usando o nome estável do modelo para evitar o Erro 404
+  if "motor_ia_obj" not in st.session_state:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"]) # <-- Certifique-se que aqui tem exatamente 4 espaços
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
     except Exception as e:
         st.error("Erro ao iniciar o Gemini. Verifique a GEMINI_API_KEY nos Secrets.")
 
