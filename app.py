@@ -22,7 +22,7 @@ def get_nexus_intelligence():
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel(model_name='gemini-1.5-flash')
         hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON: {{\"trends\": [{{\"musica\": \"nome\", \"score\": 95, \"razao\": \"...\", \"aida_hook\": \"...\"}}]}}"
+        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON."
         response = model.generate_content(prompt)
         clean_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
@@ -33,133 +33,105 @@ def get_nexus_intelligence():
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
-    
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            st.markdown(f"**{ico} {nome}**")
+            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
+            st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
-            try:
-                c_string = "".join(filter(str.isdigit, str(calor)))
-                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
-            except:
-                calor_num = 0
+            c_str = "".join(filter(str.isdigit, str(calor)))
+            calor_num = min(max(int(c_str), 0), 100) if c_str else 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
-        
         if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = nome
+            st.session_state.sel_nome = n_exibir
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
-            try:
-                update.registrar_mineracao(nome, link, calor_num)
-            except:
-                pass
-            st.toast(f"Alvo Selecionado: {nome}")
+            update.registrar_mineracao(n_exibir, link, calor_num)
+            st.toast(f"Selecionado: {n_exibir}")
 
-# --- 3. SISTEMA DE ACESSO ---
-if "autenticado" not in st.session_state: 
-    st.session_state.autenticado = False
-
+# --- 3. ACESSO E ESTADO ---
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
 def login():
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
         senha = st.text_input("Acesso:", type="password")
         if st.button("AUTENTICAR", use_container_width=True):
-            if senha == senha_mestra:
+            if senha == st.secrets.get("NEXUS_PASSWORD", "Bru2024!"):
                 st.session_state.autenticado = True
                 st.rerun()
-            else: 
-                st.error("Senha incorreta.")
+            else: st.error("Incorreto.")
     st.stop()
-
 if not st.session_state.autenticado: login()
 
-# --- 4. ESTADO DA SESSÃO ---
-# Define motor_ia como global para evitar NameError nas Tabs 3 e 4
-motor_ia = "groq" 
-
-for key in ["res_busca", "sel_nome", "sel_link"]:
-    if key not in st.session_state: st.session_state[key] = ""
-
-if "mkt_global" not in st.session_state: 
-    st.session_state.mkt_global = "Shopee"
+# Variáveis Globais para evitar NameError
+motor_ia = "groq"
+if "res_busca" not in st.session_state: st.session_state.res_busca = ""
+if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
+if "sel_link" not in st.session_state: st.session_state.sel_link = ""
+if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
-    except:
-        st.error("Erro ao iniciar o Gemini. Verifique a API KEY.")
+    except: st.error("Erro IA")
 
-# --- 5. INTERFACE PRINCIPAL ---
+# --- 5. INTERFACE ---
 st.sidebar.title("🔱 Nexus Control")
-st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
+st.session_state.mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-for idx, linha in enumerate(linhas):
-            # 1. Limpeza total de asteriscos e lixo visual
-            linha_p = linha.replace("**", "").replace("*", "").strip()
-            
-            if "|" in linha_p:
+# --- ABA 0: SCANNER ---
+with tabs[0]:
+    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+    c_s1, c_s2 = st.columns([1, 2])
+    qtd = c_s1.selectbox("Volume:", [15, 30, 45])
+    nicho = c_s2.text_input("🎯 Nicho:", value="Cozinha Criativa")
+
+    if st.button("🔥 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando..."):
+            prompt = f"Liste {qtd} produtos de {st.session_state.mkt_global} para '{nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt, st.session_state.mkt_global, motor_ia)
+    
+    # CORREÇÃO DO NAMEERROR: Só executa se houver algo na busca
+    if st.session_state.res_busca:
+        st.divider()
+        filtro_ticket = st.multiselect("Filtrar:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        
+        # Aqui criamos a variável 'linhas' com segurança
+        linhas = st.session_state.res_busca.split('\n')
+        
+        for idx, linha in enumerate(linhas):
+            l_p = linha.replace("**", "").replace("*", "").strip()
+            if "|" in l_p:
                 try:
-                    partes = [p.strip() for p in linha_p.split('|')]
+                    partes = [p.strip() for p in l_p.split('|')]
                     dados = {}
-                    
-                    # 2. Mapeamento inteligente de chaves
                     for p in partes:
                         if ":" in p:
                             k, v = p.split(":", 1)
-                            # Limpa números e pontos da chave (ex: "1. NOME" vira "NOME")
-                            k_clean = ''.join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
-                            dados[k_clean] = v.strip()
+                            k_c = ''.join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
+                            dados[k_c] = v.strip()
                     
-                    # 🔱 3. BUSCA DE NOME BLINDADA (O QUE CORRIGE O NOME VAZIO)
-                    nome_final = ""
+                    # Lógica de Nome Blindada
+                    nome_f = ""
+                    for c in dados.keys():
+                        if "NOME" in c: nome_f = dados[c]; break
                     
-                    # Tenta encontrar pela chave NOME
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
+                    if not nome_f: # Fallback se falhar
+                        nome_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
                     
-                    # FALLBACK 1: Se o nome estiver vazio ou for "Produto Detectado", pega a 1ª parte antes do |
-                    if not nome_final or nome_final == "Produto Detectado":
-                        if partes:
-                            # Pega o que está depois do primeiro ":" da primeira parte
-                            nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    t_v = dados.get("TICKET", "Médio")
+                    if t_v in filtro_ticket:
+                        renderizar_card_produto(idx, nome_f, dados.get("VALOR", "---"), dados.get("CALOR", "0"), t_v, dados.get("URL", "#"), st.session_state.mkt_global)
+                except: continue
 
-                    # 4. Restante dos dados
-                    link_final = dados.get("URL", "#").replace(" ", "")
-                    valor_final = dados.get("VALOR", "---")
-                    ticket_val = dados.get("TICKET", "Médio")
-                    c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                    
-                    # 5. Renderização
-                    if ticket_val in filtro_ticket and link_final != "#":
-                        renderizar_card_produto(
-                            idx, 
-                            nome_final, 
-                            valor_final, 
-                            int(c_str) if c_str else 0, 
-                            ticket_val, 
-                            link_final, 
-                            st.session_state.mkt_global
-                        )
-                except:
-                    continue
-                   
-# --- CONEXÃO COM AS OUTRAS ABAS ---
-with tabs[1]: 
-    if "motor_ia_obj" in st.session_state:
-        arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-    else:
-        st.error("Cérebro IA offline.")
-
+# --- OUTRAS ABAS ---
+with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 with tabs[2]: trends.exibir_trends()
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
 with tabs[4]: postador.exibir_postador(miny, motor_ia)
