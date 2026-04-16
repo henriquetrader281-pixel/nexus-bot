@@ -108,17 +108,16 @@ with tabs[0]:
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            # Prompt reforçado para evitar que a IA mande lixo no link
-            prompt_scanner = f"""
-            Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'.
+            # O PROMPT DEVE FICAR SEM ESPAÇOS NA MARGEM ESQUERDA:
+            prompt_scanner = f"""Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'.
 Use estes critérios de TICKET:
 - BAIXO: Até R$ 50
 - MÉDIO: R$ 51 até R$ 200
 - ALTO: Acima de R$ 200
-            NÃO use markdown nos links. 
-            FORMATO OBRIGATÓRIO POR LINHA:
-            NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link_direto_sem_formatacao]
-            """
+NÃO use markdown ou formatação nos links.
+FORMATO OBRIGATÓRIO POR LINHA:
+NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link_direto_sem_formatacao]"""
+
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
 
     if st.session_state.res_busca:
