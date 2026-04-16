@@ -73,7 +73,6 @@ def login():
 
 if not st.session_state.autenticado: login()
 
-# --- 4. ESTADO DA SESSÃO E DEFINIÇÕES GLOBAIS ---
 # --- 4. ESTADO DA SESSÃO E MOTOR IA ---
 motor_ia = "groq" 
 
@@ -82,14 +81,13 @@ if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
-# No app.py, procure o bloco do motor_ia_obj e deixe assim:
+# Motor IA: gemini-2.0-flash (substituto estável do 1.5-pro)
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # 🔱 ATENÇÃO: Como você tem o PLUS, usamos o 1.5-PRO
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-2.0-flash')
     except Exception as e:
-        st.error(f"Falha ao carregar motor Pro: {e}")
+        st.error(f"Falha ao carregar motor IA: {e}")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
@@ -97,7 +95,7 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shope
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (VERSÃO RESTAURADA E BLINDADA) ---
+# --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
@@ -121,51 +119,64 @@ with tabs[0]:
         for idx, linha in enumerate(linhas):
             linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
-            if "|" in linha_limpa:
-                try:
-                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
-                    dados = {}
-                    for p in partes_lista:
-                        if ':' in p:
-                            k, v = p.split(':', 1)
-                            # Limpa a chave de números e pontos (ex: "1. NOME" vira "NOME")
-                            k_clean = "".join([c for c in k if not c.isdigit()]).replace(".", "").strip().upper()
-                            dados[k_clean] = v.strip()
-                    
-                    # BUSCA FLEXÍVEL POR NOME
-                    nome_f = "Produto Desconhecido"
-                    for k in dados:
-                        if "NOME" in k or "PRODUTO" in k:
-                            nome_f = dados[k]
-                            break
-                    
-                    # Fallback para o Nome se a IA inverter os campos (Evita exibir "CALOR: 85")
-                    if "CALOR" in nome_f.upper() or nome_f == "Produto Desconhecido":
-                        for p in partes_lista:
-                            if ":" in p and "CALOR" not in p.upper():
-                                nome_f = p.split(":", 1)[-1].strip()
-                                break
+            if "|" not in linha_limpa:
+                continue
 
-                    # EXTRAÇÃO BLINDADA DO LINK
-                    link_f = "#"
+            try:
+                partes_lista = [p.strip() for p in linha_limpa.split('|')]
+                dados = {}
+                for p in partes_lista:
+                    if ':' in p:
+                        k, v = p.split(':', 1)
+                        # Remove números, pontos e espaços da chave (ex: "1. NOME" -> "NOME")
+                        k_clean = "".join([c for c in k if not c.isdigit()]).replace(".", "").strip().upper()
+                        dados[k_clean] = v.strip()
+
+                # --- EXTRAÇÃO DO NOME (blindada) ---
+                # Prioridade: chave com NOME/PRODUTO, mas valor NÃO pode conter R$ ou CALOR
+                nome_f = None
+                for k in dados:
+                    if "NOME" in k or "PRODUTO" in k:
+                        candidato = dados[k]
+                        # Rejeita se o valor parecer preço ou número de calor
+                        if "R$" not in candidato and not candidato.replace(" ", "").isdigit():
+                            nome_f = candidato
+                            break
+
+                # Fallback: primeira parte que não é preço/calor/ticket/url
+                if not nome_f:
+                    campos_reservados = {"CALOR", "VALOR", "TICKET", "URL", "LINK"}
                     for k, v in dados.items():
-                        if "URL" in k or "LINK" in k or "HTTP" in v.upper():
-                            link_f = v.replace(" ", "")
+                        if k not in campos_reservados and "R$" not in v and "http" not in v.lower():
+                            nome_f = v
                             break
-                    
-                    ticket_val = dados.get("TICKET", "Médio")
-                    
-                    if ticket_val in filtro_ticket:
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        renderizar_card_produto(idx, nome_f, dados.get("VALOR", "---"), int(c_str) if c_str else 0, ticket_val, link_f, st.session_state.mkt_global)
-                except:
-                    continue
 
-# --- CONEXÃO COM AS OUTRAS ABAS ---
+                if not nome_f:
+                    nome_f = "Produto Detectado"
+
+                # --- EXTRAÇÃO DO LINK (blindada) ---
+                link_f = "#"
+                for k, v in dados.items():
+                    if "URL" in k or "LINK" in k or v.startswith("http"):
+                        link_f = v.replace(" ", "")
+                        break
+
+                # --- DEMAIS CAMPOS ---
+                valor_f = dados.get("VALOR", "---")
+                ticket_val = dados.get("TICKET", "Médio")
+                calor_raw = dados.get("CALOR", "0")
+                c_str = "".join(filter(str.isdigit, str(calor_raw)))
+                calor_num = int(c_str) if c_str else 0
+
+                if ticket_val in filtro_ticket:
+                    renderizar_card_produto(idx, nome_f, valor_f, calor_num, ticket_val, link_f, st.session_state.mkt_global)
+
+            except Exception:
+                continue
+
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
     if "motor_ia_obj" in st.session_state:
-        # Passa o motor Gemini configurado para o Arsenal
         arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
     else:
         st.error("Cérebro IA offline. Dê reboot no sistema.")
