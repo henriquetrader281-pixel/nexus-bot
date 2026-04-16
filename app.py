@@ -113,13 +113,18 @@ with tabs[0]:
     with col_sel1:
         qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=1)
     with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa")
+        # Adicionado o parâmetro key para persistência
+        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
     if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
         with st.spinner("Minerando produtos..."):
+            # Garante que o nicho esteja disponível para as funções
+            st.session_state.nicho_atual = foco_nicho
+            
             prompt_scanner = f"Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            
+            # Chamada corrigida passando o nome do motor (string) para evitar erro de hash
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia_nome)
-    
     if st.session_state.res_busca:
         st.divider()
         for idx, linha in enumerate(st.session_state.res_busca.split('\n')):
