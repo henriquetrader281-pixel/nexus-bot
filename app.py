@@ -101,63 +101,58 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shope
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER ---
-with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    col_sel1, col_sel2 = st.columns([1, 2])
-    with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
-    with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
-
-    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando produtos virais..."):
-            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato OBRIGATÓRIO: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
-    
-    if st.session_state.res_busca:
-        st.divider()
-        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
-        
-        linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
+for idx, linha in enumerate(linhas):
+            # 1. Limpeza total de asteriscos e lixo visual
             linha_p = linha.replace("**", "").replace("*", "").strip()
             
             if "|" in linha_p:
                 try:
                     partes = [p.strip() for p in linha_p.split('|')]
                     dados = {}
+                    
+                    # 2. Mapeamento inteligente de chaves
                     for p in partes:
                         if ":" in p:
                             k, v = p.split(":", 1)
-                            # Limpa o nome da chave para evitar erros de busca
+                            # Limpa números e pontos da chave (ex: "1. NOME" vira "NOME")
                             k_clean = ''.join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
                             dados[k_clean] = v.strip()
                     
-                    # 🔱 BUSCA FLEXÍVEL DE NOME
-                    nome_final = "Produto Detectado"
+                    # 🔱 3. BUSCA DE NOME BLINDADA (O QUE CORRIGE O NOME VAZIO)
+                    nome_final = ""
+                    
+                    # Tenta encontrar pela chave NOME
                     for chave in dados.keys():
                         if "NOME" in chave:
                             nome_final = dados[chave]
                             break
                     
-                    # Fallback caso a IA não use rótulo
-                    if nome_final == "Produto Detectado" and partes:
-                        nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    # FALLBACK 1: Se o nome estiver vazio ou for "Produto Detectado", pega a 1ª parte antes do |
+                    if not nome_final or nome_final == "Produto Detectado":
+                        if partes:
+                            # Pega o que está depois do primeiro ":" da primeira parte
+                            nome_final = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
 
+                    # 4. Restante dos dados
                     link_final = dados.get("URL", "#").replace(" ", "")
                     valor_final = dados.get("VALOR", "---")
                     ticket_val = dados.get("TICKET", "Médio")
                     c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
                     
-                    if ticket_val in filtro_ticket:
+                    # 5. Renderização
+                    if ticket_val in filtro_ticket and link_final != "#":
                         renderizar_card_produto(
-                            idx, nome_final, valor_final, int(c_str) if c_str else 0, 
-                            ticket_val, link_final, st.session_state.mkt_global
+                            idx, 
+                            nome_final, 
+                            valor_final, 
+                            int(c_str) if c_str else 0, 
+                            ticket_val, 
+                            link_final, 
+                            st.session_state.mkt_global
                         )
                 except:
                     continue
-
+                   
 # --- CONEXÃO COM AS OUTRAS ABAS ---
 with tabs[1]: 
     if "motor_ia_obj" in st.session_state:
