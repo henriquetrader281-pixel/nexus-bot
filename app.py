@@ -81,10 +81,10 @@ if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 
-# Configuração para Gemini Plus (1.5 Pro)
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # 🔱 Como você tem Gemini Plus, usamos o 1.5-PRO para mineração de elite
         st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor IA: {e}")
@@ -92,8 +92,6 @@ if "motor_ia_obj" not in st.session_state:
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
-
-# DEBUG toggle na sidebar
 debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=False)
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
@@ -110,9 +108,67 @@ with tabs[0]:
 
     if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato obrigatório por linha: NOME: [nome do produto] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            # Prompt reforçado para evitar que a IA mande lixo no link
+            prompt_scanner = f"""
+            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
+            NÃO use markdown nos links. 
+            FORMATO OBRIGATÓRIO POR LINHA:
+            NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link_direto_sem_formatacao]
+            """
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
 
-   # --- LINHA 117 e 118 NO SEU CÓDIGO ---
-if debug_scanner:
-    st.text_area("🔬 Raw output da IA:", st.session_state.res_busca, height=300)
+    if st.session_state.res_busca:
+        if debug_scanner:
+            st.text_area("🔬 Raw output da IA:", st.session_state.res_busca, height=300)
+        
+        st.divider()
+        filtro_ticket = st.multiselect("Filtrar por Ticket:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+        
+        linhas = st.session_state.res_busca.split('\n')
+        produtos_renderizados = 0
+
+        for idx, linha in enumerate(linhas):
+            l_p = linha.replace("**", "").replace("*", "").strip()
+            
+            if "|" in l_p:
+                try:
+                    partes = [p.strip() for p in l_p.split('|')]
+                    dados = {}
+                    for p in partes:
+                        if ":" in p:
+                            k, v = p.split(":", 1)
+                            k_c = "".join([i for i in k if not i.isdigit()]).replace(".", "").strip().upper()
+                            dados[k_c] = v.strip()
+                    
+                    # 🔱 BUSCA DE NOME BLINDADA
+                    nome_f = ""
+                    for c in dados.keys():
+                        if "NOME" in c: nome_f = dados[c]; break
+                    
+                    if not nome_f or "CALOR" in nome_f.upper():
+                        # Fallback se a IA inverter os campos
+                        for p in partes:
+                            if ":" in p and "CALOR" not in p.upper() and "URL" not in p.upper():
+                                nome_f = p.split(":", 1)[-1].strip()
+                                break
+
+                    # 🔱 CAPTURA DE LINK LIMPA (Resolve o erro 404)
+                    link_raw = dados.get("URL", "#")
+                    link_f = str(link_raw).replace("*", "").replace(" ", "").replace("(", "").replace(")", "").strip()
+                    if "http" not in link_f: link_f = "#"
+
+                    t_v = dados.get("TICKET", "Médio")
+                    if t_v in filtro_ticket:
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        renderizar_card_produto(idx, nome_f, dados.get("VALOR", "---"), int(c_str) if c_str else 0, t_v, link_f, st.session_state.mkt_global)
+                        produtos_renderizados += 1
+                except: continue
+
+# --- CONEXÃO COM AS OUTRAS ABAS ---
+with tabs[1]: 
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+with tabs[2]: trends.exibir_trends()
+with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
+with tabs[4]: postador.exibir_postador(miny, motor_ia)
+with tabs[5]: update.dashboard_performance_simples()
+with tabs[6]: radar_engine.exibir_radar()
