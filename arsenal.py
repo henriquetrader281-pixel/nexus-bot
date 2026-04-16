@@ -11,9 +11,7 @@ def aplicar_id_afiliado(link, mkt):
     
     if mkt == "Shopee":
         try:
-            # Pega a base antes dos parâmetros de rastreio de outros afiliados
             base_link = link_limpo.split("?")[0]
-            # Reconstrói com o seu ID
             return f"{base_link}?smtt={ID_FIXO_SHOPEE}"
         except:
             return link_limpo
@@ -23,7 +21,7 @@ def aplicar_id_afiliado(link, mkt):
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
     
-    # Trava de segurança: Se não tem nome ou se for o nome genérico bugado
+    # Trava de segurança
     if not st.session_state.get("sel_nome") or st.session_state.sel_nome == "Produto Detectado":
         st.warning("⚠️ Selecione um produto válido no Scanner primeiro.")
         return
@@ -39,40 +37,30 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.success(f"📦 **Alvo Ativo:** {nome_puro}")
         st.caption(f"🔗 Link de Comissão Pronto: {link_rastreado}")
 
-    # Seletor
+    # Seletor de tom
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-# Botão de Geração
+    # Botão de Geração
     if st.button("🔥 GERAR COPYS VIRAIS (GEMINI AIDA)", use_container_width=True):
-        with st.spinner("Gemini Pro moldando roteiros de elite..."):
+        with st.spinner("Gemini moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
-            
+            resultado = None  # Garante que a variável existe antes do try
+
             try:
-                # 🔱 GERAÇÃO COM O MOTOR PRO (Para quem tem Gemini Plus)
                 response = motor_ia_gemini.generate_content(prompt)
                 resultado = nxcopy.limpar_copy(response.text)
-                
-                # Salva as variações no estado da sessão
-                if "###" in resultado:
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 20]
-                else:
-                    st.session_state.res_arsenal = [resultado.strip()]
-                
-                st.rerun() # Atualiza a tela para mostrar as copys
-
             except Exception as e:
                 st.error(f"Erro na conexão com o Gemini Pro: {e}")
-                # Split da copy
+
+            # Só processa se gerou resultado com sucesso
+            if resultado:
                 if "###" in resultado:
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 15]
+                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
                 else:
                     st.session_state.res_arsenal = [resultado.strip()]
-                    
-            except Exception as e:
-                st.error(f"Erro na conexão com o Gemini: {e}")
-                return # Sai da função sem recarregar para mostrar o erro
+                st.rerun()
 
-    # Exibição (Corrigida a lógica de Session State)
+    # Exibição das copies geradas
     if st.session_state.get("res_arsenal"):
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
             with st.container(border=True):
