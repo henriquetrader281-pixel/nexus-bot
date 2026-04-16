@@ -1,8 +1,8 @@
 import streamlit as st
 from groq import Groq
 
-@st.cache_data(show_spinner=False)
-def minerar_produtos(nicho, mkt_alvo, motor_ia, qtd=10):
+@st.cache_data
+def minerar_produtos(prompt, marketplace, _motor_ia): # Adicione o _ aqui
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     
     # Tudo o que estiver abaixo também precisa de 4 espaços de recuo
