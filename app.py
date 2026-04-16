@@ -94,21 +94,20 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (Lógica Blindada) ---
+# --- ABA 0: SCANNER (Lógica de Atribuição Direta) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=1)
     
     with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa", key="nicho_input")
+        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="nicho_input")
 
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
-        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            # Certifique-se que sua função minerar_produtos aceita esses 3 argumentos
+    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando..."):
+            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
@@ -118,53 +117,51 @@ with tabs[0]:
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # LIMPEZA RADICAL: Remove asteriscos de negrito que a IA coloca e espaços extras
-            linha_limpa = linha.replace("**", "").replace("*", "").strip()
+            # Limpeza total de asteriscos para evitar erros de leitura
+            l_limpa = linha.replace("**", "").replace("*", "").strip()
             
-            if "|" in linha_limpa:
+            if "|" in l_limpa:
                 try:
-                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
+                    # Quebra a linha em partes separadas pelo pipe
+                    partes = [p.strip() for p in l_limpa.split('|')]
                     dados = {}
-                    for p in partes_lista:
+                    
+                    # Cria um dicionário dinâmico com base nos rótulos enviados pela IA
+                    for p in partes:
                         if ':' in p:
-                            k, v = p.split(':', 1)
-                            dados[k.strip().upper()] = v.strip()
+                            chave_bruta, valor_bruto = p.split(':', 1)
+                            dados[chave_bruta.strip().upper()] = valor_bruto.strip()
                     
-                    # --- CAPTURA DE NOME ROBUSTA ---
-                    nome_final = ""
-                    # Busca flexível por qualquer chave que contenha "NOME"
-                    for chave in dados.keys():
-                        if "NOME" in chave:
-                            nome_final = dados[chave]
-                            break
-                    
-                    # FALLBACK: Se não achar a chave, pega o texto da primeira coluna (antes do primeiro |)
-                    if not nome_final and partes_lista:
-                        primeira_parte = partes_lista[0]
-                        nome_final = primeira_parte.split(':', 1)[-1].strip() if ':' in primeira_parte else primeira_parte
+                    # --- EXTRAÇÃO COM PRIORIDADE POR CHAVE ---
+                    # 1. Busca o NOME (Tenta a chave NOME, se não achar, tenta a primeira posição)
+                    nome_final = dados.get("NOME")
+                    if not nome_final:
+                        # Se a IA enviou "CALOR: 85 | NOME: Produto", o dados.get("NOME") já resolve.
+                        # Este fallback é apenas para casos onde não existe o rótulo "NOME:"
+                        nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
 
-                    # --- CAPTURA DE TICKET ---
-                    ticket_val = "Médio"
-                    for chave in dados.keys():
-                        if "TICKET" in chave: 
-                            ticket_val = dados[chave]
-                            break
-                    
-                    # --- RENDERIZAÇÃO ---
+                    # 2. Busca o CALOR (Pega apenas os números da chave CALOR)
+                    calor_raw = dados.get("CALOR", "0")
+                    calor_num = "".join(filter(str.isdigit, str(calor_raw)))
+                    calor_int = int(calor_num) if calor_num else 0
+
+                    # 3. Busca o TICKET e VALOR
+                    ticket_val = dados.get("TICKET", "Médio")
+                    valor_val = dados.get("VALOR", "R$ ---")
+                    url_val = dados.get("URL", "#")
+
+                    # --- RENDERIZAÇÃO FINAL ---
                     if ticket_val in filtro_ticket:
-                        # Extrai apenas números do calor para a barra de progresso
-                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
-                        
                         renderizar_card_produto(
                             idx, 
-                            nome_final if nome_final else "Produto Identificado", 
-                            dados.get("VALOR", "R$ ---"), 
-                            int(c_str) if c_str else 0, 
+                            nome_final, 
+                            valor_val, 
+                            calor_int, 
                             ticket_val, 
-                            dados.get("URL", "#"), 
+                            url_val, 
                             st.session_state.mkt_global
                         )
-                except Exception as e:
+                except:
                     continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
