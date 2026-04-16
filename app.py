@@ -113,6 +113,6 @@ with tabs[0]:
             prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato obrigatório por linha: NOME: [nome do produto] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
 
-    if st.session_state.res_busca:
-        if debug_scanner:
-            st.text_area("🔬 Raw output da IA:", st
+   # --- LINHA 117 e 118 NO SEU CÓDIGO ---
+if debug_scanner:
+    st.text_area("🔬 Raw output da IA:", st.session_state.res_busca, height=300)
