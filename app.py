@@ -40,25 +40,25 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            # Garante que o nome não venha vazio para o Arsenal
-            n_f = nome.replace("*", "").strip() if nome else "Produto Detectado"
-            st.markdown(f"**{ico} {n_f}**")
+            # Garante que o nome não venha vazio
+            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
+            st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
                 # Limpeza de calor: extrai apenas números para a barra azul funcionar
-                c_num = "".join(filter(str.isdigit, str(calor)))
-                calor_num = min(max(int(c_num), 0), 100) if c_num else 0
+                c_string = "".join(filter(str.isdigit, str(calor)))
+                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
                 calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
         if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = n_f
+            st.session_state.sel_nome = n_exibir
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
-            update.registrar_mineracao(n_f, link, calor_num)
-            st.toast(f"Selecionado: {n_f}")
+            update.registrar_mineracao(n_exibir, link, calor_num)
+            st.toast(f"Alvo Selecionado: {n_exibir}")
 
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
@@ -90,7 +90,7 @@ if "motor_ia_obj" not in st.session_state:
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
-motor_ia = "groq" # Motor padrão para velocidade
+motor_ia = "groq" 
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
@@ -123,7 +123,7 @@ with tabs[0]:
                             k, v = p_analise.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # CAPTURA DE NOME COM FALLBACK (Resolve o erro do nome sumir)
+                    # LÓGICA DE CAPTURA DE NOME ROBUSTA (Resolve o erro do nome sumir)
                     n_f = dados.get("NOME")
                     if not n_f:
                         primeira_parte = partes[0].replace("*", "").strip()
@@ -137,27 +137,19 @@ with tabs[0]:
                     renderizar_card_produto(idx, n_f, v_f, c_f, t_f, u_f, st.session_state.mkt_global)
                 except: continue
 
-# --- ABA 1: ARSENAL ---
-with tabs[1]: arsenal.exibir_arsenal(miny, motor_ia)
+# --- CONEXÃO COM AS OUTRAS ABAS ---
+with tabs[1]: 
+    # Passa o Gemini (motor_ia_obj) para o Arsenal para gerar copys com AIDA e CTA
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
-# --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
-    if st.button("📊 EXECUTAR ANÁLISE GLOBAL", use_container_width=True):
-        with st.spinner("Sincronizando Tendências Elite..."):
-            intel = get_nexus_intelligence()
-            if "trends" in intel:
-                st.session_state.cache_trends = intel["trends"]
-                for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
+    if st.button("📊 EXECUTAR ANÁLISE GLOBAL"):
+        intel = get_nexus_intelligence()
+        if "trends" in intel:
+            for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
 
-# --- ABA 3: ESTÚDIO ---
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
-
-# --- ABA 4: POSTADOR ---
 with tabs[4]: postador.exibir_postador(miny, motor_ia)
-
-# --- ABA 5: DASHBOARD ---
 with tabs[5]: update.dashboard_performance_simples()
-
-# --- ABA 6: RADAR ---
 with tabs[6]: radar_engine.exibir_radar()
