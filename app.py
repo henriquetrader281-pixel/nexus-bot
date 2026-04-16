@@ -81,15 +81,19 @@ if not st.session_state.autenticado: login()
 
 # --- 4. ESTADO DA SESSÃO ---
 for key in ["res_busca", "sel_nome", "sel_link"]:
-    if key not in st.session_state: st.session_state[key] = ""
-if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
+    if key not in st.session_state: 
+        st.session_state[key] = ""
+
+if "mkt_global" not in st.session_state: 
+    st.session_state.mkt_global = "Shopee"
+
 if "motor_ia_obj" not in st.session_state:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # 🔱 CORREÇÃO: Usando o nome estável do modelo para evitar o Erro 404
-  if "motor_ia_obj" not in st.session_state:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
-        st.error("Erro ao iniciar o Gemini. Verifique a GEMINI_API_KEY nos Secrets.")
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # 🔱 CORREÇÃO: Nome estável do modelo e indentação correta
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"Erro ao iniciar o Gemini: {e}")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
