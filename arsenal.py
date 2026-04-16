@@ -2,14 +2,22 @@ import streamlit as st
 import nexus_copy as nxcopy 
 
 def aplicar_id_afiliado(link, mkt):
-    """Garante o rastreio com seu ID Shopee 18316451024"""
-    if not link or link == "#": return link
+    """Garante o rastreio com seu ID Shopee 18316451024 e evita erro 404"""
+    if not link or link == "#" or "http" not in str(link): 
+        return link
+        
     ID_FIXO_SHOPEE = "18316451024"
     
+    # LIMPEZA DE SEGURANÇA: Remove asteriscos ou espaços que a IA possa ter inserido
+    link_limpo = str(link).replace("*", "").replace(" ", "").strip()
+    
     if mkt == "Shopee":
-        base_link = str(link).split("?")[0]
+        # Pega apenas a base do link antes de qualquer interrogação antiga
+        base_link = link_limpo.split("?")[0]
+        # Monta a estrutura correta: link + parâmetro de afiliado
         return f"{base_link}?smtt={ID_FIXO_SHOPEE}"
-    return link
+    
+    return link_limpo
 
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
@@ -20,6 +28,8 @@ def exibir_arsenal(miny, motor_ia_gemini):
         
         # Limpa o nome vindo do Scanner (remove rótulos e asteriscos)
         nome_puro = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").replace("*", "").strip()
+        
+        # CORREÇÃO: Aplicamos a limpeza e o ID aqui
         link_rastreado = aplicar_id_afiliado(st.session_state.sel_link, mkt)
         
         with st.container(border=True):
@@ -31,17 +41,12 @@ def exibir_arsenal(miny, motor_ia_gemini):
 
         if st.button("🔥 GERAR COPYS VIRAIS (GEMINI AIDA)", use_container_width=True):
             with st.spinner("Gemini moldando roteiros de elite..."):
-                # Gera o prompt otimizado
                 prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
                 
                 try:
-                    # Chama o motor Gemini (passado pelo app.py)
                     response = motor_ia_gemini.generate_content(prompt)
-                    
-                    # Limpa a resposta usando a lógica do nexus_copy
                     resultado = nxcopy.limpar_copy(response.text)
                     
-                    # Salva as variações no estado da sessão
                     if "###" in resultado:
                         st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c) > 15]
                     else:
@@ -58,7 +63,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     st.write(texto_copy)
                     
                     if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_{i}", use_container_width=True):
-                        # Prepara o texto final com o link de afiliado
+                        # Usamos o link já rastreado e limpo
                         texto_final = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_rastreado}"
                         
                         st.session_state.copy_ativa = texto_final
