@@ -85,9 +85,11 @@ if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 # --- Dentro do Estado da Sessão no app.py ---
 # No app.py, altera para esta configuração:
+# --- Procure este trecho no seu app.py ---
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # ALTERAÇÃO: Usa o sufixo '-latest' para evitar o erro 404 que viste
+    
+    # ALTERAÇÃO AQUI: Adicione o sufixo '-latest'
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # --- 5. INTERFACE PRINCIPAL ---
