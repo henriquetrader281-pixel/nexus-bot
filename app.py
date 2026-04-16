@@ -94,20 +94,26 @@ motor_ia = "groq"
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
-# --- ABA 0: SCANNER (Lógica de Atribuição Direta) ---
+# --- ABA 0: SCANNER (Versão Restaurada de Alta Precisão) ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=1)
+        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=1)
     
     with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="nicho_input")
+        # Recupera o valor do nicho do estado da sessão se existir
+        nicho_padrao = st.session_state.get('foco_nicho', "Cozinha Criativa")
+        foco_nicho = st.text_input("🎯 Nicho da Operação:", value=nicho_padrao, key="nicho_input")
+        st.session_state.foco_nicho = foco_nicho
 
-    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'. Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
+        with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
+            prompt_scanner = f"""
+            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
+            Formato por linha: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]
+            """
             resultado = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
             st.session_state.res_busca = resultado
     
@@ -117,48 +123,48 @@ with tabs[0]:
         
         linhas = st.session_state.res_busca.split('\n')
         for idx, linha in enumerate(linhas):
-            # Limpeza total de asteriscos para evitar erros de leitura
-            l_limpa = linha.replace("**", "").replace("*", "").strip()
+            # A DIFERENÇA: Limpeza agressiva de asteriscos para evitar erros de split
+            linha_limpa = linha.replace("**", "").replace("*", "").strip()
             
-            if "|" in l_limpa:
+            if "|" in linha_limpa:
                 try:
-                    # Quebra a linha em partes separadas pelo pipe
-                    partes = [p.strip() for p in l_limpa.split('|')]
+                    partes_lista = [p.strip() for p in linha_limpa.split('|')]
                     dados = {}
-                    
-                    # Cria um dicionário dinâmico com base nos rótulos enviados pela IA
-                    for p in partes:
+                    for p in partes_lista:
                         if ':' in p:
-                            chave_bruta, valor_bruto = p.split(':', 1)
-                            dados[chave_bruta.strip().upper()] = valor_bruto.strip()
+                            k, v = p.split(':', 1)
+                            dados[k.strip().upper()] = v.strip()
                     
-                    # --- EXTRAÇÃO COM PRIORIDADE POR CHAVE ---
-                    # 1. Busca o NOME (Tenta a chave NOME, se não achar, tenta a primeira posição)
-                    nome_final = dados.get("NOME")
-                    if not nome_final:
-                        # Se a IA enviou "CALOR: 85 | NOME: Produto", o dados.get("NOME") já resolve.
-                        # Este fallback é apenas para casos onde não existe o rótulo "NOME:"
-                        nome_final = partes[0].split(':', 1)[-1].strip() if ':' in partes[0] else partes[0]
+                    # A DIFERENÇA: Busca flexível por qualquer chave que contenha "NOME"
+                    nome_final = "Produto Desconhecido"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            nome_final = dados[chave]
+                            break
+                    
+                    # FALLBACK: Se a IA não enviou a chave, pega a 1ª coluna e limpa o rótulo
+                    if nome_final == "Produto Desconhecido" and partes_lista:
+                        nome_final = partes_lista[0].replace("NOME:", "").strip()
 
-                    # 2. Busca o CALOR (Pega apenas os números da chave CALOR)
-                    calor_raw = dados.get("CALOR", "0")
-                    calor_num = "".join(filter(str.isdigit, str(calor_raw)))
-                    calor_int = int(calor_num) if calor_num else 0
-
-                    # 3. Busca o TICKET e VALOR
-                    ticket_val = dados.get("TICKET", "Médio")
-                    valor_val = dados.get("VALOR", "R$ ---")
-                    url_val = dados.get("URL", "#")
-
-                    # --- RENDERIZAÇÃO FINAL ---
+                    # EXTRAÇÃO DE TICKET
+                    ticket_val = "Médio"
+                    for chave in dados.keys():
+                        if "TICKET" in chave: 
+                            ticket_val = dados[chave]
+                            break
+                    
+                    # FILTRO E RENDERIZAÇÃO
                     if ticket_val in filtro_ticket:
+                        # A DIFERENÇA: Filtro de dígitos puro para o CALOR
+                        c_str = "".join(filter(str.isdigit, str(dados.get("CALOR", "0"))))
+                        
                         renderizar_card_produto(
                             idx, 
                             nome_final, 
-                            valor_val, 
-                            calor_int, 
+                            dados.get("VALOR", "R$ ---"), 
+                            int(c_str) if c_str else 0, 
                             ticket_val, 
-                            url_val, 
+                            dados.get("URL", "#"), 
                             st.session_state.mkt_global
                         )
                 except:
