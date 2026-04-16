@@ -159,4 +159,25 @@ with tabs[0]:
                     continue
 
 # --- CONEXÃO COM AS OUTRAS ABAS ---
-with
+# --- CONEXÃO COM AS OUTRAS ABAS ---
+with tabs[1]: 
+    if "motor_ia_obj" in st.session_state:
+        # Passa o motor Gemini configurado para o Arsenal
+        arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+    else:
+        st.error("Cérebro IA offline. Dê reboot no sistema.")
+
+with tabs[2]: 
+    trends.exibir_trends()
+
+with tabs[3]: 
+    estudio.exibir_estudio(miny, motor_ia)
+
+with tabs[4]: 
+    postador.exibir_postador(miny, motor_ia)
+
+with tabs[5]: 
+    update.dashboard_performance_simples()
+
+with tabs[6]: 
+    radar_engine.exibir_radar()
