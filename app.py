@@ -83,9 +83,10 @@ if not st.session_state.autenticado: login()
 for key in ["res_busca", "sel_nome", "sel_link"]:
     if key not in st.session_state: st.session_state[key] = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
-
 if "motor_ia_obj" not in st.session_state:
-    try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # 🔱 CORREÇÃO: Usando o nome estável do modelo para evitar o Erro 404
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash-latest')
     except Exception as e:
