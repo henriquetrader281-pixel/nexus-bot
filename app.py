@@ -163,9 +163,9 @@ with tabs[0]:
                             ticket_val, 
                             dados.get("URL", "#"), 
                             st.session_state.mkt_global
-                        )
+               )
+           )
                 except:
-                    continue
                     
                     # 🔱 BUSCA FLEXÍVEL DE NOME
                     nome_final = "Produto Desconhecido"
