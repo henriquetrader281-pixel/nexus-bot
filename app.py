@@ -110,7 +110,11 @@ with tabs[0]:
         with st.spinner(f"Nexus minerando produtos virais em '{foco_nicho}'..."):
             # Prompt reforçado para evitar que a IA mande lixo no link
             prompt_scanner = f"""
-            Liste {qtd_produtos} produtos físicos da {st.session_state.mkt_global} para o nicho '{foco_nicho}'.
+            Liste {qtd_produtos} produtos da {st.session_state.mkt_global} para '{foco_nicho}'.
+Use estes critérios de TICKET:
+- BAIXO: Até R$ 50
+- MÉDIO: R$ 51 até R$ 200
+- ALTO: Acima de R$ 200
             NÃO use markdown nos links. 
             FORMATO OBRIGATÓRIO POR LINHA:
             NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link_direto_sem_formatacao]
