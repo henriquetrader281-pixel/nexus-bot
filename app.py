@@ -85,7 +85,7 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor IA: {e}")
 
