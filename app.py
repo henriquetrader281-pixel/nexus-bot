@@ -85,10 +85,10 @@ if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Usando 'gemini-1.5-flash' para evitar o erro 404
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+        # 🔱 Como tens Gemini Plus, usamos o modelo PRO para copys perfeitas
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
-        st.error(f"Erro ao iniciar motor IA: {e}")
+        st.error(f"Erro ao ligar o motor Pro: {e}")
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
