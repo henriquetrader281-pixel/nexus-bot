@@ -32,7 +32,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LÓGICA BLINDADA) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -40,25 +40,25 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
-            # Fallback para o nome nunca sumir
-            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
-            st.markdown(f"**{ico} {n_exibir}**")
+            # Garante que o nome não venha vazio para o Arsenal
+            n_f = nome.replace("*", "").strip() if nome else "Produto Detectado"
+            st.markdown(f"**{ico} {n_f}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
-                # Limpeza de calor para a barra azul funcionar
-                c_string = "".join(filter(str.isdigit, str(calor)))
-                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
+                # Limpeza de calor: extrai apenas números para a barra azul funcionar
+                c_num = "".join(filter(str.isdigit, str(calor)))
+                calor_num = min(max(int(c_num), 0), 100) if c_num else 0
             except:
                 calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
         if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = n_exibir
+            st.session_state.sel_nome = n_f
             st.session_state.sel_link = link
             st.session_state.sel_preco = valor
-            update.registrar_mineracao(n_exibir, link, calor_num)
-            st.toast(f"Alvo Selecionado: {n_exibir}")
+            update.registrar_mineracao(n_f, link, calor_num)
+            st.toast(f"Selecionado: {n_f}")
 
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
@@ -83,11 +83,14 @@ if "res_busca" not in st.session_state: st.session_state.res_busca = ""
 if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
 if "sel_link" not in st.session_state: st.session_state.sel_link = ""
 if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
+if "motor_ia_obj" not in st.session_state:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
 st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
-motor_ia = "groq" # Define Groq como motor padrão para velocidade
+motor_ia = "groq" # Motor padrão para velocidade
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
@@ -96,12 +99,12 @@ with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=1)
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0)
     with col_sel2:
         foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
 
     if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando produtos..."):
+        with st.spinner("Minerando produtos com Groq..."):
             prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
     
@@ -112,16 +115,20 @@ with tabs[0]:
             linha_limpa = linha.strip()
             if "|" in linha_limpa:
                 try:
-                    dados = {}
                     partes = [p.strip() for p in linha_limpa.split('|')]
+                    dados = {}
                     for p in partes:
-                        p_anl = p.replace("*", "").strip()
-                        if ":" in p_anl:
-                            k, v = p_anl.split(":", 1)
+                        p_analise = p.replace("*", "").strip()
+                        if ":" in p_analise:
+                            k, v = p_analise.split(":", 1)
                             dados[k.strip().upper()] = v.strip()
                     
-                    # Lógica de Nome Robusta
-                    n_f = dados.get("NOME") or partes[0].replace("*", "").split(':')[-1].strip()
+                    # CAPTURA DE NOME COM FALLBACK (Resolve o erro do nome sumir)
+                    n_f = dados.get("NOME")
+                    if not n_f:
+                        primeira_parte = partes[0].replace("*", "").strip()
+                        n_f = primeira_parte.split(":")[-1].strip() if ":" in primeira_parte else primeira_parte
+                    
                     v_f = dados.get("VALOR", "R$ ---")
                     c_f = dados.get("CALOR", "0")
                     t_f = dados.get("TICKET", "Médio")
@@ -136,10 +143,12 @@ with tabs[1]: arsenal.exibir_arsenal(miny, motor_ia)
 # --- ABA 2: TRENDS ---
 with tabs[2]:
     trends.exibir_trends()
-    if st.button("📊 ANÁLISE GLOBAL", use_container_width=True):
-        intel = get_nexus_intelligence()
-        if "trends" in intel:
-            for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
+    if st.button("📊 EXECUTAR ANÁLISE GLOBAL", use_container_width=True):
+        with st.spinner("Sincronizando Tendências Elite..."):
+            intel = get_nexus_intelligence()
+            if "trends" in intel:
+                st.session_state.cache_trends = intel["trends"]
+                for item in intel["trends"]: st.write(f"🎵 {item['musica']} ({item['score']}%)")
 
 # --- ABA 3: ESTÚDIO ---
 with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
