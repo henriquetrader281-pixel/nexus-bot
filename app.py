@@ -91,7 +91,6 @@ debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=Fal
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 # --- ABA 0: SCANNER ---
-# --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
@@ -99,41 +98,43 @@ with tabs[0]:
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
         with st.spinner("IA Nexus minerando tendências..."):
-            # 1. Definimos o nome EXATO que o erro buscou: prompt_scanner
+            # DEFINIÇÃO DA VARIÁVEL (O nome deve ser exatamente prompt_scanner)
             prompt_scanner = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Para cada item use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
             
-            # 2. Chamada corrigida
-            res = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+            # CHAMADA DA FUNÇÃO (Usando o mesmo nome prompt_scanner)
+            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
-            if res:
-                st.session_state.lista_produtos = [p.strip() for p in res.split("###") if len(p) > 20]
+            if resultado_raw:
+                # Divide pelos ### e limpa espaços vazios
+                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if len(p) > 20]
                 st.rerun()
 
-    # --- LISTAGEM CORRIGIDA (Layout e Nomes) ---
+    # --- LISTAGEM COM RECONHECIMENTO DE NOME ---
     if st.session_state.get("lista_produtos"):
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # Fatiador que aceita NOME, Nome ou nome
+                # Fatiador Universal: Transforma as chaves em MAIÚSCULO para não errar
                 d = {}
                 for item in bloco.split("|"):
                     if ":" in item:
                         chave, valor = item.split(":", 1)
-                        # Salva tudo em MAIÚSCULO para não ter erro de leitura
                         d[chave.strip().upper()] = valor.strip()
                 
-                # Puxa o nome real. Se não achar, tenta 'PRODUTO' ou 'ITEM'
-                nome_final = d.get("NOME", d.get("PRODUTO", "Produto Detectado"))
+                # Tenta pegar 'NOME', se não achar tenta 'PRODUTO'
+                nome_correto = d.get("NOME", d.get("PRODUTO", "Produto Detectado"))
                 
                 renderizar_card_produto(
                     i,
-                    nome_final,
-                    d.get("VALOR", "Consultar"),
+                    nome_correto,
+                    d.get("VALOR", "R$ 0,00"),
                     d.get("CALOR", "50"),
                     d.get("TICKET", "Médio"),
                     d.get("LINK", "#"),
                     st.session_state.mkt_global
                 )
-            except Exception as e:
+            except:
+                continue
+                Exception as e:
                 if debug_scanner: st.error(f"Erro no bloco {i}: {e}")
                 continue
                 st.error("Erro ao processar um dos produtos. IA formatou errado.")
