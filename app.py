@@ -35,22 +35,25 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     ico = icones.get(mkt_alvo, "🛍️")
     
     with st.container(border=True):
-        col1, col2, col3 = st.columns([3, 1, 1])
+        # O SEGREDO: Criar colunas para organizar o Ticket e o Calor
+        col_info, col_stats, col_btn = st.columns([3, 1.5, 1])
         
-        with col1:
+        with col_info:
             st.markdown(f"**{ico} {nome}**")
-            st.caption(f"🔗 {link[:50]}...")
+            st.caption(f"🔗 {link[:40]}...")
             
-        with col2:
+        with col_stats:
             st.markdown(f"💰 **{valor}**")
+            # Aqui volta o Ticket no lugar certo
             st.markdown(f"🏷️ Ticket: **{ticket}**")
             
-        with col3:
+        with col_btn:
+            # Aqui volta o Calor no lugar certo
             st.metric("🔥 Calor", f"{calor}°C")
             if st.button("🎯 Selecionar", key=f"btn_{idx}"):
                 st.session_state.sel_nome = nome
                 st.session_state.sel_link = link
-                st.success(f"Selecionado: {nome}")
+                st.success("Produto pronto!")
                 st.rerun()
 
 # --- 3. SISTEMA DE ACESSO ---
