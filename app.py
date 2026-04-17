@@ -17,38 +17,43 @@ import update
 ID_AFILIADO = "18316451024"
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- FUNÇÃO DE CARD (COM LINK EXTERNO REAL) ---
+# --- FUNÇÃO DE CARD ESTILO V101 (RESTAURADA) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
-    # Injeta o ID de afiliado se for Shopee
+    # Tratamento do Link de Afiliado
     link_final = link
-    if "shopee" in link.lower() and ID_AFILIADO not in link:
-        link_final = f"{link}?smtt=0.0.{ID_AFILIADO}"
+    if "shopee" in link.lower():
+        # Remove lixo do link e injeta seu ID
+        base_link = link.split('?')[0]
+        link_final = f"{base_link}?smtt=0.0.{ID_AFILIADO}"
+    elif link == "#" or not link.startswith("http"):
+        link_final = f"https://shopee.com.br/search?keyword={nome.replace(' ', '+')}"
 
     with st.container(border=True):
-        col_info, col_stats, col_btn = st.columns([3, 1.5, 1])
-        with col_info:
-            st.markdown(f"**{ico} {nome}**")
-            st.markdown(f"🔗 [ABRIR NA {mkt_alvo.upper()}]({link_final})")
+        st.markdown(f"### {ico} {nome}")
+        
+        col_data, col_stats = st.columns([2, 1])
+        with col_data:
+            st.markdown(f"💰 **Preço:** {valor}")
+            st.markdown(f"🏷️ **Ticket:** {ticket}")
+            st.link_button(f"🔗 VER NA {mkt_alvo.upper()}", link_final, use_container_width=True)
+            
         with col_stats:
-            st.markdown(f"💰 **{valor}**")
-            st.markdown(f"🏷️ Ticket: **{ticket}**")
-        with col_btn:
-            st.metric("🔥 Calor", f"{calor}°C")
-            if st.button("🎯 Selecionar", key=f"btn_{idx}", use_container_width=True):
+            st.metric("🔥 CALOR", f"{calor}°C")
+            if st.button("🎯 SELECIONAR", key=f"sel_{idx}", use_container_width=True):
                 st.session_state.sel_nome = nome
                 st.session_state.sel_link = link_final
-                st.success("📦 Capturado!")
+                st.success("✅ PRODUTO NO ARSENAL!")
                 st.rerun()
 
 # --- LOGIN ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 if not st.session_state.autenticado:
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Login</h1>", unsafe_allow_html=True)
-    senha = st.text_input("Senha:", type="password")
-    if st.button("ENTRAR"):
+    senha = st.text_input("Senha de Acesso:", type="password")
+    if st.button("ACESSAR SISTEMA", use_container_width=True):
         if senha == st.secrets.get("NEXUS_PASSWORD", "Bru2024!"):
             st.session_state.autenticado = True
             st.rerun()
@@ -60,65 +65,66 @@ if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
 if "lista_produtos" not in st.session_state: st.session_state.lista_produtos = []
 
-# --- INTERFACE ---
+# --- SIDEBAR CONTROL ---
 st.sidebar.title("🔱 Nexus Control")
 mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
 st.session_state.mkt_global = mkt
 ticket_filtro = st.sidebar.multiselect("Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
 
+# ABAS
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD"])
 
-# --- ABA 0: SCANNER (O CORAÇÃO) ---
+# --- ABA 0: SCANNER (MINERAÇÃO V101) ---
 with tabs[0]:
-    st.header(f"🔍 Minerador de Elite: {mkt}")
-    qtd = st.slider("Quantidade de produtos:", 5, 20, 10)
+    st.header(f"🔍 Minerador: {mkt}")
     
-    if st.button("🚀 INICIAR MINERAÇÃO AGORA", use_container_width=True):
+    # Quantidade de produtos definida por você
+    qtd_miny = st.slider("Produtos para buscar:", 5, 20, 10)
+    
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
         with st.spinner(f"Nexus vasculhando {mkt}..."):
-            # Prompt de altíssima precisão
+            # Prompt que a IA entende perfeitamente
             prompt_scanner = f"""
-            Aja como um especialista em produtos virais. Busque {qtd} produtos tendência na {mkt} com ticket {ticket_filtro}.
-            Retorne os dados EXATAMENTE assim para cada produto, sem exceção:
-            NOME: [nome do produto] | VALOR: [R$ preço] | CALOR: [numero de 0 a 100] | TICKET: [Baixo/Médio/Alto] | LINK: [url real]
-            ###
+            Aja como um minerador de tendências. Liste {qtd_miny} produtos virais da {mkt}.
+            Filtro de ticket: {ticket_filtro}.
+            Formato obrigatório: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]
+            Separe cada produto por ###
             """
-            # Chama o mineracao.py
+            
             resultado = miny.minerar_produtos(prompt_scanner, mkt, st.session_state.motor_ia_obj)
             
             if resultado:
-                # Divide pela marcação ### e remove lixo
+                # Limpa e fatias os blocos
                 st.session_state.lista_produtos = [p.strip() for p in resultado.split("###") if "NOME:" in p.upper()]
-                st.success(f"✅ {len(st.session_state.lista_produtos)} Produtos Minerados!")
                 st.rerun()
 
-    # Exibição dos cards
+    # Listagem em Grid (2 colunas para ficar igual ao seu print)
     if st.session_state.lista_produtos:
+        cols = st.columns(2)
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # Fatiador que não quebra
-                temp = {}
+                # Fatiador de Dados
+                dados = {}
                 for item in bloco.split("|"):
                     if ":" in item:
                         k, v = item.split(":", 1)
-                        temp[k.strip().upper()] = v.strip()
+                        dados[k.strip().upper()] = v.strip()
                 
-                renderizar_card_produto(
-                    i, 
-                    temp.get("NOME", "Produto"), 
-                    temp.get("VALOR", "R$ 0,00"), 
-                    temp.get("CALOR", "50"), 
-                    temp.get("TICKET", "Médio"), 
-                    temp.get("LINK", "#"), 
-                    mkt
-                )
+                # Renderiza no Grid
+                with cols[i % 2]:
+                    renderizar_card_produto(
+                        i,
+                        dados.get("NOME", "Produto"),
+                        dados.get("VALOR", "R$ 0,00"),
+                        dados.get("CALOR", "50"),
+                        dados.get("TICKET", "Médio"),
+                        dados.get("LINK", "#"),
+                        mkt
+                    )
             except: continue
 
-# --- CONEXÃO COM OS OUTROS ARQUIVOS ---
-with tabs[1]: 
-    if "sel_nome" in st.session_state:
-        arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-    else: st.info("Selecione um produto no Scanner.")
-
+# --- CONEXÃO DAS ABAS ---
+with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 with tabs[2]: trends.exibir_trends()
 with tabs[3]: studio_tab.exibir_estudio(miny, st.session_state.motor_ia_obj)
 with tabs[4]: postador.exibir_postador()
