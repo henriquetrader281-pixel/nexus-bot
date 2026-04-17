@@ -43,13 +43,20 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
+    # Limpeza do link para garantir que funcione no Markdown
+    link_f = str(link).replace(" ", "").replace("*", "").strip()
+    
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
-            st.markdown(f"**{ico} {n_exibir}**")
+            
+            # --- MUDANÇA AQUI: Nome + Ícone Clicável ---
+            st.markdown(f"**{ico} {n_exibir}** [🔗]({link_f})")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
+            
         with c2:
+            # (Mantém a lógica da barra de calor que já funciona)
             try:
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
@@ -57,13 +64,15 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
                 calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
-        if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = n_exibir
-            st.session_state.sel_link = link
-            st.session_state.sel_preco = valor
-            update.registrar_mineracao(n_exibir, link, calor_num)
-            st.toast(f"Alvo Selecionado: {n_exibir}")
-
+            
+        with c3:
+            # Botão de seleção para o Arsenal
+            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}"):
+                st.session_state.sel_nome = n_exibir
+                st.session_state.sel_link = link_f
+                st.session_state.sel_preco = valor
+                update.registrar_mineracao(n_exibir, link_f, calor_num)
+                st.toast(f"Alvo Selecionado: {n_exibir}")
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 
