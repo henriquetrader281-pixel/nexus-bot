@@ -14,21 +14,25 @@ import update
 ID_AFILIADO = "18316451024"
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LAYOUT ANTIGO RESTAURADO) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LAYOUT RAIZ CORRIGIDO) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
-    # LÓGICA DE LINK BLINDADO (Igual ao seu exemplo de sucesso)
-    link_limpo = str(link).split('?')[0].strip()
-    if "shopee" in link_limpo.lower():
-        # Garante que o link termine exatamente como o que você mandou
-        link_final = f"{link_limpo}?smtt=0.0.{ID_AFILIADO}"
+    # --- LIMPEZA DE LINK NINJA ---
+    # 1. Remove espaços e caracteres de erro como ] ou [
+    link_sujo = str(link).replace("]", "").replace("[", "").replace(" ", "").strip()
+    
+    # 2. Pega apenas a base do link (antes de qualquer ? antigo)
+    link_base = link_sujo.split('?')[0]
+    
+    # 3. Monta o link final exatamente como deve ser
+    if "shopee" in link_base.lower():
+        link_final = f"{link_base}?smtt=0.0.{ID_AFILIADO}"
     else:
-        link_final = link_limpo if link_limpo.startswith("http") else f"https://shopee.com.br/search?keyword={nome.replace(' ', '+')}"
+        link_final = link_base if link_base.startswith("http") else f"https://shopee.com.br/search?keyword={nome.replace(' ', '+')}"
 
     with st.container(border=True):
-        # Layout Horizontal da Versão Antiga
         col_img, col_txt, col_btn = st.columns([1, 4, 1.5])
         
         with col_img:
@@ -37,13 +41,14 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         with col_txt:
             st.markdown(f"### {nome}")
             st.markdown(f"💰 **Valor:** {valor} | 🏷️ **Ticket:** {ticket}")
-            st.caption(f"🔗 {link_final[:60]}...") # Mostra um pedaço do link real
+            # Mostra o link pequeno para conferência
+            st.caption(f"📍 Destino: {link_final[:50]}...")
             
         with col_btn:
             st.metric("🔥 CALOR", f"{calor}°C")
-            # Botão de Ver Produto (Link Externo)
+            # Botão de Ver Produto (Forçando link externo)
             st.link_button("👁️ VER PRODUTO", link_final, use_container_width=True)
-            # Botão de Selecionar (Para o Arsenal)
+            
             if st.button("🎯 SELECIONAR", key=f"sel_{idx}", use_container_width=True):
                 st.session_state.sel_nome = nome
                 st.session_state.sel_link = link_final
@@ -67,7 +72,7 @@ if "motor_ia_obj" not in st.session_state:
 
 if "lista_produtos" not in st.session_state: st.session_state.lista_produtos = []
 
-# --- 4. INTERFACE E SCANNER ---
+# --- 4. INTERFACE ---
 st.sidebar.title("🔱 Nexus Control")
 mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
 st.session_state.mkt_global = mkt
@@ -77,19 +82,15 @@ tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", 
 
 with tabs[0]:
     st.header(f"🔍 Scanner de Oportunidades - {mkt}")
-    qtd = st.slider("Quantidade de produtos:", 5, 20, 10)
+    qtd = st.slider("Quantidade:", 5, 20, 10)
     
     if st.button("🚀 INICIAR MINERAÇÃO", use_container_width=True):
-        with st.spinner("Minerando produtos virais..."):
-            prompt = f"""
-            Aja como um minerador de elite. Busque {qtd} produtos virais na {mkt} com ticket {tickets}.
-            Formato OBRIGATÓRIO: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]
-            Separe cada produto por ###
-            """
+        with st.spinner("Minerando e limpando links..."):
+            prompt = f"Busque {qtd} produtos virais na {mkt}. Formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]. Separe por ###"
             res = miny.minerar_produtos(prompt, mkt, st.session_state.motor_ia_obj)
             if res:
-                # Limpa lixo de markdown que trava o fatiador
-                res_clean = res.replace("**", "").replace("`", "")
+                # Remove negritos e lixos comuns de Markdown
+                res_clean = res.replace("**", "").replace("`", "").replace("[", "").replace("]", "")
                 st.session_state.lista_produtos = [p.strip() for p in res_clean.split("###") if "NOME:" in p.upper()]
                 st.rerun()
 
