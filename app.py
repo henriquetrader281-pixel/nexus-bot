@@ -92,7 +92,6 @@ debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=Fal
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 # --- ABA 0: SCANNER ---
-# --- ABA 0: SCANNER ---
     with tabs[0]:
         st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
         
