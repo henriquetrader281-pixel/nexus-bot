@@ -93,7 +93,6 @@ st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shope
 debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=False)
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
-
 # --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
@@ -104,22 +103,42 @@ with tabs[0]:
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
         with st.spinner(f"Nexus minerando tendências em {st.session_state.mkt_global}..."):
-            # O PROMPT DEVE FICAR ASSIM, SEM ESPAÇOS NA FRENTE DAS ASPAS TRIPLAS
+            # Prompt ultra-estruturado para não haver erro de leitura
             prompt_scanner = f"""
-Aja como um minerador de produtos virais.
-Plataforma: {st.session_state.mkt_global}
-Quantidade: {qtd_produtos}
-Objetivo: Encontre produtos de alta conversão para Reels/TikTok.
+            Aja como um minerador de produtos virais. Marketplace: {st.session_state.mkt_global}.
+            Liste {qtd_produtos} produtos. Para cada um, retorne EXATAMENTE assim:
+            NOME: [nome] | VALOR: [preço] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]
+            ###
+            """
+            
+            # Chama o minerador
+            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+            
+            if resultado_raw:
+                # O segredo: transformar o texto bruto em uma lista real de produtos
+                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if len(p) > 10]
+                st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
 
-Retorne os dados EXATAMENTE neste formato para cada produto:
-NOME: [Nome do Produto]
-VALOR: [Preço Estimado]
-CALOR: [0-100]
-TICKET: [Baixo/Médio/Alto]
-LINK: [Link de Referência]
-###
-"""
-            # Chama o minerador (Llama 3.3 via Groq)
+    # --- RENDERIZAÇÃO DA LISTA ---
+    if st.session_state.get("lista_produtos"):
+        for idx, bloco in enumerate(st.session_state.lista_produtos):
+            try:
+                # Fatiador Nexus: Extrai cada dado do texto da IA
+                partes = bloco.split("|")
+                d = {p.split(":")[0].strip(): p.split(":")[1].strip() for p in partes if ":" in p}
+                
+                # Exibe o Card com os dados que você pediu
+                renderizar_card_produto(
+                    idx, 
+                    d.get("NOME", "Produto"), 
+                    d.get("VALOR", "R$ 0,00"), 
+                    d.get("CALOR", "50"), 
+                    d.get("TICKET", "Médio"), 
+                    d.get("LINK", ""), 
+                    st.session_state.mkt_global
+                )
+            except:
+                continue      # Chama o minerador (Llama 3.3 via Groq)
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
             if resultado_raw:
