@@ -1,67 +1,181 @@
 import streamlit as st
-import google.generativeai as genai
+import arsenal
+import trends
+import pandas as pd
+import update
+import radar_engine
+import os
+import urllib.parse
+from datetime import datetime
 import mineracao as miny
-import arsenal, trends, postador, studio_tab, update
+import estudio  
+import postador 
+import google.generativeai as genai
+import json
 
-# --- CONFIGURAÇÃO ---
+# --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
+# --- INTELIGÊNCIA DE TENDÊNCIAS (PROMPT DE ELITE INTEGRADO) ---
+def get_nexus_intelligence():
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
+        hoje = datetime.now().strftime("%d/%m/%Y")
+        
+        # O SEU PROMPT DE PESQUISA VIRAL
+        prompt = f"""
+        Pesquise as tendências virais de hoje ({hoje}) no TikTok Brasil, Instagram Reels e YouTube Shorts. 
+        Cruze esses dados com o volume de busca no Google Trends. 
+        Identifique as 5 músicas ou áudios com maior potencial de conversão e sugira um gancho AIDA para cada uma. 
+        Retorne o resultado EXCLUSIVAMENTE em formato JSON puro no formato: 
+        {{"trends": [
+            {{"musica": "nome", "score": 95, "razao": "tendência alta", "aida_hook": "Atenção:..."}}
+        ]}}
+        """
+        
+        response = model.generate_content(prompt)
+        clean_json = response.text.replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
+    except Exception as e:
+        return {"error": str(e)}
+
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
-    # Limpeza final do link (remove espaços e caracteres de erro)
-    link_final = str(link).replace(" ", "+").replace("]", "").replace("[", "").strip()
+    icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
+    ico = icones.get(mkt_alvo, "🛍️")
     
     with st.container(border=True):
-        col_img, col_txt, col_btn = st.columns([1, 4, 1.5])
-        with col_img: 
-            st.markdown(f"<h1 style='text-align: center;'>{'🧡' if mkt_alvo == 'Shopee' else '💙'}</h1>", unsafe_allow_html=True)
-        with col_txt:
-            st.markdown(f"### {nome}")
-            st.markdown(f"💰 **Preço:** {valor} | 🏷️ **Ticket:** {ticket}")
-            st.caption(f"📍 Link: {link_final[:60]}...")
-        with col_btn:
-            st.metric("🔥 CALOR", f"{calor}°C")
-            st.link_button("👁️ VER PRODUTO", link_final, use_container_width=True)
-            if st.button("🎯 SELECIONAR", key=f"sel_{idx}", use_container_width=True):
-                st.session_state.sel_nome, st.session_state.sel_link = nome, link_final
-                st.success("✅ CAPTURADO!")
+        c1, c2, c3 = st.columns([2, 1, 1])
+        with c1:
+            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
+            st.markdown(f"**{ico} {n_exibir}**")
+            st.caption(f"💰 {valor} | 🎫 {ticket}")
+        with c2:
+            try:
+                c_string = "".join(filter(str.isdigit, str(calor)))
+                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
+            except:
+                calor_num = 0
+            st.progress(calor_num / 100)
+            st.write(f"🌡️ {calor_num}°C")
+        if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{valor[:3]}"):
+            st.session_state.sel_nome = n_exibir
+            st.session_state.sel_link = link
+            st.session_state.sel_preco = valor
+            update.registrar_mineracao(n_exibir, link, calor_num)
+            st.toast(f"Alvo Selecionado: {n_exibir}")
 
-# --- MOTOR IA ---
+# --- 3. SISTEMA DE ACESSO ---
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
+
+def login():
+    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
+        senha = st.text_input("Acesso:", type="password")
+        if st.button("AUTENTICAR", use_container_width=True):
+            if senha == senha_mestra:
+                st.session_state.autenticado = True
+                st.rerun()
+            else: st.error("Senha incorreta.")
+    st.stop()
+
+if not st.session_state.autenticado: login()
+
+# --- 4. ESTADO DA SESSÃO ---
+if "res_busca" not in st.session_state: st.session_state.res_busca = ""
+if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
+if "sel_link" not in st.session_state: st.session_state.sel_link = ""
+if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
+
 if "motor_ia_obj" not in st.session_state:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    st.session_state.motor_ia_obj = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
 
-if "lista_produtos" not in st.session_state: st.session_state.lista_produtos = []
-
-# --- INTERFACE ---
+# --- 5. INTERFACE PRINCIPAL ---
 st.sidebar.title("🔱 Nexus Control")
-mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
-st.session_state.mkt_global = mkt
-filtro_ticket = st.sidebar.multiselect("Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+# Adicionada KEY única para evitar o erro Duplicate ID
+st.session_state.mkt_global = st.sidebar.selectbox(
+    "Marketplace Ativo:", 
+    ["Shopee", "Mercado Livre", "Amazon"], 
+    key="mkt_global_selector"
+)
+motor_ia = "groq" 
 
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR"])
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 
+# --- ABA 0: SCANNER ---
 with tabs[0]:
-    st.header(f"🔍 Scanner de Oportunidades - {mkt}")
-    qtd = st.slider("Quantidade:", 5, 20, 10)
+    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+    col_sel1, col_sel2 = st.columns([1, 2])
+    with col_sel1:
+        # Adicionada KEY única
+        qtd_produtos = st.selectbox("Volume:", [15, 30, 45], index=0, key="scanner_volume")
+    with col_sel2:
+        foco_nicho = st.text_input("🎯 Nicho:", value="Cozinha Criativa", key="foco_nicho")
+
+    if st.button(f"🔥 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando produtos com Groq..."):
+            prompt_scanner = f"Não escreva introdução. Liste {qtd_produtos} produtos de {st.session_state.mkt_global} para '{foco_nicho}'. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, motor_ia)
     
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt = f"Busque {qtd} produtos virais da {mkt} com ticket {filtro_ticket}. Separe por ###"
-            resultado = miny.minerar_produtos(prompt, mkt, st.session_state.motor_ia_obj)
-            if resultado:
-                # Limpeza de asteriscos que a IA coloca
-                res_clean = resultado.replace("**", "").replace("`", "")
-                st.session_state.lista_produtos = [p.strip() for p in res_clean.split("###") if "NOME:" in p.upper()]
-                st.rerun()
+    if st.session_state.res_busca:
+        st.divider()
+        linhas = st.session_state.res_busca.split('\n')
+        for idx, linha in enumerate(linhas):
+            linha_p = linha.replace("**", "").replace("*", "").strip()
+            if "|" in linha_p:
+                try:
+                    partes = [p.strip() for p in linha_p.split('|')]
+                    dados = {}
+                    for p in partes:
+                        if ":" in p:
+                            k, v = p.split(":", 1)
+                            dados[k.strip().upper()] = v.strip()
+                    
+                    n_f = "Produto Detectado"
+                    for chave in dados.keys():
+                        if "NOME" in chave:
+                            n_f = dados[chave]
+                            break
+                    
+                    if n_f == "Produto Detectado" and partes:
+                        n_f = partes[0].split(":", 1)[-1].strip() if ":" in partes[0] else partes[0]
+                    
+                    v_f = dados.get("VALOR", "R$ ---")
+                    c_raw = dados.get("CALOR", "0")
+                    t_f = dados.get("TICKET", "Médio")
+                    u_f = dados.get("URL", "#")
 
-    if st.session_state.lista_produtos:
-        for i, bloco in enumerate(st.session_state.lista_produtos):
-            try:
-                # Fatiador Universal: Busca URL em vez de LINK
-                d = {item.split(":")[0].strip().upper(): item.split(":")[1].strip() for item in bloco.split("|") if ":" in item}
-                renderizar_card_produto(i, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
-            except: continue
+                    renderizar_card_produto(idx, n_f, v_f, c_raw, t_f, u_f, st.session_state.mkt_global)
+                except: continue
 
-# Conexão com módulos
-with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-with tabs[2]: trends.exibir_trends()
+# --- CONEXÃO COM AS OUTRAS ABAS ---
+with tabs[1]: 
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+
+with tabs[2]:
+    st.header("📈 Monitor de Tendências Virais")
+    if st.button("🔄 Sincronizar Tendências de Elite (Músicas + AIDA)", key="btn_sync_trends"):
+        with st.spinner("Cruzando dados TikTok + Reels + Google..."):
+            data = get_nexus_intelligence()
+            if "trends" in data:
+                st.session_state.dados_trends = data["trends"]
+                st.success("Tendências de hoje sincronizadas!")
+            else:
+                st.error("Erro ao minerar JSON.")
+    
+    if "dados_trends" in st.session_state:
+        for item in st.session_state.dados_trends:
+            with st.expander(f"🎵 {item['musica']} - Score: {item['score']}%"):
+                st.write(f"**Gancho AIDA:** {item['aida_hook']}")
+                st.caption(f"**Razão:** {item['razao']}")
+    
+    trends.exibir_trends()
+
+with tabs[3]: estudio.exibir_estudio(miny, motor_ia)
+with tabs[4]: postador.exibir_postador(miny, motor_ia)
+with tabs[5]: update.dashboard_performance_simples()
+with tabs[6]: radar_engine.exibir_radar()
