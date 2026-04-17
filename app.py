@@ -95,36 +95,38 @@ tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", 
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
-    col_sel1, col_sel2 = st.columns([1, 2])
-    with col_sel1:
-        qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
+    qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner(f"Nexus minerando tendências em {st.session_state.mkt_global}..."):
-            # Prompt ultra-estruturado para não haver erro de leitura
-            prompt_scanner = f"""
-            Aja como um minerador de produtos virais. Marketplace: {st.session_state.mkt_global}.
-            Liste {qtd_produtos} produtos. Para cada um, retorne EXATAMENTE assim:
-            NOME: [nome] | VALOR: [preço] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]
-            ###
-            """
+        with st.spinner("Minerando dados..."):
+            prompt_scanner = f"Liste {qtd_produtos} produtos virais da {st.session_state.mkt_global}. Retorne EXATAMENTE assim para cada: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
             
-            # Chama o minerador
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
             if resultado_raw:
-                # O segredo: transformar o texto bruto em uma lista real de produtos
-                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if len(p) > 10]
+                # Limpa e separa os produtos pelo marcador ###
+                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if "NOME:" in p]
                 st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
 
-    # --- RENDERIZAÇÃO DA LISTA ---
+    # --- LISTAGEM COM LAYOUT CORRIGIDO ---
     if st.session_state.get("lista_produtos"):
         for idx, bloco in enumerate(st.session_state.lista_produtos):
-            try:
-                # Fatiador Nexus: Extrai cada dado do texto da IA
-                partes = bloco.split("|")
-                d = {p.split(":")[0].strip(): p.split(":")[1].strip() for p in partes if ":" in p}
-                
+            # Extração inteligente para não bugar o nome
+            dados = {}
+            for item in bloco.split("|"):
+                if ":" in item:
+                    chave, valor = item.split(":", 1)
+                    dados[chave.strip()] = valor.strip()
+            
+            renderizar_card_produto(
+                idx, 
+                dados.get("NOME", "Produto Sem Nome"), 
+                dados.get("VALOR", "Consultar"), 
+                dados.get("CALOR", "50"), 
+                dados.get("TICKET", "Médio"), 
+                dados.get("LINK", ""), 
+                st.session_state.mkt_global
+            )
                 # Exibe o Card com os dados que você pediu
                 renderizar_card_produto(
                     idx, 
