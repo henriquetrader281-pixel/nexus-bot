@@ -100,11 +100,28 @@ with tabs[0]:
     
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        qtd_produtos = st.selectbox("Volume de Mineração:", [15, 30, 45], index=0)
-    with col_sel2:
-        foco_nicho = st.text_input("🎯 Nicho da Operação:", value="Cozinha Criativa")
-
-    if st.button(f"🔥 INICIAR VARREDURA {st.session_state.mkt_global.upper()}", use_container_width=True):
-        with st.spinner(f"Nexus minerando em '{foco_nicho}'..."):
-            # PROMPT CORRIGIDO (Encostado na esquerda para não quebrar)
+        qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
+    
+    if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
+        with st.spinner(f"Nexus minerando tendências em {st.session_state.mkt_global}..."):
+            # O PROMPT DEVE FICAR ASSIM, SEM ESPAÇOS NA FRENTE DAS ASPAS TRIPLAS
             prompt_scanner = f"""
+Aja como um minerador de produtos virais.
+Plataforma: {st.session_state.mkt_global}
+Quantidade: {qtd_produtos}
+Objetivo: Encontre produtos de alta conversão para Reels/TikTok.
+
+Retorne os dados EXATAMENTE neste formato para cada produto:
+NOME: [Nome do Produto]
+VALOR: [Preço Estimado]
+CALOR: [0-100]
+TICKET: [Baixo/Médio/Alto]
+LINK: [Link de Referência]
+###
+"""
+            # Chama o minerador (Llama 3.3 via Groq)
+            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+            
+            if resultado_raw:
+                st.session_state.lista_produtos = resultado_raw
+                st.success("Varredura concluída!")
