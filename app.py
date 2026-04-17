@@ -98,35 +98,39 @@ with tabs[0]:
     qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner("IA Nexus minerando tendências..."):
-            # Prompt que força o formato correto para o fatiador não bugar
-            prompt = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Formato: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+        with st.spinner("IA minerando tendências..."):
+            # Forçamos o formato no prompt
+            prompt = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Para cada item use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
             res = miny.minerar_produtos(prompt, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
             if res:
-                # Separa os produtos e limpa a lista
-                st.session_state.lista_produtos = [p.strip() for p in res.split("###") if "NOME:" in p]
+                # Divide pelos ### e limpa
+                st.session_state.lista_produtos = [p.strip() for p in res.split("###") if len(p) > 20]
                 st.rerun()
 
-    # --- LISTAGEM COM LAYOUT RESTAURADO ---
+    # --- LISTAGEM CORRIGIDA ---
     if st.session_state.get("lista_produtos"):
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # Fatiador de Elite: Extrai os dados pelo separador "|"
-                parts = {item.split(":")[0].strip(): item.split(":")[1].strip() for item in bloco.split("|") if ":" in item}
+                # Fatiador Universal: Transforma tudo em minúsculo para comparar sem erro
+                temp_dados = {}
+                for item in bloco.split("|"):
+                    if ":" in item:
+                        k, v = item.split(":", 1)
+                        temp_dados[k.strip().upper()] = v.strip()
                 
+                # Mapeia os dados para o Card
                 renderizar_card_produto(
                     i,
-                    parts.get("NOME", "Produto"),
-                    parts.get("VALOR", "Sob consulta"),
-                    parts.get("CALOR", "50"),
-                    parts.get("TICKET", "Médio"),
-                    parts.get("LINK", ""),
+                    temp_dados.get("NOME", "Produto Detectado"),
+                    temp_dados.get("VALOR", "R$ 0,00"),
+                    temp_dados.get("CALOR", "50"),
+                    temp_dados.get("TICKET", "Médio"),
+                    temp_dados.get("LINK", "#"),
                     st.session_state.mkt_global
                 )
             except:
-                continue
-                # Se um card der erro, ele pula para o próximo sem travar o Nexus
+                st.error("Erro ao processar um dos produtos. IA formatou errado.")
                 continue     # Chama o minerador (Llama 3.3 via Groq)
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
