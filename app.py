@@ -92,50 +92,42 @@ debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=Fal
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 # --- ABA 0: SCANNER ---
-with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    
-    qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
-    
-    if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner("Minerando dados..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos virais da {st.session_state.mkt_global}. Retorne EXATAMENTE assim para cada: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
-            
-            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
-            
-            if resultado_raw:
-                # Limpa e separa os produtos pelo marcador ###
-                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if "NOME:" in p]
-                st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
+# --- ABA 0: SCANNER ---
+    with tabs[0]:
+        st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
+        
+        qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
+        
+        if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
+            with st.spinner("Minerando dados..."):
+                prompt_scanner = f"Liste {qtd_produtos} produtos virais da {st.session_state.mkt_global}. Retorne EXATAMENTE assim para cada: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+                
+                resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+                
+                if resultado_raw:
+                    # Limpa e separa os produtos pelo marcador ###
+                    st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if "NOME:" in p]
+                    st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
 
-    # --- LISTAGEM COM LAYOUT CORRIGIDO ---
-    if st.session_state.get("lista_produtos"):
-        for idx, bloco in enumerate(st.session_state.lista_produtos):
-            # Extração inteligente para não bugar o nome
-            dados = {}
-            for item in bloco.split("|"):
-                if ":" in item:
-                    chave, valor = item.split(":", 1)
-                    dados[chave.strip()] = valor.strip()
-            
-            renderizar_card_produto(
-                idx, 
-                dados.get("NOME", "Produto Sem Nome"), 
-                dados.get("VALOR", "Consultar"), 
-                dados.get("CALOR", "50"), 
-                dados.get("TICKET", "Médio"), 
-                dados.get("LINK", ""), 
-                st.session_state.mkt_global
-            )
-                # Exibe o Card com os dados que você pediu
+        # --- LISTAGEM COM LAYOUT CORRIGIDO ---
+        if st.session_state.get("lista_produtos"):
+            for idx, bloco in enumerate(st.session_state.lista_produtos):
+                dados = {}
+                for item in bloco.split("|"):
+                    if ":" in item:
+                        chave, valor = item.split(":", 1)
+                        dados[chave.strip()] = valor.strip()
+                
+                # A LINHA 131 ESTÁ AQUI - AGORA PERFEITAMENTE ALINHADA
                 renderizar_card_produto(
                     idx, 
-                    d.get("NOME", "Produto"), 
-                    d.get("VALOR", "R$ 0,00"), 
-                    d.get("CALOR", "50"), 
-                    d.get("TICKET", "Médio"), 
-                    d.get("LINK", ""), 
+                    dados.get("NOME", "Produto Sem Nome"), 
+                    dados.get("VALOR", "Consultar"), 
+                    dados.get("CALOR", "50"), 
+                    dados.get("TICKET", "Médio"), 
+                    dados.get("LINK", ""), 
                     st.session_state.mkt_global
+                )
                 )
             except:
                 continue      # Chama o minerador (Llama 3.3 via Groq)
