@@ -95,46 +95,41 @@ debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=Fal
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
 # --- ABA 0: SCANNER ---
+# --- ABA 0: SCANNER ---
 with tabs[0]:
     st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
     
     qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner("Minerando dados..."):
-            prompt_scanner = f"Liste {qtd_produtos} produtos virais da {st.session_state.mkt_global}. Retorne EXATAMENTE assim para cada: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+        with st.spinner("IA Nexus minerando tendências..."):
+            # Prompt que força o formato correto para o fatiador não bugar
+            prompt = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Formato: NOME: [nome] | VALOR: [preço] | CALOR: [numero] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+            res = miny.minerar_produtos(prompt, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
-            # Chama o minerador
-            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
-            
-            if resultado_raw:
-                # Limpa e separa os produtos pelo marcador ###
-                st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if "NOME:" in p]
-                st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
+            if res:
+                # Separa os produtos e limpa a lista
+                st.session_state.lista_produtos = [p.strip() for p in res.split("###") if "NOME:" in p]
+                st.rerun()
 
-# --- LISTAGEM COM LAYOUT CORRIGIDO ---
+    # --- LISTAGEM COM LAYOUT RESTAURADO ---
     if st.session_state.get("lista_produtos"):
-        for idx, bloco in enumerate(st.session_state.lista_produtos):
+        for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # 1. Tenta fatiar os dados da IA
-                dados = {}
-                for item in bloco.split("|"):
-                    if ":" in item:
-                        chave, valor = item.split(":", 1)
-                        dados[chave.strip()] = valor.strip()
+                # Fatiador de Elite: Extrai os dados pelo separador "|"
+                parts = {item.split(":")[0].strip(): item.split(":")[1].strip() for item in bloco.split("|") if ":" in item}
                 
-                # 2. Só renderiza se tiver pelo menos o nome
-                if "NOME" in dados or "nome" in dados:
-                    renderizar_card_produto(
-                        idx, 
-                        dados.get("NOME", dados.get("nome", "Produto")), 
-                        dados.get("VALOR", "Consultar"), 
-                        dados.get("CALOR", "50"), 
-                        dados.get("TICKET", "Médio"), 
-                        dados.get("LINK", ""), 
-                        st.session_state.mkt_global
-                    )
-            except Exception as e:
+                renderizar_card_produto(
+                    i,
+                    parts.get("NOME", "Produto"),
+                    parts.get("VALOR", "Sob consulta"),
+                    parts.get("CALOR", "50"),
+                    parts.get("TICKET", "Médio"),
+                    parts.get("LINK", ""),
+                    st.session_state.mkt_global
+                )
+            except:
+                continue
                 # Se um card der erro, ele pula para o próximo sem travar o Nexus
                 continue     # Chama o minerador (Llama 3.3 via Groq)
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
