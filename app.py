@@ -42,26 +42,25 @@ def get_nexus_intelligence():
 import urllib.parse # Certifique-se de ter este import no topo do arquivo
 
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
-    icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
-    ico = icones.get(mkt_alvo, "🛍️")
+    ID_FIXO = "18316451024"
     
-    # --- LIMPEZA E CODIFICAÇÃO DE ELITE ---
-    # 1. Remove lixo visual
-    link_f = str(link).replace(" ", "").replace("*", "").replace("###", "").strip()
+    # LIMPEZA BRUTA: Remove espaços, asteriscos e o erro do ": :"
+    link_f = str(link).replace(" ", "").replace("*", "").replace("::", ":").strip()
     
-    # 2. Se for link de busca (search), garantimos que os espaços internos do termo sejam + ou %20
-    if "search" in link_f.lower() and "keyword=" in link_f.lower():
-        base_url = link_f.split("keyword=")[0] + "keyword="
-        termo = link_f.split("keyword=")[1]
-        link_f = base_url + urllib.parse.quote(termo)
-
-    with st.container(border=True):
-        c1, c2, c3 = st.columns([2, 1, 1])
-        with c1:
-            n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
+    # Se o link vier incompleto da IA, nós reconstruímos ele aqui no Python
+    if mkt_alvo == "Shopee":
+        if "keyword=" in link_f:
+            # Garante que o nome do produto esteja no link ANTES do seu ID
+            base_busca = link_f.split("keyword=")[0] + "keyword="
+            # Se a IA mandou o link vazio após o keyword=, usamos o nome que temos
+            produto_nome = link_f.split("keyword=")[1] if len(link_f.split("keyword=")) > 1 else nome
+            if not produto_nome: produto_nome = nome
             
-            # --- Nome + Ícone Clicável com Link Blindado ---
-            st.markdown(f"**{ico} {n_exibir}** [🔗]({link_f})")
+            # Montagem correta: BASE + PRODUTO + SEU ID
+            link_f = f"https://shopee.com.br/search?keyword={urllib.parse.quote(str(produto_nome))}&smtt=0.0.{ID_FIXO}"
+
+    # ... resto da função de markdown ...
+    st.markdown(f"**{nome}** [🔗]({link_f})")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
             
         with c2:
