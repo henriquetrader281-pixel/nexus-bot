@@ -1,35 +1,35 @@
 import streamlit as st
+import pandas as pd
+import os
+import json
+import google.generativeai as genai
+from datetime import datetime
+
+# --- IMPORTAÇÃO DE MÓDULOS NEXUS ---
+import mineracao as miny
 import arsenal
 import trends
-import pandas as pd
+import postador
+import studio_tab
 import update
-import radar_engine
-import os
-import urllib.parse
-from datetime import datetime
-import mineracao as miny
-import estudio  
-import postador 
-import google.generativeai as genai
-import json
 
-# --- 1. CONFIGURAÇÃO DE TELA ---
+# --- 1. CONFIGURAÇÃO DE ELITE ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- INTELIGÊNCIA DE TENDÊNCIAS ---
+# --- 2. MOTOR DE INTELIGÊNCIA (GEMINI) ---
 def get_nexus_intelligence():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel(model_name='gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-pro')
         hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON."
+        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS um JSON com chaves: musica, razao, aida_hook, score."
         response = model.generate_content(prompt)
         clean_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
-    except Exception as e:
-        return {"error": str(e)}
+    except:
+        return {"trends": []}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
+# --- 3. LAYOUT DOS CARDS (SISTEMA DE COLUNAS) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -39,108 +39,100 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         
         with col_info:
             st.markdown(f"**{ico} {nome}**")
-            st.caption(f"🔗 [Clique aqui para abrir o link]({link})")
+            st.caption(f"🔗 [Link do Produto]({link})")
             
         with col_stats:
             st.markdown(f"💰 **{valor}**")
             st.markdown(f"🏷️ Ticket: **{ticket}**")
             
         with col_btn:
-            st.metric("🔥 Calor", f"{calor}°C")
-            if st.button("🎯 Selecionar", key=f"btn_{idx}"):
+            # Limpa o calor para garantir que seja apenas número para o gráfico/métrica
+            c_val = "".join(filter(str.isdigit, str(calor))) or "50"
+            st.metric("🔥 Calor", f"{c_val}°C")
+            if st.button("🎯 Selecionar", key=f"btn_{idx}", use_container_width=True):
                 st.session_state.sel_nome = nome
                 st.session_state.sel_link = link
-                st.success("Produto enviado ao Arsenal!")
+                st.success("✅ Enviado!")
                 st.rerun()
-# --- 3. SISTEMA DE ACESSO ---
+
+# --- 4. SEGURANÇA E LOGIN ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 
-def login():
+if not st.session_state.autenticado:
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        senha_mestra = st.secrets.get("NEXUS_PASSWORD", "Bru2024!")
-        senha = st.text_input("Acesso:", type="password")
+        senha = st.text_input("Senha de Elite:", type="password")
         if st.button("AUTENTICAR", use_container_width=True):
-            if senha == senha_mestra:
+            if senha == st.secrets.get("NEXUS_PASSWORD", "Bru2024!"):
                 st.session_state.autenticado = True
                 st.rerun()
-            else: st.error("Senha incorreta.")
+            else: st.error("Acesso negado.")
     st.stop()
 
-if not st.session_state.autenticado: login()
-
-# --- 4. ESTADO DA SESSÃO E MOTOR IA ---
-motor_ia = "groq" 
-if "res_busca" not in st.session_state: st.session_state.res_busca = ""
-if "sel_nome" not in st.session_state: st.session_state.sel_nome = ""
-if "sel_link" not in st.session_state: st.session_state.sel_link = ""
-if "mkt_global" not in st.session_state: st.session_state.mkt_global = "Shopee"
-
+# --- 5. INICIALIZAÇÃO DE ESTADOS ---
 if "motor_ia_obj" not in st.session_state:
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
-    except Exception as e:
-        st.error(f"Falha ao carregar motor IA: {e}")
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
 
-# --- 5. INTERFACE PRINCIPAL ---
-st.sidebar.title("🔱 Nexus Control")
-st.session_state.mkt_global = st.sidebar.selectbox("Marketplace Ativo:", ["Shopee", "Mercado Livre", "Amazon"])
-debug_scanner = st.sidebar.checkbox("🔬 Debug Scanner (raw output)", value=False)
+if "lista_produtos" not in st.session_state: st.session_state.lista_produtos = []
 
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD", "🌍 RADAR"])
-# --- ABA 0: SCANNER ---
+# --- 6. INTERFACE LATERAL ---
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/11186/11186523.png", width=100)
+st.sidebar.title("Nexus Control")
+mkt_global = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
+st.session_state.mkt_global = mkt_global
+
+# --- 7. NAVEGAÇÃO POR ABAS ---
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD"])
+
+# --- ABA 0: SCANNER (O MOTOR DE BUSCA) ---
 with tabs[0]:
-    st.header(f"🔍 Scanner Nexus: {st.session_state.mkt_global}")
-    
-    qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
+    st.header(f"🔍 Scanner {mkt_global}")
+    qtd = st.selectbox("Volume de Mineração:", [5, 10, 15, 20])
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner("IA Nexus minerando tendências..."):
-            # DEFINIÇÃO DA VARIÁVEL (O nome deve ser exatamente prompt_scanner)
-            prompt_scanner = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Para cada item use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
-            
-            # CHAMADA DA FUNÇÃO (Usando o mesmo nome prompt_scanner)
-            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+        with st.spinner("Buscando Oportunidades..."):
+            # Prompt Blindado
+            prompt_scanner = f"Liste {qtd} produtos virais da {mkt_global}. Use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+            resultado_raw = miny.minerar_produtos(prompt_scanner, mkt_global, st.session_state.motor_ia_obj)
             
             if resultado_raw:
-                # Divide pelos ### e limpa espaços vazios
                 st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if len(p) > 20]
                 st.rerun()
 
-    # --- LISTAGEM COM RECONHECIMENTO DE NOME ---
-    if st.session_state.get("lista_produtos"):
+    if st.session_state.lista_produtos:
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # Fatiador Universal: Transforma as chaves em MAIÚSCULO para não errar
-                d = {}
-                for item in bloco.split("|"):
-                    if ":" in item:
-                        chave, valor = item.split(":", 1)
-                        d[chave.strip().upper()] = valor.strip()
-                
-                # Tenta pegar 'NOME', se não achar tenta 'PRODUTO'
-                nome_correto = d.get("NOME", d.get("PRODUTO", "Produto Detectado"))
-                
+                # Fatiador Universal Nexus
+                d = {k.split(":")[0].strip().upper(): k.split(":")[1].strip() for k in bloco.split("|") if ":" in k}
                 renderizar_card_produto(
-                    i,
-                    nome_correto,
-                    d.get("VALOR", "R$ 0,00"),
-                    d.get("CALOR", "50"),
-                    d.get("TICKET", "Médio"),
-                    d.get("LINK", "#"),
-                    st.session_state.mkt_global
+                    i, 
+                    d.get("NOME", "Produto"), 
+                    d.get("VALOR", "Sob consulta"), 
+                    d.get("CALOR", "50"), 
+                    d.get("TICKET", "Médio"), 
+                    d.get("LINK", "#"), 
+                    mkt_global
                 )
-            except:
-                continue
-                Exception as e:
-                if debug_scanner: st.error(f"Erro no bloco {i}: {e}")
-                continue
-                st.error("Erro ao processar um dos produtos. IA formatou errado.")
-                continue     # Chama o minerador (Llama 3.3 via Groq)
-            resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
-            
-            if resultado_raw:
-                st.session_state.lista_produtos = resultado_raw
-                st.success("Varredura concluída!")
+            except: continue
+
+# --- ABA 1: ARSENAL ---
+with tabs[1]:
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+
+# --- ABA 2: TRENDS ---
+with tabs[2]:
+    trends.exibir_trends()
+
+# --- ABA 3: ESTÚDIO (VEO 3 PROMPT) ---
+with tabs[3]:
+    studio_tab.exibir_estudio(miny, st.session_state.motor_ia_obj)
+
+# --- ABA 4: POSTADOR ---
+with tabs[4]:
+    postador.exibir_postador()
+
+# --- ABA 5: DASHBOARD ---
+with tabs[5]:
+    update.dashboard_performance_simples()
