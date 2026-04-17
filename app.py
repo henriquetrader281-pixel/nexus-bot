@@ -109,27 +109,31 @@ with tabs[0]:
                 st.session_state.lista_produtos = [p.strip() for p in resultado_raw.split("###") if "NOME:" in p]
                 st.success(f"✅ {len(st.session_state.lista_produtos)} Oportunidades detectadas!")
 
-    # --- LISTAGEM COM LAYOUT CORRIGIDO ---
+# --- LISTAGEM COM LAYOUT CORRIGIDO ---
     if st.session_state.get("lista_produtos"):
         for idx, bloco in enumerate(st.session_state.lista_produtos):
-            dados = {}
-            for item in bloco.split("|"):
-                if ":" in item:
-                    chave, valor = item.split(":", 1)
-                    dados[chave.strip()] = valor.strip()
-            
-            # Renderiza o card com os dados extraídos
-            renderizar_card_produto(
-                idx, 
-                dados.get("NOME", "Produto Sem Nome"), 
-                dados.get("VALOR", "Consultar"), 
-                dados.get("CALOR", "50"), 
-                dados.get("TICKET", "Médio"), 
-                dados.get("LINK", ""), 
-                st.session_state.mkt_global
-            )
-            except:
-                continue      # Chama o minerador (Llama 3.3 via Groq)
+            try:
+                # 1. Tenta fatiar os dados da IA
+                dados = {}
+                for item in bloco.split("|"):
+                    if ":" in item:
+                        chave, valor = item.split(":", 1)
+                        dados[chave.strip()] = valor.strip()
+                
+                # 2. Só renderiza se tiver pelo menos o nome
+                if "NOME" in dados or "nome" in dados:
+                    renderizar_card_produto(
+                        idx, 
+                        dados.get("NOME", dados.get("nome", "Produto")), 
+                        dados.get("VALOR", "Consultar"), 
+                        dados.get("CALOR", "50"), 
+                        dados.get("TICKET", "Médio"), 
+                        dados.get("LINK", ""), 
+                        st.session_state.mkt_global
+                    )
+            except Exception as e:
+                # Se um card der erro, ele pula para o próximo sem travar o Nexus
+                continue     # Chama o minerador (Llama 3.3 via Groq)
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
             if resultado_raw:
