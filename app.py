@@ -14,19 +14,16 @@ import update
 ID_AFILIADO = "18316451024"
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LAYOUT RAIZ CORRIGIDO) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LAYOUT RAIZ) ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
-    # --- LIMPEZA DE LINK NINJA ---
-    # 1. Remove espaços e caracteres de erro como ] ou [
-    link_sujo = str(link).replace("]", "").replace("[", "").replace(" ", "").strip()
+    # --- LIMPEZA DE LINK NINJA (CORREÇÃO DEFINITIVA) ---
+    # Remove qualquer lixo visual que a IA coloque (colchetes, espaços, aspas)
+    link_limpo = str(link).replace("]", "").replace("[", "").replace("(", "").replace(")", "").replace(" ", "").strip()
+    link_base = link_limpo.split('?')[0]
     
-    # 2. Pega apenas a base do link (antes de qualquer ? antigo)
-    link_base = link_sujo.split('?')[0]
-    
-    # 3. Monta o link final exatamente como deve ser
     if "shopee" in link_base.lower():
         link_final = f"{link_base}?smtt=0.0.{ID_AFILIADO}"
     else:
@@ -41,25 +38,23 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
         with col_txt:
             st.markdown(f"### {nome}")
             st.markdown(f"💰 **Valor:** {valor} | 🏷️ **Ticket:** {ticket}")
-            # Mostra o link pequeno para conferência
-            st.caption(f"📍 Destino: {link_final[:50]}...")
+            st.caption(f"📍 Destino: {link_final[:60]}...")
             
         with col_btn:
             st.metric("🔥 CALOR", f"{calor}°C")
-            # Botão de Ver Produto (Forçando link externo)
             st.link_button("👁️ VER PRODUTO", link_final, use_container_width=True)
             
             if st.button("🎯 SELECIONAR", key=f"sel_{idx}", use_container_width=True):
                 st.session_state.sel_nome = nome
                 st.session_state.sel_link = link_final
-                st.success("✅ CAPTURADO!")
+                st.success("✅ PRODUTO NO ARSENAL!")
                 st.rerun()
 
-# --- 3. LOGIN E MOTOR IA ---
+# --- 3. ACESSO E MOTOR IA ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 if not st.session_state.autenticado:
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Login</h1>", unsafe_allow_html=True)
-    senha = st.text_input("Acesso Master:", type="password")
+    senha = st.text_input("Senha Master:", type="password")
     if st.button("LOGAR", use_container_width=True):
         if senha == st.secrets.get("NEXUS_PASSWORD", "Bru2024!"):
             st.session_state.autenticado = True
@@ -76,47 +71,50 @@ if "lista_produtos" not in st.session_state: st.session_state.lista_produtos = [
 st.sidebar.title("🔱 Nexus Control")
 mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Mercado Livre", "Amazon"])
 st.session_state.mkt_global = mkt
-tickets = st.sidebar.multiselect("Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
+filtro_ticket = st.sidebar.multiselect("Tickets:", ["Baixo", "Médio", "Alto"], default=["Baixo", "Médio", "Alto"])
 
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "🛰️ POSTADOR", "📊 DASHBOARD"])
 
+# --- ABA 0: SCANNER (A QUE PAROU DE FUNCIONAR) ---
 with tabs[0]:
-    st.header(f"🔍 Scanner de Oportunidades - {mkt}")
+    st.header(f"🔍 Scanner de Elite: {mkt}")
     qtd = st.slider("Quantidade:", 5, 20, 10)
     
-    if st.button("🚀 INICIAR MINERAÇÃO", use_container_width=True):
-        with st.spinner("Minerando e limpando links..."):
-            prompt = f"Busque {qtd} produtos virais na {mkt}. Formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]. Separe por ###"
-            res = miny.minerar_produtos(prompt, mkt, st.session_state.motor_ia_obj)
-            if res:
-                # Remove negritos e lixos comuns de Markdown
-                res_clean = res.replace("**", "").replace("`", "").replace("[", "").replace("]", "")
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando produtos e corrigindo links..."):
+            # Prompt agressivo para a IA não conversar, apenas entregar dados
+            prompt_scanner = f"""
+            Aja como um minerador de tendências. Liste {qtd} produtos virais da {mkt}.
+            Filtro de ticket: {filtro_ticket}.
+            Retorne EXATAMENTE neste formato para cada:
+            NOME: [nome] | VALOR: [preço] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url]
+            Separe cada produto pelo marcador: ###
+            """
+            
+            resultado = miny.minerar_produtos(prompt_scanner, mkt, st.session_state.motor_ia_obj)
+            
+            if resultado:
+                # O SEGREDO: Limpeza de markdown que impedia a mineração
+                res_clean = resultado.replace("**", "").replace("`", "").replace("[", "").replace("]", "")
+                # Divide e garante que só pega blocos com nome
                 st.session_state.lista_produtos = [p.strip() for p in res_clean.split("###") if "NOME:" in p.upper()]
                 st.rerun()
 
+    # Exibição dos cards minerados
     if st.session_state.lista_produtos:
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
+                # Fatiador robusto que aceita variações de escrita
                 d = {}
-                for parte in bloco.split("|"):
-                    if ":" in parte:
-                        k, v = parte.split(":", 1)
+                for item in bloco.split("|"):
+                    if ":" in item:
+                        k, v = item.split(":", 1)
                         d[k.strip().upper()] = v.strip()
                 
+                # Renderização com dados extraídos
                 renderizar_card_produto(
                     i, 
-                    d.get("NOME", "Produto"), 
-                    d.get("VALOR", "Sob consulta"), 
+                    d.get("NOME", "Produto Detectado"), 
+                    d.get("VALOR", "Consultar"), 
                     d.get("CALOR", "50"), 
-                    d.get("TICKET", "Médio"), 
-                    d.get("LINK", "#"), 
-                    mkt
-                )
-            except: continue
-
-# --- CONEXÃO COM MÓDULOS ---
-with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-with tabs[2]: trends.exibir_trends()
-with tabs[3]: studio_tab.exibir_estudio(miny, st.session_state.motor_ia_obj)
-with tabs[4]: postador.exibir_postador()
-with tabs[5]: update.dashboard_performance_simples()
+                    d.get("TICKET", "Médio"),
