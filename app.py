@@ -39,25 +39,34 @@ def get_nexus_intelligence():
         return {"error": str(e)}
 
 # --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (LAYOUT V101) ---
+import urllib.parse # Certifique-se de ter este import no topo do arquivo
+
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
-    # Limpeza do link para garantir que funcione no Markdown
-    link_f = str(link).replace(" ", "").replace("*", "").strip()
+    # --- LIMPEZA E CODIFICAÇÃO DE ELITE ---
+    # 1. Remove lixo visual
+    link_f = str(link).replace(" ", "").replace("*", "").replace("###", "").strip()
     
+    # 2. Se for link de busca (search), garantimos que os espaços internos do termo sejam + ou %20
+    if "search" in link_f.lower() and "keyword=" in link_f.lower():
+        base_url = link_f.split("keyword=")[0] + "keyword="
+        termo = link_f.split("keyword=")[1]
+        link_f = base_url + urllib.parse.quote(termo)
+
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
             n_exibir = nome.replace("*", "").strip() if nome else "Produto Detectado"
             
-            # --- MUDANÇA AQUI: Nome + Ícone Clicável ---
+            # --- Nome + Ícone Clicável com Link Blindado ---
             st.markdown(f"**{ico} {n_exibir}** [🔗]({link_f})")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
             
         with c2:
-            # (Mantém a lógica da barra de calor que já funciona)
             try:
+                # Extração de número de calor segura
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
             except:
@@ -66,13 +75,17 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.write(f"🌡️ {calor_num}°C")
             
         with c3:
-            # Botão de seleção para o Arsenal
-            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}"):
+            # Botão de seleção para o Arsenal (transfere o link limpo)
+            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{idx}"):
                 st.session_state.sel_nome = n_exibir
                 st.session_state.sel_link = link_f
                 st.session_state.sel_preco = valor
-                update.registrar_mineracao(n_exibir, link_f, calor_num)
-                st.toast(f"Alvo Selecionado: {n_exibir}")
+                # Tenta registrar no banco de dados
+                try:
+                    update.registrar_mineracao(n_exibir, link_f, calor_num)
+                except:
+                    pass
+                st.toast(f"✅ Alvo no Arsenal: {n_exibir}")
 # --- 3. SISTEMA DE ACESSO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 
