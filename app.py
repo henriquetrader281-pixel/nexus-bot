@@ -98,38 +98,44 @@ with tabs[0]:
     qtd_produtos = st.selectbox("Quantidade de achados:", [5, 10, 15, 20], index=0)
     
     if st.button("🚀 INICIAR VARREDURA DE ELITE", use_container_width=True):
-        with st.spinner("IA minerando tendências..."):
-            # Forçamos o formato no prompt
-            prompt = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Para cada item use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
-            res = miny.minerar_produtos(prompt, st.session_state.mkt_global, st.session_state.motor_ia_obj)
+        with st.spinner("IA Nexus minerando tendências..."):
+            # 1. Definimos o nome EXATO que o erro buscou: prompt_scanner
+            prompt_scanner = f"Liste {qtd_produtos} produtos virais {st.session_state.mkt_global}. Para cada item use EXATAMENTE o formato: NOME: [nome] | VALOR: [R$] | CALOR: [0-100] | TICKET: [Baixo/Médio/Alto] | LINK: [url] ###"
+            
+            # 2. Chamada corrigida
+            res = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
             
             if res:
-                # Divide pelos ### e limpa
                 st.session_state.lista_produtos = [p.strip() for p in res.split("###") if len(p) > 20]
                 st.rerun()
 
-    # --- LISTAGEM CORRIGIDA ---
+    # --- LISTAGEM CORRIGIDA (Layout e Nomes) ---
     if st.session_state.get("lista_produtos"):
         for i, bloco in enumerate(st.session_state.lista_produtos):
             try:
-                # Fatiador Universal: Transforma tudo em minúsculo para comparar sem erro
-                temp_dados = {}
+                # Fatiador que aceita NOME, Nome ou nome
+                d = {}
                 for item in bloco.split("|"):
                     if ":" in item:
-                        k, v = item.split(":", 1)
-                        temp_dados[k.strip().upper()] = v.strip()
+                        chave, valor = item.split(":", 1)
+                        # Salva tudo em MAIÚSCULO para não ter erro de leitura
+                        d[chave.strip().upper()] = valor.strip()
                 
-                # Mapeia os dados para o Card
+                # Puxa o nome real. Se não achar, tenta 'PRODUTO' ou 'ITEM'
+                nome_final = d.get("NOME", d.get("PRODUTO", "Produto Detectado"))
+                
                 renderizar_card_produto(
                     i,
-                    temp_dados.get("NOME", "Produto Detectado"),
-                    temp_dados.get("VALOR", "R$ 0,00"),
-                    temp_dados.get("CALOR", "50"),
-                    temp_dados.get("TICKET", "Médio"),
-                    temp_dados.get("LINK", "#"),
+                    nome_final,
+                    d.get("VALOR", "Consultar"),
+                    d.get("CALOR", "50"),
+                    d.get("TICKET", "Médio"),
+                    d.get("LINK", "#"),
                     st.session_state.mkt_global
                 )
-            except:
+            except Exception as e:
+                if debug_scanner: st.error(f"Erro no bloco {i}: {e}")
+                continue
                 st.error("Erro ao processar um dos produtos. IA formatou errado.")
                 continue     # Chama o minerador (Llama 3.3 via Groq)
             resultado_raw = miny.minerar_produtos(prompt_scanner, st.session_state.mkt_global, st.session_state.motor_ia_obj)
