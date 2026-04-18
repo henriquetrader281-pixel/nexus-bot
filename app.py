@@ -83,8 +83,14 @@ def inicializar_motor_ia():
         st.error(f"Erro IA: {e}")
         return None
 
+# --- 4. INICIALIZAÇÃO DO MOTOR IA ---
 if "motor_ia_obj" not in st.session_state:
-    st.session_state.motor_ia_obj = inicializar_motor_ia()
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # COLOQUE A LINHA AQUI:
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"Falha ao carregar motor IA: {e}")
 
 # --- SIDEBAR (Centralizada para evitar duplicidade) ---
 with st.sidebar:
