@@ -65,22 +65,21 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
         st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-    # --- CORREÇÃO: Variável estilo definida uma única vez e identada corretamente ---
+   # Escolha do Estilo
     estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True, key="radio_arsenal")
 
-    # --- O botão de gerar (Identado dentro da função) ---
+    # Botão de Gerar
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True):
-        with st.spinner("Gerando..."):
+        with st.spinner("🔱 Nexus moldando munição..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             try:
-                # Chama o modelo configurado no app.py
+                # Usa o motor que vem do app.py
                 response = motor_ia_gemini.generate_content(prompt)
                 if response and response.text:
                     st.session_state.res_arsenal = [response.text]
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro na IA: {e}")
-
     # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
