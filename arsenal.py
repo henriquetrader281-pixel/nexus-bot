@@ -25,19 +25,16 @@ def aplicar_id_afiliado(link, mkt):
         url_base = "https://" + url_base.split("http")[-1].lstrip("s:/")
 
     if mkt == "Shopee":
-        try:
-            # Se for link de busca
-         # DENTRO DO try NO mkt == "Shopee", ALTERE PARA:
-if "search" in link_limpo and "keyword=" in link_limpo:
-    termo = link_limpo.split("keyword=")[1].split("&")[0]
-    return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
-
-base = link_limpo.split("?")[0].rstrip("/")
-return f"{base}?smtt=0.0.{ID_FIXO_SHOPEE}"
+try:
+            if "search" in url_base and "keyword=" in url_base:
+                termo = url_base.split("keyword=")[1].split("&")[0]
+                return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
+            
+            # Força o link limpo a ser absoluto
+            limpo = url_base.split("?")[0].rstrip("/")
+            return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
             return url_base
-            
-    return url_base
 
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
