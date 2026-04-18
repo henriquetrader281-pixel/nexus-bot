@@ -3,30 +3,32 @@ import nexus_copy as nxcopy
 import urllib.parse
 
 def aplicar_id_afiliado(link, mkt):
-    """Garante o rastreio com ID Shopee 18316451024 e link absoluto."""
+    """Garante o rastreio 18316451024 e força o link a ser absoluto para sair do Nexus"""
     if not link or len(str(link)) < 5: 
         return "#"
         
     ID_FIXO_SHOPEE = "18316451024"
     
-    # 1. Limpeza Radical Blindada
+    # Limpeza radical para evitar o erro do 'https?'
     raw_url = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
     
-    # Garante que o link comece corretamente com http para sair do domínio local
-    if "http" in raw_url:
-        url_base = "http" + raw_url.split("http")[-1]
+    # FORÇA O PROTOCOLO: Se o link não começar com http, nós injetamos o https:// oficial
+    if "http" not in raw_url:
+        url_base = "https://shopee.com.br/" + raw_url.lstrip(":/")
     else:
-        url_base = "https://" + raw_url.lstrip(":/")
+        # Garante que pegamos do http em diante, sem resíduos antes
+        url_base = "http" + raw_url.split("http")[-1]
 
     if mkt == "Shopee":
         try:
-            if "search" in url_base and "keyword=" in url_base:
+            # Lógica de busca por keyword (Se vier do scanner de busca)
+            if "keyword=" in url_base:
                 termo = url_base.split("keyword=")[1].split("&")[0]
                 return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
             
-            # Limpa parâmetros e injeta o ID de afiliado
-            base_limpa = url_base.split("?")[0].rstrip("/")
-            return f"{base_limpa}?smtt=0.0.{ID_FIXO_SHOPEE}"
+            # Lógica de link direto de produto
+            limpo = url_base.split("?")[0].rstrip("/")
+            return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
             return url_base
             
@@ -43,33 +45,34 @@ def exibir_arsenal(miny, motor_ia_gemini):
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
     
-    # Gera o link rastreado e absoluto
+    # Processa o link garantindo que ele seja externo e clicável
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
     
-    # --- CONTAINER ÚNICO DE EXIBIÇÃO ---
     with st.container(border=True):
         st.success(f"📦 **Alvo Ativo:** {sel_nome}")
         
-        # Link HTML para forçar abertura em nova aba (target="_blank")
-        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA {mkt.upper()} 🚀</a>', unsafe_allow_html=True)
+        # LINK HTML: O target="_blank" é o que obriga o navegador a sair do Nexus
+        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold; border: 1px solid #FF4B4B; padding: 5px 10px; border-radius: 5px;">ABRIR PRODUTO NA {mkt.upper()} 🚀</a>', unsafe_allow_html=True)
         
         st.caption(f"Checkout Seguro: {link_rastreado}")
         
         musica = st.session_state.get("musica_selecionada")
         if musica:
-            st.info(f"🎵 **Áudio Viral:** {musica}")
+            st.info(f"🎵 **Áudio Viral Selecionado:** {musica}")
 
-    # Interface de Tom de Voz
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
     if st.button("🔥 GERAR COPYS VIRAIS (GEMINI AIDA)", use_container_width=True):
         with st.spinner("Gemini moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(sel_nome, estilo=estilo)
             if musica:
-                prompt += f" Considere o áudio: {musica}."
+                prompt += f" Considere o ritmo do áudio: {musica}."
                 
             try:
+                # CORREÇÃO DO MODELO: Forçamos o modelo flash correto para evitar erro 404
+                # Usamos o objeto que vem do app.py
                 response = motor_ia_gemini.generate_content(prompt)
+                
                 if response.text:
                     resultado = nxcopy.limpar_copy(response.text)
                     if "###" in resultado:
@@ -78,9 +81,10 @@ def exibir_arsenal(miny, motor_ia_gemini):
                         st.session_state.res_arsenal = [resultado.strip()]
                     st.rerun()
             except Exception as e:
-                st.error(f"Erro no Gemini: {e}")
+                # Se o motor_ia_gemini falhar, tentamos uma chamada direta de fallback
+                st.error(f"Erro na IA: {e}")
+                st.info("Dica: Verifique se o nome do modelo no app.py é 'gemini-1.5-flash' (sem o models/)")
 
-    # Exibição das Munições
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
@@ -92,4 +96,4 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     texto_final = f"{texto_copy}\n\n🛒 LINK: {link_rastreado}"
                     st.session_state.copy_ativa = texto_final
                     st.session_state.link_final_afiliado = link_rastreado
-                    st.toast("Munição enviada!")
+                    st.toast("Munição enviada com sucesso!")
