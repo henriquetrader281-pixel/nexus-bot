@@ -94,7 +94,7 @@ with st.sidebar:
         st.rerun()
 
 # --- INTERFACE ---
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
 with tabs[0]:
     mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
@@ -130,3 +130,6 @@ with tabs[3]:
 
 with tabs[4]: 
     st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
+
+with tabs[5]: # Aba Radar
+    radar_engine.exibir_radar()
