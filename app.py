@@ -34,12 +34,16 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
-with c1:
-            # Esta linha abaixo precisa de 4 espaços (ou 1 Tab) a mais que o 'with'
+        
+        # --- BLOCO C1 (Nome e Info) ---
+        with c1:
+            # Correção do recuo: n_exibir agora está dentro do with c1
             n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
-with c2:
+            
+        # --- BLOCO C2 (Calor/Termômetro) ---
+        with c2:
             try:
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
@@ -47,12 +51,15 @@ with c2:
                 calor_num = 0
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
-        if c3.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
-            st.session_state.sel_nome = n_exibir
-            st.session_state.sel_link = link
-            st.session_state.sel_preco = valor
-            update.registrar_mineracao(n_exibir, link, calor_num)
-            st.toast(f"Alvo Selecionado: {n_exibir}")
+            
+        # --- BLOCO C3 (Botão de Seleção) ---
+        with c3:
+            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
+                st.session_state.sel_nome = n_exibir
+                st.session_state.sel_link = link
+                st.session_state.sel_preco = valor
+                update.registrar_mineracao(n_exibir, link, calor_num)
+                st.toast(f"Alvo Selecionado: {n_exibir}")
 
 # --- LOGIN E ESTADOS ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
@@ -71,12 +78,11 @@ if not st.session_state.autenticado:
 if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # AQUI ESTÁ A CHAVE: Nome puro, sem 'models/' e sem 'v1beta' no objeto
         st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Falha crítica na configuração da IA: {e}")
 
-# --- INTERFACE (Abas Reduzidas para o que é usado) ---
+# --- INTERFACE ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
 with tabs[0]:
@@ -92,7 +98,6 @@ with tabs[0]:
         for idx, linha in enumerate(linhas):
             if "|" in linha:
                 try:
-                    # Fatiador blindado que preserva o link completo
                     partes = linha.replace("**", "").split("|")
                     d = {}
                     for p in partes:
