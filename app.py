@@ -77,19 +77,15 @@ if not st.session_state.autenticado:
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # 'gemini-pro' é o modelo que não dá erro 404
-       return genai.GenerativeModel('gemini-1.5-flash')
-    except Exception as e:
-        st.error(f"Erro IA: {e}")
-        return None
-
-# --- 4. INICIALIZAÇÃO DO MOTOR IA ---
-if "motor_ia_obj" not in st.session_state:
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+        # Usando o 1.5-flash que é o mais estável para evitar o erro 404
+        return genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Erro ao carregar IA: {e}")
+        return None
+
+# --- 4. INICIALIZAÇÃO ÚNICA DO MOTOR IA ---
+if "motor_ia_obj" not in st.session_state or st.session_state.motor_ia_obj is None:
+    st.session_state.motor_ia_obj = inicializar_motor_ia()
 
 # --- SIDEBAR (Centralizada para evitar duplicidade) ---
 with st.sidebar:
