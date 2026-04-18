@@ -65,16 +65,16 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
         st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-    # ESCOLHA DO ESTILO (A variável 'estilo' é criada aqui)
+  # ESCOLHA DO ESTILO (Dentro da função exibir_arsenal)
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    # --- O BOTÃO DEVE FICAR DENTRO DA FUNÇÃO ---
+    # --- GERAÇÃO DA MUNIÇÃO ---
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
-        with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
+        with st.spinner("🔱 Nexus moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
             try:
-                # Chama a IA de forma simples (Gemini Normal)
+                # Usa o motor_ia_gemini passado pelo app.py
                 response = motor_ia_gemini.generate_content(prompt)
                 
                 if response and response.text:
@@ -87,10 +87,12 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     
                     st.toast("✅ Munição Carregada!")
                     st.rerun()
+                else:
+                    st.error("🔴 O Gemini retornou uma resposta vazia.")
             except Exception as e:
                 st.error(f"🔴 Erro na IA: {e}")
 
-    # EXIBIÇÃO DAS COPIES
+    # --- EXIBIÇÃO DAS COPIES GERADAS ---
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
@@ -99,4 +101,5 @@ def exibir_arsenal(miny, motor_ia_gemini):
                 st.write(texto_copy)
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
                     st.session_state.copy_ativa = f"{texto_copy}\n\n🛒 LINK: {link_rastreado}"
+                    st.session_state.link_final_afiliado = link_rastreado
                     st.toast("Enviado ao Estúdio!")
