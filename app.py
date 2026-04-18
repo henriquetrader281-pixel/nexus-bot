@@ -100,4 +100,4 @@ with tabs[0]:
 with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 with tabs[2]: trends.exibir_trends()
 with tabs[3]: st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
-with tabs[4]: st
+with tabs[4]: st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
