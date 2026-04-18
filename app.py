@@ -34,9 +34,9 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
-        with c1:
-            # Decodifica caracteres de URL (como %20) e limpa asteriscos em uma única linha
-n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
+with c1:
+            # Esta linha abaixo precisa de 4 espaços (ou 1 Tab) a mais que o 'with'
+            n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}") 
         with c2:
