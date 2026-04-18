@@ -49,6 +49,7 @@ def validar_link_shopee(link):
     return "shopee" in str(link).lower() and "http" in str(link).lower()
 
 def diagnosticar_erro_gemini(erro_mensagem):
+    """Analisa erro do Gemini e exibe solução específica."""
     erro_lower = str(erro_mensagem).lower()
     if "404" in erro_lower:
         st.error("🔴 **Conexão Perdida:** O objeto da IA expirou. Clique em 'Resetar IA' na barra lateral.")
@@ -68,12 +69,8 @@ def exibir_arsenal(miny, motor_ia_gemini):
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
     
-    # Limpa o nome para o prompt (remove asteriscos que a IA coloca)
+    # Limpa o nome para o prompt
     nome_puro = sel_nome.replace("*", "").strip()
-    
-    # Debug opcional
-    with st.expander("🔍 Debug de Link"):
-        st.code(f"Original: {link_original}\nMercado: {mkt}")
     
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
     
@@ -93,28 +90,22 @@ def exibir_arsenal(miny, motor_ia_gemini):
             f'ABRIR PRODUTO NA {mkt.upper()} 🚀</a>',
             unsafe_allow_html=True
         )
-        st.caption(f"🔐 Rastreado com ID: `{link_rastreado}`")
-        
-        musica = st.session_state.get("musica_selecionada")
-        if musica: st.info(f"🎵 **Áudio Viral:** {musica}")
+        st.caption(f"🔐 Rastreado com ID Shopee: `18316451024`")
 
+    # ESCOLHA DO ESTILO
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    # --- O BOTÃO AGORA ESTÁ DENTRO DA FUNÇÃO PARA RECONHECER O 'estilo' ---
+    # --- AGORA ESTÁ TUDO DENTRO DA FUNÇÃO ---
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
         with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
-            # 1. Gera o prompt usando o nexus_copy.py
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
             try:
-                # 2. Chama o Gemini Pro
                 response = motor_ia_gemini.generate_content(prompt)
                 
                 if response and response.text:
-                    # 3. Limpa a resposta
                     resultado = nxcopy.limpar_copy(response.text)
                     
-                    # 4. Processa versões separadas por ###
                     if "###" in resultado:
                         st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
                     else:
@@ -127,7 +118,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
             except Exception as e:
                 diagnosticar_erro_gemini(e)
 
-    # --- EXIBIÇÃO DAS COPIES ---
+    # EXIBIÇÃO DAS COPIES GERADAS
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
