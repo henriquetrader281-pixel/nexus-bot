@@ -104,18 +104,34 @@ def exibir_arsenal(miny, motor_ia_gemini):
 
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    if st.button("🔥 GERAR COPYS VIRAIS (GEMINI AIDA)", use_container_width=True):
-        with st.spinner("Gemini moldando roteiros de elite..."):
-            try:
-                prompt = nxcopy.gerar_prompt_aida(sel_nome, estilo=estilo)
-                response = motor_ia_gemini.generate_content(prompt)
-                if response.text:
-                    resultado = nxcopy.limpar_copy(response.text)
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 15]
-                    st.rerun()
-            except Exception as e:
-                diagnosticar_erro_gemini(e)
+    # --- DENTRO DE arsenal.py ---
 
+if st.button(f"🔥 Gerar Munição {estilo}", use_container_width=True, key=f"btn_gen_{estilo}"):
+    with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
+        # 1. Gera o prompt usando o nexus_copy.py
+        prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
+        
+        try:
+            # 2. Chama o Gemini Pro
+            response = motor_ia_gemini.generate_content(prompt)
+            
+            if response and response.text:
+                # 3. Limpa a resposta (remove markdown indesejado)
+                resultado = nxcopy.limpar_copy(response.text)
+                
+                # 4. SALVAMENTO CORRIGIDO:
+                # Se a IA não usar ###, pegamos o texto todo como uma única munição
+                if "###" in resultado:
+                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
+                else:
+                    st.session_state.res_arsenal = [resultado.strip()]
+                
+                st.toast("✅ Munição Carregada!")
+                st.rerun()
+            else:
+                st.error("🔴 O Gemini retornou uma resposta vazia.")
+        except Exception as e:
+            st.error(f"🔴 Erro crítico na IA: {e}")
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
