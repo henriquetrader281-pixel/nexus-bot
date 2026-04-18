@@ -70,25 +70,27 @@ if not st.session_state.autenticado:
                 st.rerun()
     st.stop()
 
-# --- INICIALIZAÇÃO BLINDADA DO GEMINI ---
+# --- INICIALIZAÇÃO BLINDADA DO GEMINI (MODELO PRO PARA PLUS) ---
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # Ativando o Pro: Melhor inteligência para o seu plano Plus
         return genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor do Plus: {e}")
         return None
 
-# Inicialização Única com Botão de Reset corrigido
-with st.sidebar:
-    st.title("🔱 Menu Nexus")
-    if st.button("♻️ Resetar IA", key="reset_ia_final"):
-        st.session_state.motor_ia_obj = inicializar_motor_ia()
-        st.toast("Motor IA Atualizado!")
-        st.rerun()
-
+# Bloco único de inicialização
 if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
+
+# Botão de Reset na Sidebar com KEY ÚNICA para evitar DuplicateElementId
+with st.sidebar:
+    st.divider()
+    if st.button("♻️ Resetar IA", key="btn_reset_nexus_pro"):
+        st.session_state.motor_ia_obj = inicializar_motor_ia()
+        st.toast("Motor IA Pro Reiniciado! 🔱")
+        st.rerun()
 
 # --- INTERFACE ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD"])
