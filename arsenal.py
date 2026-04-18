@@ -65,31 +65,22 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
         st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-    # --- AQUI ESTAVA O ERRO DE ESPAÇO: TUDO DEVE ESTAR ALINHADO À DIREITA ---
-    estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
+  # ESTA VARIÁVEL PRECISA VIR ANTES DO BOTÃO
+    estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
+    # O BOTÃO DEVE ESTAR IDENTADO (DENTRO DA FUNÇÃO)
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
-        with st.spinner("🔱 Nexus moldando roteiros de elite..."):
+        with st.spinner("🔱 Nexus a moldar munição..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
-            
             try:
                 response = motor_ia_gemini.generate_content(prompt)
-                
                 if response and response.text:
                     resultado = nxcopy.limpar_copy(response.text)
-                    
-                    if "###" in resultado:
-                        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
-                    else:
-                        st.session_state.res_arsenal = [resultado.strip()]
-                    
-                    st.toast("✅ Munição Carregada!")
+                    # Salva o resultado no estado da sessão
+                    st.session_state.res_arsenal = resultado.split("###") if "###" in resultado else [resultado]
                     st.rerun()
-                else:
-                    st.error("🔴 O Gemini retornou uma resposta vazia.")
             except Exception as e:
-                st.error(f"🔴 Erro na IA: {e}")
-
+                st.error(f"Erro na IA: {e}")
     # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
