@@ -75,14 +75,13 @@ if not st.session_state.autenticado:
     st.stop()
 
 # --- INICIALIZAÇÃO BLINDADA DO GEMINI ---
-def inicializar_motor_ia():
+if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Como você tem PLUS, o 'gemini-1.5-pro' é melhor, mas o 'flash' é mais rápido
-        # O segredo é NÃO usar 'models/' antes do nome
-        return genai.GenerativeModel('gemini-1.5-flash')
+        # FORCE o modelo Pro para aproveitar seu plano Plus
+        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
-        st.error(f"Erro na configuração da IA: {e}")
+        st.error(f"Falha ao carregar motor do Plus: {e}")
         return None
 
 # Força a reinicialização se o erro persistir
