@@ -10,6 +10,7 @@ import mineracao as miny
 import estudio
 import google.generativeai as genai
 import json
+import radar_engine
 
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
