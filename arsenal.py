@@ -5,29 +5,38 @@ import urllib.parse
 def aplicar_id_afiliado(link, mkt):
     """
     Garante o rastreio com ID Shopee 18316451024.
-    BUSCA DE SOLUÇÃO: Mantém a estrutura 'https://' intacta para ser clicável.
+    TRAVA DE ELITE: Garante que o link seja ABSOLUTO para sair do domínio do Nexus.
     """
-    if not link or len(str(link)) < 5 or "http" not in str(link): 
-        return link
+    if not link or len(str(link)) < 5: 
+        return "#"
         
     ID_FIXO_SHOPEE = "18316451024"
     
-    # Limpeza preservando o protocolo (solução para o erro do https?)
-    link_limpo = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
+    # 1. Limpeza Radical (Preservando o essencial)
+    # Remove lixo da IA e garante que não haja espaços que quebram a URL
+    url_base = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
     
+    # 2. Reconstrução do Protocolo (Evita apontar para o próprio Nexus)
+    if "http" not in url_base:
+        url_base = "https://" + url_base.lstrip(":/")
+    else:
+        # Garante que não ficou nada grudado antes do https (como : ou texto)
+        url_base = "https://" + url_base.split("http")[-1].lstrip("s:/")
+
     if mkt == "Shopee":
         try:
-            if "search" in link_limpo and "keyword=" in link_limpo:
-                base_link = link_limpo.split("keyword=")[0] + "keyword="
-                termo = link_limpo.split("keyword=")[1]
+            # Se for link de busca
+            if "search" in url_base and "keyword=" in url_base:
+                termo = url_base.split("keyword=")[1].split("&")[0]
                 return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
             
-            base_link = link_limpo.split("?")[0].rstrip("/")
-            return f"{base_link}?smtt=0.0.{ID_FIXO_SHOPEE}"
+            # Se for link de produto direto
+            limpo = url_base.split("?")[0].rstrip("/")
+            return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
-            return link_limpo
+            return url_base
             
-    return link_limpo
+    return url_base
 
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
@@ -40,19 +49,20 @@ def exibir_arsenal(miny, motor_ia_gemini):
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
     
-    # Processa o link injetando seu ID
+    # Processa o link garantindo que ele seja externo
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
     
     with st.container(border=True):
         st.success(f"📦 **Alvo Ativo:** {sel_nome}")
         
-        # --- CORREÇÃO DE ELITE: Link agora é Markdown real para ficar AZUL e CLICÁVEL ---
-        st.markdown(f"🔗 **Link de Comissão:** [Clique aqui para abrir na {mkt}]({link_rastreado})")
-        st.caption(f"URL de Rastreio: {link_rastreado}")
+        # --- COMPONENTE DE LINK BLINDADO ---
+        # Usamos o link direto para garantir que o navegador trate como URL externa
+        st.markdown(f"🔗 **Link de Afiliado:** [ABRIR PRODUTO NA {mkt.upper()}]({link_rastreado})")
+        st.caption(f"Checkout Seguro: {link_rastreado}")
         
         musica = st.session_state.get("musica_selecionada")
         if musica:
-            st.info(f"🎵 **Áudio Viral Detectado:** {musica}")
+            st.info(f"🎵 **Áudio Viral:** {musica}")
 
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
@@ -60,25 +70,19 @@ def exibir_arsenal(miny, motor_ia_gemini):
         with st.spinner("Gemini moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(sel_nome, estilo=estilo)
             if musica:
-                prompt += f" IMPORTANTE: Adapte o ritmo para o áudio viral: {musica}."
+                prompt += f" Considere o áudio: {musica}."
                 
-            resultado = None  
-
             try:
                 response = motor_ia_gemini.generate_content(prompt)
                 if response.text:
                     resultado = nxcopy.limpar_copy(response.text)
-                else:
-                    st.error("IA retornou resposta vazia.")
+                    if "###" in resultado:
+                        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 15]
+                    else:
+                        st.session_state.res_arsenal = [resultado.strip()]
+                    st.rerun()
             except Exception as e:
-                st.error(f"Erro na conexão com o Gemini: {e}")
-
-            if resultado:
-                if "###" in resultado:
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 15]
-                else:
-                    st.session_state.res_arsenal = [resultado.strip()]
-                st.rerun()
+                st.error(f"Erro no Gemini: {e}")
 
     if st.session_state.get("res_arsenal"):
         st.divider()
@@ -88,7 +92,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
                 st.write(texto_copy)
                 
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
-                    texto_final = f"{texto_copy}\n\n🛒 LINK NO DIRECT: {link_rastreado}"
+                    texto_final = f"{texto_copy}\n\n🛒 LINK: {link_rastreado}"
                     st.session_state.copy_ativa = texto_final
                     st.session_state.link_final_afiliado = link_rastreado
-                    st.toast("Munição enviada ao Estúdio com Sucesso!")
+                    st.toast("Munição enviada!")
