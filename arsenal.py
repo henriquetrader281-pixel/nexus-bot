@@ -20,11 +20,9 @@ def aplicar_id_afiliado(link, mkt):
     
     # 2. VALIDAÇÃO E PROTOCOLO
     if "shopee" not in raw_url.lower():
-        # Se for Mercado Livre ou Amazon, apenas limpa e retorna
         if "http" not in raw_url: raw_url = "https://" + raw_url.lstrip(":/")
         return raw_url
     
-    # Força HTTPS absoluto para evitar "apontar para o nexus"
     if "http" not in raw_url:
         raw_url = "https://shopee.com.br/" + raw_url.lstrip(":/")
     raw_url = raw_url.replace("http://", "https://")
@@ -32,18 +30,15 @@ def aplicar_id_afiliado(link, mkt):
     # 3. PROCESSAMENTO EXCLUSIVO SHOPEE
     if mkt == "Shopee":
         try:
-            # CASO A: Link de busca com keyword
             if "keyword=" in raw_url:
                 termo = raw_url.split("keyword=")[1].split("&")[0]
                 termo_codificado = urllib.parse.quote(termo)
                 return f"https://shopee.com.br/search?keyword={termo_codificado}&smtt=0.0.{ID_FIXO_SHOPEE}"
             
-            # CASO B: Link direto de produto
             limpo = raw_url.split("?")[0].split("#")[0].rstrip("/")
             return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
                 
         except Exception as e:
-            # Fallback seguro
             base = raw_url.split("?")[0].rstrip("/")
             return f"{base}?smtt=0.0.{ID_FIXO_SHOPEE}"
     
@@ -54,7 +49,6 @@ def validar_link_shopee(link):
     return "shopee" in str(link).lower() and "http" in str(link).lower()
 
 def diagnosticar_erro_gemini(erro_mensagem):
-    """Analisa erro do Gemini e exibe solução específica."""
     erro_lower = str(erro_mensagem).lower()
     if "404" in erro_lower:
         st.error("🔴 **Conexão Perdida:** O objeto da IA expirou. Clique em 'Resetar IA' na barra lateral.")
@@ -74,7 +68,10 @@ def exibir_arsenal(miny, motor_ia_gemini):
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
     
-    # Debug opcional para o Henrique
+    # Limpa o nome para o prompt (remove asteriscos que a IA coloca)
+    nome_puro = sel_nome.replace("*", "").strip()
+    
+    # Debug opcional
     with st.expander("🔍 Debug de Link"):
         st.code(f"Original: {link_original}\nMercado: {mkt}")
     
@@ -85,9 +82,8 @@ def exibir_arsenal(miny, motor_ia_gemini):
         return
     
     with st.container(border=True):
-        st.success(f"📦 **Alvo Ativo:** {sel_nome}")
+        st.success(f"📦 **Alvo Ativo:** {nome_puro}")
         
-        # LINK HTML BLINDADO (Abre em nova aba)
         st.write(
             f'🔗 **Munição Pronta:** '
             f'<a href="{link_rastreado}" target="_blank" rel="noopener noreferrer" '
@@ -104,34 +100,34 @@ def exibir_arsenal(miny, motor_ia_gemini):
 
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    # --- DENTRO DE arsenal.py ---
-
-if st.button(f"🔥 Gerar Munição {estilo}", use_container_width=True, key=f"btn_gen_{estilo}"):
-    with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
-        # 1. Gera o prompt usando o nexus_copy.py
-        prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
-        
-        try:
-            # 2. Chama o Gemini Pro
-            response = motor_ia_gemini.generate_content(prompt)
+    # --- O BOTÃO AGORA ESTÁ DENTRO DA FUNÇÃO PARA RECONHECER O 'estilo' ---
+    if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
+        with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
+            # 1. Gera o prompt usando o nexus_copy.py
+            prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
-            if response and response.text:
-                # 3. Limpa a resposta (remove markdown indesejado)
-                resultado = nxcopy.limpar_copy(response.text)
+            try:
+                # 2. Chama o Gemini Pro
+                response = motor_ia_gemini.generate_content(prompt)
                 
-                # 4. SALVAMENTO CORRIGIDO:
-                # Se a IA não usar ###, pegamos o texto todo como uma única munição
-                if "###" in resultado:
-                    st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
+                if response and response.text:
+                    # 3. Limpa a resposta
+                    resultado = nxcopy.limpar_copy(response.text)
+                    
+                    # 4. Processa versões separadas por ###
+                    if "###" in resultado:
+                        st.session_state.res_arsenal = [c.strip() for c in resultado.split("###") if len(c.strip()) > 20]
+                    else:
+                        st.session_state.res_arsenal = [resultado.strip()]
+                    
+                    st.toast("✅ Munição Carregada!")
+                    st.rerun()
                 else:
-                    st.session_state.res_arsenal = [resultado.strip()]
-                
-                st.toast("✅ Munição Carregada!")
-                st.rerun()
-            else:
-                st.error("🔴 O Gemini retornou uma resposta vazia.")
-        except Exception as e:
-            st.error(f"🔴 Erro crítico na IA: {e}")
+                    st.error("🔴 O Gemini retornou uma resposta vazia.")
+            except Exception as e:
+                diagnosticar_erro_gemini(e)
+
+    # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
