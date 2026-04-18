@@ -12,20 +12,16 @@ def aplicar_id_afiliado(link, mkt):
         
     ID_FIXO_SHOPEE = "18316451024"
     
-    # 1. Limpeza Radical (Preservando o essencial)
- # 1. Limpeza Radical Blindada (Linha 16 corrigida)
+    # 1. Limpeza Radical Blindada
     raw_url = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
     
-    # Garante que o link comece exatamente no http, deletando qualquer lixo que venha antes (ex: : :)
     if "http" in raw_url:
         url_base = "http" + raw_url.split("http")[-1]
     else:
         url_base = raw_url
-        # Garante que não ficou nada grudado antes do https (como : ou texto)
-        url_base = "https://" + url_base.split("http")[-1].lstrip("s:/")
 
     if mkt == "Shopee":
-try:
+        try: # <--- LINHA 28: AGORA PERFEITAMENTE ALINHADA
             if "search" in url_base and "keyword=" in url_base:
                 termo = url_base.split("keyword=")[1].split("&")[0]
                 return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
@@ -35,6 +31,8 @@ try:
             return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
             return url_base
+            
+    return url_base
 
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
