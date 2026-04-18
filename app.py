@@ -8,7 +8,8 @@ import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
-from studio_tab import render_studio_tab
+import estudio
+import postador
 import google.generativeai as genai
 import json
 # --- 1. CONFIGURAÇÃO DE TELA ---
