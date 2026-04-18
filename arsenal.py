@@ -69,15 +69,21 @@ def exibir_arsenal(miny, motor_ia_gemini):
     estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
     # O BOTÃO DEVE ESTAR IDENTADO (DENTRO DA FUNÇÃO)
-    if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
-        with st.spinner("🔱 Nexus a moldar munição..."):
+
+   estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
+
+   # 1. Garante que a variável estilo existe na tela
+    estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
+
+    # 2. O botão de gerar (DEVE estar identado/com espaços à esquerda)
+    if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True):
+        with st.spinner("Gerando..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             try:
+                # Chama o modelo configurado no app.py
                 response = motor_ia_gemini.generate_content(prompt)
-                if response and response.text:
-                    resultado = nxcopy.limpar_copy(response.text)
-                    # Salva o resultado no estado da sessão
-                    st.session_state.res_arsenal = resultado.split("###") if "###" in resultado else [resultado]
+                if response.text:
+                    st.session_state.res_arsenal = [response.text]
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro na IA: {e}")
