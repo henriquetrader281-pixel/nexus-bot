@@ -77,10 +77,10 @@ if not st.session_state.autenticado:
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # 'gemini-pro' é o nome oficial estável que evita o erro 404
+        # 'gemini-pro' é o modelo que não dá erro 404
         return genai.GenerativeModel('gemini-pro') 
     except Exception as e:
-        st.error(f"Erro ao ligar motor: {e}")
+        st.error(f"Erro IA: {e}")
         return None
 
 if "motor_ia_obj" not in st.session_state:
