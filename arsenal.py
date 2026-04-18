@@ -52,9 +52,22 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.success(f"📦 **Alvo Ativo:** {sel_nome}")
         
         # --- COMPONENTE DE LINK BLINDADO ---
-        # Usamos o link direto para garantir que o navegador trate como URL externa
+   # ... (dentro da função exibir_arsenal)
+    
+    link_rastreado = aplicar_id_afiliado(link_original, mkt)
+    
     with st.container(border=True):
         st.success(f"📦 **Alvo Ativo:** {sel_nome}")
+        
+        # --- ESSA É A LINHA QUE VOCÊ NÃO ACHOU (ADICIONE ELA AQUI) ---
+        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA SHOPEE 🚀</a>', unsafe_allow_html=True)
+        
+        # Opcional: manter o caption para você conferir o link visualmente
+        st.caption(f"URL de Rastreio: {link_rastreado}")
+        
+        musica = st.session_state.get("musica_selecionada")
+        if musica:
+            st.info(f"🎵 **Áudio Viral Detectado:** {musica}")
         
         # --- COLOQUE A LINHA AQUI (Linha ~58) ---
         st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA SHOPEE 🚀</a>', unsafe_allow_html=True)
