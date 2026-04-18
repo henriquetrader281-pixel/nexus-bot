@@ -13,26 +13,27 @@ def aplicar_id_afiliado(link, mkt):
     ID_FIXO_SHOPEE = "18316451024"
     
     # 1. Limpeza Radical (Preservando o essencial)
-    # Remove lixo da IA e garante que não haja espaços que quebram a URL
-    url_base = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
+ # 1. Limpeza Radical Blindada (Linha 16 corrigida)
+    raw_url = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
     
-    # 2. Reconstrução do Protocolo (Evita apontar para o próprio Nexus)
-    if "http" not in url_base:
-        url_base = "https://" + url_base.lstrip(":/")
+    # Garante que o link comece exatamente no http, deletando qualquer lixo que venha antes (ex: : :)
+    if "http" in raw_url:
+        url_base = "http" + raw_url.split("http")[-1]
     else:
+        url_base = raw_url
         # Garante que não ficou nada grudado antes do https (como : ou texto)
         url_base = "https://" + url_base.split("http")[-1].lstrip("s:/")
 
     if mkt == "Shopee":
         try:
             # Se for link de busca
-            if "search" in url_base and "keyword=" in url_base:
-                termo = url_base.split("keyword=")[1].split("&")[0]
-                return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
-            
-            # Se for link de produto direto
-            limpo = url_base.split("?")[0].rstrip("/")
-            return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
+         # DENTRO DO try NO mkt == "Shopee", ALTERE PARA:
+if "search" in link_limpo and "keyword=" in link_limpo:
+    termo = link_limpo.split("keyword=")[1].split("&")[0]
+    return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
+
+base = link_limpo.split("?")[0].rstrip("/")
+return f"{base}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
             return url_base
             
@@ -57,7 +58,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
         
         # --- COMPONENTE DE LINK BLINDADO ---
         # Usamos o link direto para garantir que o navegador trate como URL externa
-        st.markdown(f"🔗 **Link de Afiliado:** [ABRIR PRODUTO NA {mkt.upper()}]({link_rastreado})")
+      st.write(f'🔗 **Link de Afiliado:** <a href="{link_rastreado}" target="_blank">ABRIR NA SHOPEE</a>', unsafe_allow_html=True)
         st.caption(f"Checkout Seguro: {link_rastreado}")
         
         musica = st.session_state.get("musica_selecionada")
