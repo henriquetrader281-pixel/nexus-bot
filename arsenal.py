@@ -3,10 +3,7 @@ import nexus_copy as nxcopy
 import urllib.parse
 
 def aplicar_id_afiliado(link, mkt):
-    """
-    Garante o rastreio com ID Shopee 18316451024.
-    TRAVA DE ELITE: Garante que o link seja ABSOLUTO para sair do domínio do Nexus.
-    """
+    """Garante o rastreio com ID Shopee 18316451024 e link absoluto."""
     if not link or len(str(link)) < 5: 
         return "#"
         
@@ -15,20 +12,21 @@ def aplicar_id_afiliado(link, mkt):
     # 1. Limpeza Radical Blindada
     raw_url = str(link).split("###")[0].replace("*", "").replace(" ", "").replace("\n", "").strip()
     
+    # Garante que o link comece corretamente com http para sair do domínio local
     if "http" in raw_url:
         url_base = "http" + raw_url.split("http")[-1]
     else:
-        url_base = raw_url
+        url_base = "https://" + raw_url.lstrip(":/")
 
     if mkt == "Shopee":
-        try: # <--- LINHA 28: AGORA PERFEITAMENTE ALINHADA
+        try:
             if "search" in url_base and "keyword=" in url_base:
                 termo = url_base.split("keyword=")[1].split("&")[0]
                 return f"https://shopee.com.br/search?keyword={urllib.parse.quote(termo)}&smtt=0.0.{ID_FIXO_SHOPEE}"
             
-            # Força o link limpo a ser absoluto
-            limpo = url_base.split("?")[0].rstrip("/")
-            return f"{limpo}?smtt=0.0.{ID_FIXO_SHOPEE}"
+            # Limpa parâmetros e injeta o ID de afiliado
+            base_limpa = url_base.split("?")[0].rstrip("/")
+            return f"{base_limpa}?smtt=0.0.{ID_FIXO_SHOPEE}"
         except:
             return url_base
             
@@ -45,40 +43,23 @@ def exibir_arsenal(miny, motor_ia_gemini):
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
     
-    # Processa o link garantindo que ele seja externo
+    # Gera o link rastreado e absoluto
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
     
+    # --- CONTAINER ÚNICO DE EXIBIÇÃO ---
     with st.container(border=True):
         st.success(f"📦 **Alvo Ativo:** {sel_nome}")
         
-        # --- COMPONENTE DE LINK BLINDADO ---
-   # ... (dentro da função exibir_arsenal)
-    
-    link_rastreado = aplicar_id_afiliado(link_original, mkt)
-    
-    with st.container(border=True):
-        st.success(f"📦 **Alvo Ativo:** {sel_nome}")
+        # Link HTML para forçar abertura em nova aba (target="_blank")
+        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA {mkt.upper()} 🚀</a>', unsafe_allow_html=True)
         
-        # --- ESSA É A LINHA QUE VOCÊ NÃO ACHOU (ADICIONE ELA AQUI) ---
-        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA SHOPEE 🚀</a>', unsafe_allow_html=True)
-        
-        # Opcional: manter o caption para você conferir o link visualmente
-        st.caption(f"URL de Rastreio: {link_rastreado}")
-        
-        musica = st.session_state.get("musica_selecionada")
-        if musica:
-            st.info(f"🎵 **Áudio Viral Detectado:** {musica}")
-        
-        # --- COLOQUE A LINHA AQUI (Linha ~58) ---
-        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA SHOPEE 🚀</a>', unsafe_allow_html=True)
-        
-        # Opcional: manter o caption embaixo para conferência visual
         st.caption(f"Checkout Seguro: {link_rastreado}")
         
         musica = st.session_state.get("musica_selecionada")
         if musica:
             st.info(f"🎵 **Áudio Viral:** {musica}")
 
+    # Interface de Tom de Voz
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
     if st.button("🔥 GERAR COPYS VIRAIS (GEMINI AIDA)", use_container_width=True):
@@ -99,6 +80,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
             except Exception as e:
                 st.error(f"Erro no Gemini: {e}")
 
+    # Exibição das Munições
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
