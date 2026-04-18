@@ -73,14 +73,13 @@ if not st.session_state.autenticado:
                 st.session_state.autenticado = True
                 st.rerun()
     st.stop()
-
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Usando o 1.5-flash que é o mais estável para evitar o erro 404
+        # 'gemini-1.5-flash' é a versão mais estável para evitar o erro 404
         return genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
-        st.error(f"Erro ao carregar IA: {e}")
+        st.error(f"Erro ao carregar motor IA: {e}")
         return None
 
 # --- 4. INICIALIZAÇÃO ÚNICA DO MOTOR IA ---
