@@ -75,13 +75,20 @@ if not st.session_state.autenticado:
     st.stop()
 
 # --- INICIALIZAÇÃO BLINDADA DO GEMINI ---
-if "motor_ia_obj" not in st.session_state:
+def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+        # Como você tem PLUS, o 'gemini-1.5-pro' é melhor, mas o 'flash' é mais rápido
+        # O segredo é NÃO usar 'models/' antes do nome
+        return genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
-        st.error(f"Falha crítica na configuração da IA: {e}")
+        st.error(f"Erro na configuração da IA: {e}")
+        return None
 
+# Força a reinicialização se o erro persistir
+if "motor_ia_obj" not in st.session_state or st.sidebar.button("♻️ Resetar IA"):
+    st.session_state.motor_ia_obj = inicializar_motor_ia()
+    st.toast("Motor IA Atualizado!")
 # --- INTERFACE ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
