@@ -119,17 +119,55 @@ with tabs[0]:
                     renderizar_card_produto(idx, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
                 except: continue
 
-with tabs[1]: 
+# --- INTERFACE (ORDEM CORRIGIDA) ---
+# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+
+with tabs[0]: # SCANNER
+    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
+    st.session_state.mkt_global = mkt
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando..."):
+            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
+    # ... (resto do seu código do Scanner)
+# --- INTERFACE (ORDEM CORRIGIDA) ---
+# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+
+with tabs[0]: # SCANNER
+    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
+    st.session_state.mkt_global = mkt
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando..."):
+            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
+    # ... (resto do seu código do Scanner)
+
+# --- INTERFACE (ORDEM CORRIGIDA) ---
+# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
+tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+
+with tabs[0]: # SCANNER
+    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
+    st.session_state.mkt_global = mkt
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
+        with st.spinner("Minerando..."):
+            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
+    # ... (resto do seu código do Scanner)
+
+with tabs[1]: # ARSENAL
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
-with tabs[2]: 
+with tabs[2]: # TRENDS
     trends.exibir_trends()
 
-with tabs[3]: 
+with tabs[3]: # 🌍 RADAR (Agora na posição correta)
+    radar_engine.exibir_radar()
+
+with tabs[4]: # 🎥 ESTÚDIO
     st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
 
-with tabs[4]: 
+with tabs[5]: # 📊 DASHBOARD
     st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
-
-with tabs[5]: # Aba Radar
-    radar_engine.exibir_radar()
