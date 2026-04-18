@@ -39,7 +39,7 @@ with c1:
             n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
-    with c2:
+with c2:
             try:
                 c_string = "".join(filter(str.isdigit, str(calor)))
                 calor_num = min(max(int(c_string), 0), 100) if c_string else 0
