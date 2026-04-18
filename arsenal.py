@@ -55,7 +55,13 @@ def exibir_arsenal(miny, motor_ia_gemini):
         
         # --- COMPONENTE DE LINK BLINDADO ---
         # Usamos o link direto para garantir que o navegador trate como URL externa
-      st.write(f'🔗 **Link de Afiliado:** <a href="{link_rastreado}" target="_blank">ABRIR NA SHOPEE</a>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.success(f"📦 **Alvo Ativo:** {sel_nome}")
+        
+        # --- COLOQUE A LINHA AQUI (Linha ~58) ---
+        st.write(f'🔗 **Munição Pronta:** <a href="{link_rastreado}" target="_blank" style="color: #FF4B4B; text-decoration: none; font-weight: bold;">ABRIR PRODUTO NA SHOPEE 🚀</a>', unsafe_allow_html=True)
+        
+        # Opcional: manter o caption embaixo para conferência visual
         st.caption(f"Checkout Seguro: {link_rastreado}")
         
         musica = st.session_state.get("musica_selecionada")
