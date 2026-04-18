@@ -27,7 +27,7 @@ def get_nexus_intelligence():
     except Exception as e:
         return {"error": str(e)}
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS (ALINHAMENTO FIXADO) ---
+# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
 def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
@@ -35,14 +35,11 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     with st.container(border=True):
         c1, c2, c3 = st.columns([2, 1, 1])
         
-        # --- BLOCO C1 (Nome e Info) ---
         with c1:
-            # Correção do recuo: n_exibir agora está dentro do with c1
             n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
             st.caption(f"💰 {valor} | 🎫 {ticket}")
             
-        # --- BLOCO C2 (Calor/Termômetro) ---
         with c2:
             try:
                 c_string = "".join(filter(str.isdigit, str(calor)))
@@ -52,7 +49,6 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.progress(calor_num / 100)
             st.write(f"🌡️ {calor_num}°C")
             
-        # --- BLOCO C3 (Botão de Seleção) ---
         with c3:
             if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
                 st.session_state.sel_nome = n_exibir
@@ -78,22 +74,22 @@ if not st.session_state.autenticado:
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Ativando o Pro para quem tem Gemini Plus
         return genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor do Plus: {e}")
         return None
 
-# Inicialização e Reset
-if "motor_ia_obj" not in st.session_state or st.sidebar.button("♻️ Resetar IA"):
-    st.session_state.motor_ia_obj = inicializar_motor_ia()
-    if st.session_state.motor_ia_obj:
-        st.toast("Motor IA Pro Ativado! 🔱")
+# Inicialização Única com Botão de Reset corrigido
+with st.sidebar:
+    st.title("🔱 Menu Nexus")
+    if st.button("♻️ Resetar IA", key="reset_ia_final"):
+        st.session_state.motor_ia_obj = inicializar_motor_ia()
+        st.toast("Motor IA Atualizado!")
+        st.rerun()
 
-# Força a reinicialização se o erro persistir
-if "motor_ia_obj" not in st.session_state or st.sidebar.button("♻️ Resetar IA"):
+if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
-    st.toast("Motor IA Atualizado!")
+
 # --- INTERFACE ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
@@ -120,7 +116,14 @@ with tabs[0]:
                     renderizar_card_produto(idx, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
                 except: continue
 
-with tabs[1]: arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
-with tabs[2]: trends.exibir_trends()
-with tabs[3]: st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
-with tabs[4]: st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
+with tabs[1]: 
+    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+
+with tabs[2]: 
+    trends.exibir_trends()
+
+with tabs[3]: 
+    st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
+
+with tabs[4]: 
+    st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
