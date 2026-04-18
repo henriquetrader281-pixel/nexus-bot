@@ -15,58 +15,14 @@ import radar_engine
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- INTELIGÊNCIA DE TENDÊNCIAS ---
-def get_nexus_intelligence():
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel(model_name='gemini-1.5-pro')
-        hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON."
-        response = model.generate_content(prompt)
-        clean_json = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_json)
-    except Exception as e:
-        return {"error": str(e)}
-
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS ---
-def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
-    icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
-    ico = icones.get(mkt_alvo, "🛍️")
-    
-    with st.container(border=True):
-        c1, c2, c3 = st.columns([2, 1, 1])
-        
-        with c1:
-            n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
-            st.markdown(f"**{ico} {n_exibir}**")
-            st.caption(f"💰 {valor} | 🎫 {ticket}")
-            
-        with c2:
-            try:
-                c_string = "".join(filter(str.isdigit, str(calor)))
-                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
-            except:
-                calor_num = 0
-            st.progress(calor_num / 100)
-            st.write(f"🌡️ {calor_num}°C")
-            
-        with c3:
-            # Key única para cada botão de card
-            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{valor}", use_container_width=True):
-                st.session_state.sel_nome = n_exibir
-                st.session_state.sel_link = link
-                st.session_state.sel_preco = valor
-                update.registrar_mineracao(n_exibir, link, calor_num)
-                st.toast(f"Alvo Selecionado: {n_exibir}")
-
 # --- LOGIN E ESTADOS ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 if not st.session_state.autenticado:
     st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        senha = st.text_input("Acesso:", type="password")
-        if st.button("AUTENTICAR", use_container_width=True):
+        senha = st.text_input("Acesso:", type="password", key="login_pass")
+        if st.button("AUTENTICAR", use_container_width=True, key="btn_login"):
             if senha == st.secrets["NEXUS_PASSWORD"]:
                 st.session_state.autenticado = True
                 st.rerun()
@@ -76,34 +32,42 @@ if not st.session_state.autenticado:
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # Forçando o 1.5-pro para o seu plano PLUS
         return genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
-        st.error(f"Falha ao carregar motor do Plus: {e}")
+        st.error(f"Erro ao conectar com Gemini Pro: {e}")
         return None
 
+# Garante que a IA seja carregada apenas uma vez
 if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
 
-# --- SIDEBAR ÚNICA (EVITA DUPLICIDADE) ---
+# --- SIDEBAR FIXA (Resolve o DuplicateElementId) ---
 with st.sidebar:
-    st.title("🔱 Painel de Controle")
-    # Adicionei uma KEY única para o Selectbox da Sidebar para evitar o erro DuplicateID
-    mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_selector_main")
+    st.image("https://img.icons8.com/fluent/96/000000/trident.png", width=80)
+    st.title("Nexus Control")
+    
+    # Marketplace com KEY única para não bugar o Scanner
+    mkt = st.selectbox(
+        "Marketplace:", 
+        ["Shopee", "Amazon", "Mercado Livre"], 
+        key="selectbox_mkt_principal"
+    )
     st.session_state.mkt_global = mkt
     
     st.divider()
-    if st.button("♻️ Resetar IA", key="btn_reset_nexus_pro"):
+    # Botão de Reset com KEY única
+    if st.button("♻️ Resetar Conexão IA", key="btn_reset_ia_final"):
         st.session_state.motor_ia_obj = inicializar_motor_ia()
-        st.toast("Motor IA Pro Reiniciado! 🔱")
+        st.toast("Conexão com Gemini Pro Restaurada!")
         st.rerun()
 
-# --- INTERFACE (ORDEM CORRIGIDA) ---
-# Total de 6 abas: 0, 1, 2, 3, 4, 5
+# --- INTERFACE DE ABAS ---
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
 with tabs[0]: # SCANNER
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_scan_start"):
-        with st.spinner("Minerando..."):
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_scan_nexus"):
+        with st.spinner(f"Minerando {mkt}..."):
             prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
 
@@ -113,17 +77,15 @@ with tabs[0]: # SCANNER
             if "|" in linha:
                 try:
                     partes = linha.replace("**", "").split("|")
-                    d = {}
-                    for p in partes:
-                        if ":" in p:
-                            chave, valor = p.split(":", 1) 
-                            d[chave.strip().upper()] = valor.strip()
-                    
-                    renderizar_card_produto(idx, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
+                    d = {p.split(":", 1)[0].strip().upper(): p.split(":", 1)[1].strip() for p in partes if ":" in p}
+                    renderizar_card_produto(idx, d.get("NOME"), d.get("VALOR"), d.get("CALOR"), d.get("TICKET"), d.get("URL"), mkt)
                 except: continue
 
 with tabs[1]: # ARSENAL
-    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+    if st.session_state.motor_ia_obj:
+        arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+    else:
+        st.warning("⚠️ IA Desconectada. Clique em 'Resetar' na barra lateral.")
 
 with tabs[2]: # TRENDS
     trends.exibir_trends()
@@ -132,7 +94,7 @@ with tabs[3]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[4]: # ESTÚDIO
-    st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
+    st.info("🎥 Módulo de Produção de Criativos.")
 
 with tabs[5]: # DASHBOARD
-    st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
+    st.info("📊 Performance e Cliques.")
