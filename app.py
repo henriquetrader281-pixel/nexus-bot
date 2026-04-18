@@ -8,11 +8,9 @@ import os
 import urllib.parse
 from datetime import datetime
 import mineracao as miny
-import estudio  
-import postador 
+from studio_tab import render_studio_tab
 import google.generativeai as genai
 import json
-
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
