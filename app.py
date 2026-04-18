@@ -75,14 +75,20 @@ if not st.session_state.autenticado:
     st.stop()
 
 # --- INICIALIZAÇÃO BLINDADA DO GEMINI ---
-if "motor_ia_obj" not in st.session_state:
+def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # FORCE o modelo Pro para aproveitar seu plano Plus
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-pro')
+        # Ativando o Pro para quem tem Gemini Plus
+        return genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor do Plus: {e}")
         return None
+
+# Inicialização e Reset
+if "motor_ia_obj" not in st.session_state or st.sidebar.button("♻️ Resetar IA"):
+    st.session_state.motor_ia_obj = inicializar_motor_ia()
+    if st.session_state.motor_ia_obj:
+        st.toast("Motor IA Pro Ativado! 🔱")
 
 # Força a reinicialização se o erro persistir
 if "motor_ia_obj" not in st.session_state or st.sidebar.button("♻️ Resetar IA"):
