@@ -51,7 +51,8 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.write(f"🌡️ {calor_num}°C")
             
         with c3:
-            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}", use_container_width=True):
+            # Key única para cada botão de card
+            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{valor}", use_container_width=True):
                 st.session_state.sel_nome = n_exibir
                 st.session_state.sel_link = link
                 st.session_state.sel_preco = valor
@@ -71,35 +72,37 @@ if not st.session_state.autenticado:
                 st.rerun()
     st.stop()
 
-# --- INICIALIZAÇÃO BLINDADA DO GEMINI (MODELO PRO PARA PLUS) ---
+# --- INICIALIZAÇÃO BLINDADA DO GEMINI ---
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Ativando o Pro: Melhor inteligência para o seu plano Plus
         return genai.GenerativeModel('gemini-1.5-pro')
     except Exception as e:
         st.error(f"Falha ao carregar motor do Plus: {e}")
         return None
 
-# Bloco único de inicialização
 if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
 
-# Botão de Reset na Sidebar com KEY ÚNICA para evitar DuplicateElementId
+# --- SIDEBAR ÚNICA (EVITA DUPLICIDADE) ---
 with st.sidebar:
+    st.title("🔱 Painel de Controle")
+    # Adicionei uma KEY única para o Selectbox da Sidebar para evitar o erro DuplicateID
+    mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_selector_main")
+    st.session_state.mkt_global = mkt
+    
     st.divider()
     if st.button("♻️ Resetar IA", key="btn_reset_nexus_pro"):
         st.session_state.motor_ia_obj = inicializar_motor_ia()
         st.toast("Motor IA Pro Reiniciado! 🔱")
         st.rerun()
 
-# --- INTERFACE ---
+# --- INTERFACE (ORDEM CORRIGIDA) ---
+# Total de 6 abas: 0, 1, 2, 3, 4, 5
 tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
-with tabs[0]:
-    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
-    st.session_state.mkt_global = mkt
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
+with tabs[0]: # SCANNER
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_scan_start"):
         with st.spinner("Minerando..."):
             prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
@@ -119,55 +122,17 @@ with tabs[0]:
                     renderizar_card_produto(idx, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
                 except: continue
 
-# --- INTERFACE (ORDEM CORRIGIDA) ---
-# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
-
-with tabs[0]: # SCANNER
-    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
-    st.session_state.mkt_global = mkt
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-    # ... (resto do seu código do Scanner)
-# --- INTERFACE (ORDEM CORRIGIDA) ---
-# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
-
-with tabs[0]: # SCANNER
-    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
-    st.session_state.mkt_global = mkt
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-    # ... (resto do seu código do Scanner)
-
-# --- INTERFACE (ORDEM CORRIGIDA) ---
-# A lista tem 6 itens: 0, 1, 2, 3, 4, 5
-tabs = st.tabs(["🔍 SCANNER", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
-
-with tabs[0]: # SCANNER
-    mkt = st.sidebar.selectbox("Marketplace:", ["Shopee", "Amazon", "Mercado Livre"])
-    st.session_state.mkt_global = mkt
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-    # ... (resto do seu código do Scanner)
-
 with tabs[1]: # ARSENAL
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
 with tabs[2]: # TRENDS
     trends.exibir_trends()
 
-with tabs[3]: # 🌍 RADAR (Agora na posição correta)
+with tabs[3]: # RADAR
     radar_engine.exibir_radar()
 
-with tabs[4]: # 🎥 ESTÚDIO
+with tabs[4]: # ESTÚDIO
     st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
 
-with tabs[5]: # 📊 DASHBOARD
+with tabs[5]: # DASHBOARD
     st.info("📊 **Dashboard:** Monitoramento de cliques e conversões em tempo real.")
