@@ -18,7 +18,7 @@ st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="ð
 def get_nexus_intelligence():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+        model = genai.GenerativeModel(model_name='gemini-1.5-pro')
         hoje = datetime.now().strftime("%d/%m/%Y")
         prompt = f"Analise tendÃªncias virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON."
         response = model.generate_content(prompt)
