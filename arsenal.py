@@ -65,16 +65,14 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
         st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-  # ESCOLHA DO ESTILO (Dentro da função exibir_arsenal)
+    # --- AQUI ESTAVA O ERRO DE ESPAÇO: TUDO DEVE ESTAR ALINHADO À DIREITA ---
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    # --- GERAÇÃO DA MUNIÇÃO ---
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
         with st.spinner("🔱 Nexus moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
             try:
-                # Usa o motor_ia_gemini passado pelo app.py
                 response = motor_ia_gemini.generate_content(prompt)
                 
                 if response and response.text:
@@ -92,7 +90,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
             except Exception as e:
                 st.error(f"🔴 Erro na IA: {e}")
 
-    # --- EXIBIÇÃO DAS COPIES GERADAS ---
+    # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
