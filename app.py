@@ -74,17 +74,15 @@ if not st.session_state.autenticado:
                 st.rerun()
     st.stop()
 
-
 def inicializar_motor_ia():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Use 'gemini-pro' ou 'gemini-1.5-flash'. O 1.5-pro as vezes buga no Streamlit Cloud.
+        # 'gemini-pro' é o nome oficial estável que evita o erro 404
         return genai.GenerativeModel('gemini-pro') 
     except Exception as e:
-        st.error(f"Erro no motor: {e}")
+        st.error(f"Erro ao ligar motor: {e}")
         return None
 
-# Inicialização segura
 if "motor_ia_obj" not in st.session_state:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
 
