@@ -88,7 +88,7 @@ if "motor_ia_obj" not in st.session_state:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         # COLOQUE A LINHA AQUI:
-        st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-1.5-flash')
+       st.session_state.motor_ia_obj = genai.GenerativeModel('gemini-2.0-flash')
     except Exception as e:
         st.error(f"Falha ao carregar motor IA: {e}")
 
