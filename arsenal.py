@@ -56,10 +56,10 @@ def validar_link_shopee(link):
 def diagnosticar_erro_gemini(erro_mensagem):
     """Analisa erro do Gemini e exibe solução específica."""
     erro_lower = str(erro_mensagem).lower()
-    if "404" in erro_lower or "not found" in erro_lower:
-        st.error("🔴 **ERRO 404: Modelo Gemini não encontrado**\n\nNo seu `app.py`, use: `genai.GenerativeModel('gemini-1.5-flash')` (Sem o models/)")
-    elif "api key" in erro_lower or "401" in erro_lower:
-        st.error("🔴 **ERRO DE AUTENTICAÇÃO: API Key Inválida**")
+    if "404" in erro_lower:
+        st.error("🔴 **Conexão Perdida:** O objeto da IA expirou. Clique em 'Resetar IA' na barra lateral.")
+    elif "api key" in erro_lower:
+        st.error("🔴 **Verifique sua GEMINI_API_KEY nos Secrets.**")
     else:
         st.error(f"🔴 **Erro na IA:** {erro_mensagem}")
 
