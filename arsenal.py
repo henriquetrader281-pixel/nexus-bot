@@ -44,23 +44,10 @@ def aplicar_id_afiliado(link, mkt):
     
     return raw_url
 
-def validar_link_shopee(link):
-    if not link or link == "#": return False
-    return "shopee" in str(link).lower() and "http" in str(link).lower()
-
-def diagnosticar_erro_gemini(erro_mensagem):
-    """Analisa erro do Gemini e exibe solução específica."""
-    erro_lower = str(erro_mensagem).lower()
-    if "404" in erro_lower:
-        st.error("🔴 **Conexão Perdida:** O objeto da IA expirou. Clique em 'Resetar IA' na barra lateral.")
-    elif "api key" in erro_lower:
-        st.error("🔴 **Verifique sua GEMINI_API_KEY nos Secrets.**")
-    else:
-        st.error(f"🔴 **Erro na IA:** {erro_mensagem}")
-
 def exibir_arsenal(miny, motor_ia_gemini):
     st.markdown("### 🔱 Arsenal Nexus | Munição de Alta Persuasão")
     
+    # Garante que o nome do produto existe
     sel_nome = st.session_state.get("sel_nome")
     if not sel_nome or sel_nome == "Produto Detectado":
         st.warning("⚠️ Selecione um produto válido no Scanner primeiro.")
@@ -68,39 +55,26 @@ def exibir_arsenal(miny, motor_ia_gemini):
 
     mkt = st.session_state.get('mkt_global', 'Shopee')
     link_original = st.session_state.get("sel_link", "")
-    
-    # Limpa o nome para o prompt
     nome_puro = sel_nome.replace("*", "").strip()
     
+    # Aplica o seu ID de afiliado 18316451024
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
-    
-    if not link_rastreado:
-        st.error("❌ Link Inválido ou não capturado pelo Scanner.")
-        return
     
     with st.container(border=True):
         st.success(f"📦 **Alvo Ativo:** {nome_puro}")
-        
-        st.write(
-            f'🔗 **Munição Pronta:** '
-            f'<a href="{link_rastreado}" target="_blank" rel="noopener noreferrer" '
-            f'style="color: #FF4B4B; text-decoration: none; font-weight: bold; '
-            f'border: 2px solid #FF4B4B; padding: 8px 12px; border-radius: 5px; '
-            f'display: inline-block;">'
-            f'ABRIR PRODUTO NA {mkt.upper()} 🚀</a>',
-            unsafe_allow_html=True
-        )
-        st.caption(f"🔐 Rastreado com ID Shopee: `18316451024`")
+        st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
+        st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-    # ESCOLHA DO ESTILO
+    # ESCOLHA DO ESTILO (A variável 'estilo' é criada aqui)
     estilo = st.radio("Tom da Munição:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True)
 
-    # --- AGORA ESTÁ TUDO DENTRO DA FUNÇÃO ---
+    # --- O BOTÃO DEVE FICAR DENTRO DA FUNÇÃO ---
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True, key=f"btn_gen_{estilo}"):
         with st.spinner(f"🔱 Nexus moldando roteiros de elite..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             
             try:
+                # Chama a IA de forma simples (Gemini Normal)
                 response = motor_ia_gemini.generate_content(prompt)
                 
                 if response and response.text:
@@ -113,12 +87,10 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     
                     st.toast("✅ Munição Carregada!")
                     st.rerun()
-                else:
-                    st.error("🔴 O Gemini retornou uma resposta vazia.")
             except Exception as e:
-                diagnosticar_erro_gemini(e)
+                st.error(f"🔴 Erro na IA: {e}")
 
-    # EXIBIÇÃO DAS COPIES GERADAS
+    # EXIBIÇÃO DAS COPIES
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
@@ -127,5 +99,4 @@ def exibir_arsenal(miny, motor_ia_gemini):
                 st.write(texto_copy)
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
                     st.session_state.copy_ativa = f"{texto_copy}\n\n🛒 LINK: {link_rastreado}"
-                    st.session_state.link_final_afiliado = link_rastreado
                     st.toast("Enviado ao Estúdio!")
