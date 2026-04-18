@@ -38,7 +38,7 @@ with c1:
             # Esta linha abaixo precisa de 4 espaços (ou 1 Tab) a mais que o 'with'
             n_exibir = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
             st.markdown(f"**{ico} {n_exibir}**")
-            st.caption(f"💰 {valor} | 🎫 {ticket}") 
+            st.caption(f"💰 {valor} | 🎫 {ticket}")
         with c2:
             try:
                 c_string = "".join(filter(str.isdigit, str(calor)))
