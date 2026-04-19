@@ -89,14 +89,19 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro na geração: {e}")
-    # --- EXIBIÇÃO DAS COPIES ---
+ # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
         for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
             with st.container(border=True):
+                # Aplicamos a limpeza aqui para visualização
+                texto_limpo = nxcopy.limpar_copy(texto_copy)
+                
                 st.markdown(f"#### 💎 Munição V{i+1}")
-                st.write(texto_copy)
+                st.write(texto_limpo)
+                
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
-                    st.session_state.copy_ativa = f"{texto_copy}\n\n🛒 LINK: {link_rastreado}"
+                    # Enviamos o texto JÁ LIMPO para o Estúdio
+                    st.session_state.copy_ativa = f"{texto_limpo}\n\n🛒 LINK: {link_rastreado}"
                     st.session_state.link_final_afiliado = link_rastreado
                     st.toast("Enviado ao Estúdio!")
