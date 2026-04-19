@@ -24,6 +24,8 @@ REGRAS DE OURO:
 3. GANCHO EXPLOSIVO: Os primeiros 3 segundos devem impedir o scroll.
 4. CTA OBRIGATÓRIA: Force o usuário a comentar "EU QUERO" para receber o link.
 5. FORMATAÇÃO: Use emojis e linguagem de rede social (POV, Trend, Viral).
+# 6. MÉTRICAS PSICOLÓGICAS: Inclua um benefício tangível (Ex: R$, %) e prova social.
+# 7. FOCO EM RETENÇÃO: O hook deve ser visual (POV, "O que não te contam").
 
 Separe as 3 variações APENAS pelo marcador: ###
 Não escreva introduções. Comece direto no Hook."""
