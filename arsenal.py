@@ -93,22 +93,22 @@ def exibir_arsenal(miny, motor_ia_gemini):
     if st.session_state.get("res_arsenal"):
         st.divider()
         
-        # Pega a resposta bruta da IA
+        # 1. Recupera o texto bruto da IA
         conteudo_ia = st.session_state.res_arsenal[0] if isinstance(st.session_state.res_arsenal, list) else st.session_state.res_arsenal
         
-        # Quebra o texto onde tiver o marcador ###
+        # 2. Quebra o texto pelo marcador ### para separar as 3 variações
         lista_copies = [c.strip() for c in conteudo_ia.split("###") if len(c.strip()) > 10]
 
         for i, texto_bruto in enumerate(lista_copies):
-            # Limpa rótulos (Hook, CTA, etc.) usando sua função do nexus_copy
+            # 3. CHAMA A FUNÇÃO DE LIMPEZA (Remove Hook, Interesse, Ação, etc.)
             texto_limpo = nxcopy.limpar_copy(texto_bruto)
             
             with st.container(border=True):
                 st.markdown(f"#### 💎 Munição V{i+1}")
                 st.write(texto_limpo)
                 
+                # Botão que envia a cópia já limpa para o Estúdio
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
-                    # Salva a copy limpa + link para o Estúdio
                     st.session_state.copy_ativa = f"{texto_limpo}\n\n🛒 LINK: {link_rastreado}"
                     st.session_state.link_final_afiliado = link_rastreado
                     st.toast(f"Munição V{i+1} enviada ao Estúdio!")
