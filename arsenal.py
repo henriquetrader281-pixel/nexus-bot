@@ -65,21 +65,30 @@ def exibir_arsenal(miny, motor_ia_gemini):
         st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
         st.caption(f"🔐 Rastreio Shopee: `18316451024`")
 
-   # Escolha do Estilo
+  # Escolha do Estilo
     estilo = st.radio("Tom:", ["agressivo", "curioso", "prático", "autoridade"], horizontal=True, key="radio_arsenal")
 
     # Botão de Gerar
     if st.button(f"🔥 Gerar Munição {estilo.upper()}", use_container_width=True):
-        with st.spinner("🔱 Nexus moldando munição..."):
+        with st.spinner("🔱 Nexus moldando munição via Groq..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             try:
-                # Usa o motor que vem do app.py
-                response = motor_ia_gemini.generate_content(prompt)
-                if response and response.text:
-                    st.session_state.res_arsenal = [response.text]
+                # Verifica se o motor é Groq ou Gemini
+                if hasattr(motor_ia_gemini, 'chat'): # Se for Groq
+                    chat_completion = motor_ia_gemini.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model="llama-3.3-70b-versatile",
+                    )
+                    texto_gerado = chat_completion.choices[0].message.content
+                else: # Se for Gemini
+                    response = motor_ia_gemini.generate_content(prompt)
+                    texto_gerado = response.text
+
+                if texto_gerado:
+                    st.session_state.res_arsenal = [texto_gerado]
                     st.rerun()
             except Exception as e:
-                st.error(f"Erro na IA: {e}")
+                st.error(f"Erro na geração: {e}")
     # --- EXIBIÇÃO DAS COPIES ---
     if st.session_state.get("res_arsenal"):
         st.divider()
