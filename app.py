@@ -75,8 +75,12 @@ if not st.session_state.autenticado:
     st.stop()
 def inicializar_motor_ia():
     try:
+        # Tenta Groq primeiro (mais estável para cópias)
+        if "GROQ_API_KEY" in st.secrets:
+            from groq import Groq
+            return Groq(api_key=st.secrets["GROQ_API_KEY"])
+        # Fallback para Gemini se o Groq não estiver configurado
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # 'gemini-1.5-flash' é a versão mais estável para evitar o erro 404
         return genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Erro ao carregar motor IA: {e}")
