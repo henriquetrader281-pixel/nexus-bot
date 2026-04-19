@@ -89,19 +89,26 @@ def exibir_arsenal(miny, motor_ia_gemini):
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro na geração: {e}")
- # --- EXIBIÇÃO DAS COPIES ---
+# --- EXIBIÇÃO DAS COPIES (Munições Individuais) ---
     if st.session_state.get("res_arsenal"):
         st.divider()
-        for i, texto_copy in enumerate(st.session_state.res_arsenal[:3]):
+        
+        # Pega a resposta bruta da IA
+        conteudo_ia = st.session_state.res_arsenal[0] if isinstance(st.session_state.res_arsenal, list) else st.session_state.res_arsenal
+        
+        # Quebra o texto onde tiver o marcador ###
+        lista_copies = [c.strip() for c in conteudo_ia.split("###") if len(c.strip()) > 10]
+
+        for i, texto_bruto in enumerate(lista_copies):
+            # Limpa rótulos (Hook, CTA, etc.) usando sua função do nexus_copy
+            texto_limpo = nxcopy.limpar_copy(texto_bruto)
+            
             with st.container(border=True):
-                # Aplicamos a limpeza aqui para visualização
-                texto_limpo = nxcopy.limpar_copy(texto_copy)
-                
                 st.markdown(f"#### 💎 Munição V{i+1}")
                 st.write(texto_limpo)
                 
                 if st.button(f"🎬 Enviar V{i+1} ao Estúdio", key=f"btn_env_{i}", use_container_width=True):
-                    # Enviamos o texto JÁ LIMPO para o Estúdio
+                    # Salva a copy limpa + link para o Estúdio
                     st.session_state.copy_ativa = f"{texto_limpo}\n\n🛒 LINK: {link_rastreado}"
                     st.session_state.link_final_afiliado = link_rastreado
-                    st.toast("Enviado ao Estúdio!")
+                    st.toast(f"Munição V{i+1} enviada ao Estúdio!")
