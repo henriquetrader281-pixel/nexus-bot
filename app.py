@@ -137,7 +137,15 @@ with tabs[3]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[4]: # ESTÚDIO
-    st.info("🎥 Módulo de Estúdio ligado ao Arsenal.")
+    # LIGANDO O MÓDULO AO MOTOR IA E MINERAÇÃO
+    estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
 
 with tabs[5]: # DASHBOARD
-    st.info("📊 Performance e Cliques em tempo real.")
+    st.markdown("### 📊 Performance em Tempo Real")
+    # Puxa os logs do arquivo update.py que você já importa
+    df_logs = update.carregar_logs() 
+    if not df_logs.empty:
+        st.dataframe(df_logs, use_container_width=True)
+        st.line_chart(df_logs.set_index('data')['calor'])
+    else:
+        st.info("Aguardando as primeiras produções para gerar métricas.")
