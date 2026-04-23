@@ -33,7 +33,6 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
     icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
     ico = icones.get(mkt_alvo, "🛍️")
     
-    # AJUSTE: Limpando o nome do produto (remove %20, acentos da URL e asteriscos)
     nome_limpo = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
     
     with st.container(border=True):
@@ -53,7 +52,6 @@ def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
             st.write(f"🌡️ {calor_num}°C")
             
         with c3:
-            # KEY ÚNICA: Adicionado valor e idx para evitar DuplicateElementId
             if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{valor[:5]}", use_container_width=True):
                 st.session_state.sel_nome = nome_limpo
                 st.session_state.sel_link = link
@@ -73,27 +71,24 @@ if not st.session_state.autenticado:
                 st.session_state.autenticado = True
                 st.rerun()
     st.stop()
+
 def inicializar_motor_ia():
     try:
-        # Tenta Groq primeiro (mais estável para cópias)
         if "GROQ_API_KEY" in st.secrets:
             from groq import Groq
             return Groq(api_key=st.secrets["GROQ_API_KEY"])
-        # Fallback para Gemini se o Groq não estiver configurado
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         return genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Erro ao carregar motor IA: {e}")
         return None
 
-# --- 4. INICIALIZAÇÃO ÚNICA DO MOTOR IA ---
 if "motor_ia_obj" not in st.session_state or st.session_state.motor_ia_obj is None:
     st.session_state.motor_ia_obj = inicializar_motor_ia()
 
-# --- SIDEBAR (Centralizada para evitar duplicidade) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.title("🔱 Painel Nexus")
-    # Centralizei o Marketplace aqui para evitar que ele seja recriado dentro das abas
     mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_global_select")
     st.session_state.mkt_global = mkt
     
@@ -116,6 +111,17 @@ with tabs[0]: # SCANNER
         for idx, linha in enumerate(linhas):
             if "|" in linha:
                 try:
+                    # --- INTEGRAÇÃO DA LÓGICA DE LINK ---
+                    novo_produto = {}
+                    if 'URL:' in linha:
+                        # Extrai o link e remove o '###' do final que quebra o clique
+                        link_final = linha.split('URL: ')[1].replace('###', '').strip()
+                        # Garante que espaços virem %20 para o navegador entender
+                        link_final = link_final.replace(" ", "%20")
+                        # Guarda na coluna correta
+                        novo_produto['link_afiliado'] = link_final
+                    
+                    # Processamento das outras partes mantendo a lógica original
                     partes = linha.replace("**", "").split("|")
                     d = {}
                     for p in partes:
@@ -123,8 +129,16 @@ with tabs[0]: # SCANNER
                             chave, valor_p = p.split(":", 1) 
                             d[chave.strip().upper()] = valor_p.strip()
                     
-                    # Chama a função com o nome que será limpo lá dentro
-                    renderizar_card_produto(idx, d.get("NOME", "Produto"), d.get("VALOR", "---"), d.get("CALOR", "50"), d.get("TICKET", "Médio"), d.get("URL", "#"), mkt)
+                    # Usamos o link processado na função de renderização
+                    renderizar_card_produto(
+                        idx, 
+                        d.get("NOME", "Produto"), 
+                        d.get("VALOR", "---"), 
+                        d.get("CALOR", "50"), 
+                        d.get("TICKET", "Médio"), 
+                        novo_produto.get('link_afiliado', d.get("URL", "#")), 
+                        mkt
+                    )
                 except: continue
 
 with tabs[1]: # ARSENAL
@@ -137,12 +151,10 @@ with tabs[3]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[4]: # ESTÚDIO
-    # LIGANDO O MÓDULO AO MOTOR IA E MINERAÇÃO
     estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
 
 with tabs[5]: # DASHBOARD
     st.markdown("### 📊 Performance em Tempo Real")
-    # Puxa os logs do arquivo update.py que você já importa
     df_logs = update.carregar_logs() 
     if not df_logs.empty:
         st.dataframe(df_logs, use_container_width=True)
