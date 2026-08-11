@@ -14,19 +14,20 @@ def executar_ciclo_autonomo():
     # 1. IA DETECTA DOR E PRODUTO COM COPY HUMANIZADA
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor urgente no nicho de casa, produtividade ou eletrónicos.
+    Identifique 1 dor REAL e ESPECÍFICA no nicho de casa, produtividade ou eletrónicos.
+    
+    IMPORTANTE: O PRODUTO deve ser a solução direta e lógica para a DOR detectada.
     
     REGRAS PARA A COPY:
     - Tom de indicação de amigo (ex: 'Gente, finalmente parei de sofrer com...').
-    - Sem palavras de vendedor.
     - Máximo de 2 linhas.
 
     Retorne no formato:
     DOR: [descrição]
-    PRODUTO: [nome]
+    PRODUTO: [nome exato do produto físico]
     COPY: [copy humanizada]
-    KEYWORDS_LEADS: [3 termos de busca para achar clientes interessados, ex: 'alguém recomenda...']
-    PROMPT_IMAGEM: [prompt detalhado para DALL-E 3 gerar uma foto real do produto]
+    KEYWORDS_LEADS: [3 termos de busca específicos para o produto, ex: 'alguém recomenda [produto]']
+    PROMPT_IMAGEM: [descrição visual do produto para busca]
     """
 
     if openai_api_key:

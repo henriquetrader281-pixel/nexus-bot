@@ -4,20 +4,22 @@ import os
 def processar_ciclo_visual(api_key, base_url, provedor="openai"):
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor, problema ou necessidade urgente que as pessoas estão a enfrentar atualmente no nicho de casa, produtividade ou eletrónicos.
+    Identifique 1 dor REAL e ESPECÍFICA que as pessoas estão a enfrentar agora.
+    
+    IMPORTANTE: O PRODUTO_SOLUCAO deve ser a cura direta para a DOR detectada. 
+    Se a dor for desorganização, o produto deve ser um organizador. 
+    Se a dor for perda de tempo, o produto deve ser algo que automatize tarefas.
     
     REGRAS PARA A COPY:
-    - Não use palavras como 'Transforme', 'Descubra', 'Incrível'.
-    - Use um tom de indicação de amigo (ex: 'Gente, achei isso aqui e finalmente parei de sofrer com...').
-    - Foque no benefício real e imediato.
+    - Tom de indicação de amigo, sem parecer propaganda.
     - Máximo de 2 linhas.
 
     Retorne estritamente no formato:
     DOR: [descrição da dor]
     NICHO: [nicho]
-    PRODUTO_SOLUCAO: [nome do produto físico que resolve esta dor]
+    PRODUTO_SOLUCAO: [nome do produto físico exato]
     COPY_OFERTA: [copy humanizada]
-    PROMPT_IMAGEM: [prompt para gerar uma foto realista do produto em uso]
+    PROMPT_IMAGEM: [descrição visual do produto para busca]
     """
     
     try:
@@ -103,10 +105,13 @@ def exibir_aba_autonomo():
                     st.write(f"*{dados.get('COPY_OFERTA', '---')}*")
                     
                     st.markdown("### 🖼️ Mídia Autónoma")
-                    if st.button("🎨 GERAR IMAGEM DO PRODUTO"):
-                        with st.spinner("Gerando imagem realista..."):
-                            st.image("https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop", caption="Imagem gerada para o post")
-                            st.success("Imagem pronta para postagem automática!")
+                    if st.button("🎨 BUSCAR IMAGEM DO PRODUTO"):
+                        with st.spinner("Buscando imagem correspondente..."):
+                            # Busca uma imagem real baseada no produto detectado
+                            query = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "+")
+                            url_imagem = f"https://source.unsplash.com/featured/?{query}"
+                            st.image(url_imagem, caption=f"Sugestão visual para: {dados.get('PRODUTO_SOLUCAO')}")
+                            st.success("Imagem localizada com sucesso!")
 
                     id_afiliado = "18316451024"
                     produto_nome = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "%20")
