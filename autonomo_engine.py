@@ -95,6 +95,10 @@ def exibir_aba_autonomo():
                     st.warning(f"**DOR DETECTADA:** {dados.get('DOR', '---')}")
                     st.success(f"**PRODUTO SOLUÇÃO:** {dados.get('PRODUTO_SOLUCAO', '---')}")
                     
+                    # Salva para a aba de Leads
+                    st.session_state.sel_nome = dados.get('PRODUTO_SOLUCAO')
+                    st.session_state.sel_dor = dados.get('DOR')
+                    
                     st.markdown("### 📝 Copy Humanizada")
                     st.write(f"*{dados.get('COPY_OFERTA', '---')}*")
                     
