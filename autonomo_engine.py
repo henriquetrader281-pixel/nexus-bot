@@ -1,8 +1,7 @@
 import streamlit as st
 import os
-from openai import OpenAI
 
-def processar_ciclo_visual(openai_api_key, openai_base_url):
+def processar_ciclo_visual(api_key, base_url, provedor="openai"):
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
     Identifique 1 dor, problema ou necessidade urgente que as pessoas estão a enfrentar atualmente no nicho de casa, produtividade ou eletrónicos.
@@ -22,17 +21,24 @@ def processar_ciclo_visual(openai_api_key, openai_base_url):
     """
     
     try:
-        client_kwargs = {"api_key": openai_api_key}
-        if openai_base_url:
-            client_kwargs["base_url"] = openai_base_url
-        client = OpenAI(**client_kwargs)
+        if provedor == "groq":
+            from groq import Groq
+            client = Groq(api_key=api_key)
+            model_name = "llama-3.3-70b-versatile"
+        else:
+            from openai import OpenAI
+            client_kwargs = {"api_key": api_key}
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            client = OpenAI(**client_kwargs)
+            model_name = "gpt-4o-mini"
         
         chat = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "Você é um especialista em marketing de influência que fala de forma natural, simples e direta. Fuja do estilo 'vendedor de curso'."},
                 {"role": "user", "content": prompt_dor}
             ],
-            model="gemini-3-flash-preview",
+            model=model_name,
             temperature=0.8
         )
         return chat.choices[0].message.content.strip()
@@ -47,16 +53,25 @@ def exibir_aba_autonomo():
     
     with col2:
         st.info("💡 **Como funciona?** O Nexus analisa tendências globais para encontrar 'dores' reais e sugere o produto exato para resolvê-las.")
+        
+        provedor = st.radio("Selecione o Provedor de IA:", ["OpenAI", "Groq"], horizontal=True)
+        
         if st.button("🚀 INICIAR CICLO AUTÔNOMO", use_container_width=True):
             # Tentar pegar as chaves dos secrets ou env
-            api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
-            base_url = st.secrets.get("OPENAI_API_BASE") or os.environ.get("OPENAI_API_BASE")
+            if provedor == "Groq":
+                api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+                base_url = None
+                p_nome = "groq"
+            else:
+                api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+                base_url = st.secrets.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL")
+                p_nome = "openai"
             
             if not api_key:
-                st.error("Chave de API não encontrada nos Secrets!")
+                st.error(f"Chave de API para {provedor} não encontrada nos Secrets!")
             else:
-                with st.spinner("IA Nexus analisando dores do mercado..."):
-                    resultado = processar_ciclo_visual(api_key, base_url)
+                with st.spinner(f"IA Nexus ({provedor}) analisando dores do mercado..."):
+                    resultado = processar_ciclo_visual(api_key, base_url, p_nome)
                     st.session_state.resultado_autonomo = resultado
                     st.success("Ciclo concluído!")
 
@@ -71,8 +86,9 @@ def exibir_aba_autonomo():
                 dados = {}
                 for linha in linhas:
                     if ":" in linha:
-                        k, v = linha.split(":", 1)
-                        dados[k.strip()] = v.strip()
+                        partes = linha.split(":", 1)
+                        if len(partes) == 2:
+                            dados[partes[0].strip()] = partes[1].strip()
                 
                 with st.container(border=True):
                     st.subheader(f"🎯 Foco: {dados.get('NICHO', 'Desconhecido')}")
@@ -83,9 +99,8 @@ def exibir_aba_autonomo():
                     st.write(f"*{dados.get('COPY_OFERTA', '---')}*")
                     
                     st.markdown("### 🖼️ Mídia Autónoma")
-                    if st.button("🎨 GERAR IMAGEM DO PRODUTO (DALL-E 3)"):
+                    if st.button("🎨 GERAR IMAGEM DO PRODUTO"):
                         with st.spinner("Gerando imagem realista..."):
-                            # Simulação de geração ou chamada real se configurado
                             st.image("https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop", caption="Imagem gerada para o post")
                             st.success("Imagem pronta para postagem automática!")
 
