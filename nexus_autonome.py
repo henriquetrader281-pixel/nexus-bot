@@ -11,14 +11,22 @@ def executar_ciclo_autonomo():
     
     resposta_ia = ""
     
+    # 1. IA DETECTA DOR E PRODUTO COM COPY HUMANIZADA
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor, problema ou necessidade urgente que as pessoas estão a enfrentar atualmente no nicho de casa, produtividade ou eletrónicos.
-    Retorne estritamente no formato:
-    DOR: [descrição da dor]
-    NICHO: [nicho]
-    PRODUTO_SOLUCAO: [nome do produto físico que resolve esta dor]
-    COPY_OFERTA: [uma copy persuasiva de 2 linhas focada na dor, com chamada para ação e espaço para link]
+    Identifique 1 dor urgente no nicho de casa, produtividade ou eletrónicos.
+    
+    REGRAS PARA A COPY:
+    - Tom de indicação de amigo (ex: 'Gente, finalmente parei de sofrer com...').
+    - Sem palavras de vendedor.
+    - Máximo de 2 linhas.
+
+    Retorne no formato:
+    DOR: [descrição]
+    PRODUTO: [nome]
+    COPY: [copy humanizada]
+    KEYWORDS_LEADS: [3 termos de busca para achar clientes interessados, ex: 'alguém recomenda...']
+    PROMPT_IMAGEM: [prompt detalhado para DALL-E 3 gerar uma foto real do produto]
     """
 
     if openai_api_key:
@@ -30,40 +38,45 @@ def executar_ciclo_autonomo():
             client = OpenAI(**client_kwargs)
             chat = client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "Você é um analista de mercado e especialista em copywriting de conversão."},
+                    {"role": "system", "content": "Você é um especialista em marketing orgânico e viral."},
                     {"role": "user", "content": prompt_dor}
                 ],
-                model="gemini-3-flash-preview",
-                temperature=0.7
+                model="gpt-4o-mini",
+                temperature=0.8
             )
             resposta_ia = chat.choices[0].message.content.strip()
         except Exception as e:
-            print(f"⚠️ Erro com OpenAI/Proxy: {e}")
+            print(f"⚠️ Erro com OpenAI: {e}")
 
     if not resposta_ia:
         print("❌ ERRO: Nenhuma IA válida conseguiu responder.")
         return
 
-    print("💡 [Nexus Bot] Dor e solução detetadas com sucesso pela IA:")
-    print(resposta_ia)
+    print("💡 [Nexus Bot] Inteligência gerada com sucesso!")
+    
+    # 2. SIMULAR CAPTURA DE LEADS COM AS KEYWORDS GERADAS
+    # Em um cenário real, aqui dispararíamos buscas em APIs de redes sociais.
     
     id_afiliado = "18316451024"
     link_afiliado = f"https://shopee.com.br/universal-link/search?smtt=0.0.{id_afiliado}&keyword=produto"
     
-    mensagem_final = f"🚨 **RADAR DE NECESSIDADES NEXUS-BOT** 🚨\n\n{resposta_ia}\n\n🛒 **Link Direto de Oferta:** {link_afiliado}"
+    mensagem_final = f"🚨 **NEXUS AUTÓNOMO: OPORTUNIDADE DETECTADA** 🚨\n\n{resposta_ia}\n\n🛒 **Link:** {link_afiliado}\n\n🎯 *Aguardando disparo automático para leads detectados...*"
     
+    # 3. DISPARO PARA WEBHOOK (AUTOMAÇÃO DE POSTAGEM)
     if webhook_url and webhook_url != "SEU_WEBHOOK_AQUI":
         payload = {"content": mensagem_final}
         try:
             resp = requests.post(webhook_url, json=payload, timeout=20)
             if resp.status_code < 300:
-                print("✅ [Nexus Bot] Oferta enviada com sucesso para o webhook!")
+                print("✅ [Nexus Bot] Ciclo completo enviado para o postador!")
             else:
-                print(f"⚠️ [Nexus Bot] Falha ao enviar para o webhook. Status: {resp.status_code}")
+                print(f"⚠️ [Nexus Bot] Falha no webhook: {resp.status_code}")
         except Exception as e:
             print(f"⚠️ Erro ao enviar webhook: {e}")
     else:
-        print("ℹ️ [Nexus Bot] Nenhum webhook configurado. A executar em modo de simulação/local com sucesso.")
+        print("ℹ️ [Nexus Bot] Simulação concluída com sucesso localmente.")
+        print("-" * 30)
+        print(mensagem_final)
         
     return resposta_ia
 
