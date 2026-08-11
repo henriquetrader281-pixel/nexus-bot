@@ -4,21 +4,24 @@ import os
 def processar_ciclo_visual(api_key, base_url, provedor="openai"):
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor REAL e ESPECÍFICA que as pessoas estão a enfrentar agora.
+    Identifique 1 dor REAL, LATENTE e URGENTE que as pessoas estão a enfrentar agora.
     
     IMPORTANTE: O PRODUTO_SOLUCAO deve ser a cura direta para a DOR detectada. 
-    Se a dor for desorganização, o produto deve ser um organizador. 
-    Se a dor for perda de tempo, o produto deve ser algo que automatize tarefas.
     
-    REGRAS PARA A COPY:
-    - Tom de indicação de amigo, sem parecer propaganda.
-    - Máximo de 2 linhas.
+    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL):
+    - Use o framework AIDA (Atenção, Interesse, Desejo, Ação).
+    - Headline: Comece com um gancho de curiosidade ou uma verdade contra-intuitiva.
+    - Corpo: Foque na transformação/alívio da dor, não nas características.
+    - Escassez/Urgência: Adicione um gatilho de que o produto é um 'achado' ou 'segredo'.
+    - CTA Agressivo: Chamada clara para ação (ex: 'Comenta QUERO que te envio o segredo').
+    - Tom: Mistura de autoridade com indicação pessoal.
+    - Evite termos genéricos. Seja específico e persuasivo.
 
     Retorne estritamente no formato:
     DOR: [descrição da dor]
     NICHO: [nicho]
     PRODUTO_SOLUCAO: [nome do produto físico exato]
-    COPY_OFERTA: [copy humanizada]
+    COPY_OFERTA: [copy de alta conversão com CTA e gatilhos]
     PROMPT_IMAGEM: [descrição visual do produto para busca]
     """
     
@@ -37,11 +40,11 @@ def processar_ciclo_visual(api_key, base_url, provedor="openai"):
         
         chat = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é um especialista em marketing de influência que fala de forma natural, simples e direta. Fuja do estilo 'vendedor de curso'."},
+                {"role": "system", "content": "Você é um Copywriter Senior de uma agência de performance. Sua especialidade é criar desejo imediato e converter leads frios em compradores através de gatilhos de curiosidade e autoridade."},
                 {"role": "user", "content": prompt_dor}
             ],
             model=model_name,
-            temperature=0.8
+            temperature=0.9
         )
         return chat.choices[0].message.content.strip()
     except Exception as e:

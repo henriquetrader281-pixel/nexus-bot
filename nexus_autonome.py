@@ -14,20 +14,22 @@ def executar_ciclo_autonomo():
     # 1. IA DETECTA DOR E PRODUTO COM COPY HUMANIZADA
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor REAL e ESPECÍFICA no nicho de casa, produtividade ou eletrónicos.
+    Identifique 1 dor REAL, LATENTE e URGENTE no nicho de casa, produtividade ou eletrónicos.
     
     IMPORTANTE: O PRODUTO deve ser a solução direta e lógica para a DOR detectada.
     
-    REGRAS PARA A COPY:
-    - Tom de indicação de amigo (ex: 'Gente, finalmente parei de sofrer com...').
-    - Máximo de 2 linhas.
+    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL):
+    - Gancho (Atenção): Curiosidade ou quebra de padrão.
+    - Corpo (Desejo): Transformação e alívio da dor.
+    - Escassez/Urgência: O 'segredo' revelado.
+    - CTA (Ação): Chamada agressiva e clara.
 
     Retorne no formato:
     DOR: [descrição]
     PRODUTO: [nome exato do produto físico]
-    COPY: [copy humanizada]
-    KEYWORDS_LEADS: [3 termos de busca específicos para o produto, ex: 'alguém recomenda [produto]']
-    PROMPT_IMAGEM: [descrição visual do produto para busca]
+    COPY: [copy de alta conversão com gatilhos e CTA]
+    KEYWORDS_LEADS: [3 termos de busca de alta intenção]
+    PROMPT_IMAGEM: [descrição visual do produto]
     """
 
     if openai_api_key:
@@ -39,11 +41,11 @@ def executar_ciclo_autonomo():
             client = OpenAI(**client_kwargs)
             chat = client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "Você é um especialista em marketing orgânico e viral."},
+                    {"role": "system", "content": "Você é um Copywriter Senior focado em conversão agressiva para e-commerce. Use gatilhos mentais e estruturas de vendas validadas."},
                     {"role": "user", "content": prompt_dor}
                 ],
                 model="gpt-4o-mini",
-                temperature=0.8
+                temperature=0.9
             )
             resposta_ia = chat.choices[0].message.content.strip()
         except Exception as e:
