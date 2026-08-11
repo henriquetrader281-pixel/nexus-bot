@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.devcontainer/
+temp_frames/
+video/
+dataset_nexus.csv
+nexus_master_data.csv
