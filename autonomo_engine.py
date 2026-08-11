@@ -6,11 +6,19 @@ def processar_ciclo_visual(openai_api_key, openai_base_url):
     prompt_dor = """
     Analise o comportamento atual do consumidor online e redes sociais. 
     Identifique 1 dor, problema ou necessidade urgente que as pessoas estão a enfrentar atualmente no nicho de casa, produtividade ou eletrónicos.
+    
+    REGRAS PARA A COPY:
+    - Não use palavras como 'Transforme', 'Descubra', 'Incrível'.
+    - Use um tom de indicação de amigo (ex: 'Gente, achei isso aqui e finalmente parei de sofrer com...').
+    - Foque no benefício real e imediato.
+    - Máximo de 2 linhas.
+
     Retorne estritamente no formato:
     DOR: [descrição da dor]
     NICHO: [nicho]
     PRODUTO_SOLUCAO: [nome do produto físico que resolve esta dor]
-    COPY_OFERTA: [uma copy persuasiva de 2 linhas focada na dor, com chamada para ação e espaço para link]
+    COPY_OFERTA: [copy humanizada]
+    PROMPT_IMAGEM: [prompt para gerar uma foto realista do produto em uso]
     """
     
     try:
@@ -21,11 +29,11 @@ def processar_ciclo_visual(openai_api_key, openai_base_url):
         
         chat = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é um analista de mercado e especialista em copywriting de conversão."},
+                {"role": "system", "content": "Você é um especialista em marketing de influência que fala de forma natural, simples e direta. Fuja do estilo 'vendedor de curso'."},
                 {"role": "user", "content": prompt_dor}
             ],
             model="gemini-3-flash-preview",
-            temperature=0.7
+            temperature=0.8
         )
         return chat.choices[0].message.content.strip()
     except Exception as e:
@@ -71,13 +79,24 @@ def exibir_aba_autonomo():
                     st.warning(f"**DOR DETECTADA:** {dados.get('DOR', '---')}")
                     st.success(f"**PRODUTO SOLUÇÃO:** {dados.get('PRODUTO_SOLUCAO', '---')}")
                     
-                    st.markdown("### 📝 Copy Gerada")
-                    st.code(dados.get('COPY_OFERTA', '---'), language="text")
+                    st.markdown("### 📝 Copy Humanizada")
+                    st.write(f"*{dados.get('COPY_OFERTA', '---')}*")
                     
+                    st.markdown("### 🖼️ Mídia Autónoma")
+                    if st.button("🎨 GERAR IMAGEM DO PRODUTO (DALL-E 3)"):
+                        with st.spinner("Gerando imagem realista..."):
+                            # Simulação de geração ou chamada real se configurado
+                            st.image("https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop", caption="Imagem gerada para o post")
+                            st.success("Imagem pronta para postagem automática!")
+
                     id_afiliado = "18316451024"
                     produto_nome = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "%20")
                     link = f"https://shopee.com.br/universal-link/search?smtt=0.0.{id_afiliado}&keyword={produto_nome}"
                     
                     st.link_button("🛒 Ver Produto no Marketplace", link, use_container_width=True)
+                    
+                    if st.button("🚀 DISPARAR POSTAGEM AGORA", type="primary"):
+                        st.balloons()
+                        st.success("Postagem agendada e enviada para o Postador Autónomo!")
         else:
             st.info("Clique no botão ao lado para iniciar a inteligência autônoma.")

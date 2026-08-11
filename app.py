@@ -12,6 +12,7 @@ import google.generativeai as genai
 import json
 import radar_engine
 import autonomo_engine
+import leads_engine
 
 # --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
@@ -99,7 +100,7 @@ with st.sidebar:
         st.rerun()
 
 # --- INTERFACE DE ABAS ---
-tabs = st.tabs(["🔍 SCANNER", "🤖 AUTÔNOMO", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
+tabs = st.tabs(["🔍 SCANNER", "🤖 AUTÔNOMO", "🎯 LEADS", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
 
 with tabs[0]: # SCANNER
     if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
@@ -145,19 +146,22 @@ with tabs[0]: # SCANNER
 with tabs[1]: # AUTÔNOMO
     autonomo_engine.exibir_aba_autonomo()
 
-with tabs[2]: # ARSENAL
+with tabs[2]: # LEADS
+    leads_engine.exibir_aba_leads()
+
+with tabs[3]: # ARSENAL
     arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
 
-with tabs[3]: # TRENDS
+with tabs[4]: # TRENDS
     trends.exibir_trends()
 
-with tabs[4]: # RADAR
+with tabs[5]: # RADAR
     radar_engine.exibir_radar()
 
-with tabs[5]: # ESTÚDIO
+with tabs[6]: # ESTÚDIO
     estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
 
-with tabs[6]: # DASHBOARD
+with tabs[7]: # DASHBOARD
     st.markdown("### 📊 Performance em Tempo Real")
     df_logs = update.carregar_logs() 
     if not df_logs.empty:
