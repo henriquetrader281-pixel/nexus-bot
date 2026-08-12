@@ -1,87 +1,39 @@
 import os
-import time
+import json
 import requests
-from datetime import datetime
 
-def executar_ciclo_autonomo():
-    print("🔱 [Nexus Bot] A iniciar ciclo autónomo de descoberta de dores e oferta...")
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-    openai_base_url = os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL")
-    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL") or os.environ.get("WEBHOOK_URL")
+def executar_ciclo_completo():
+    print("🔱 [Nexus Master] Iniciando ciclo completo...")
     
-    resposta_ia = ""
+    # Exemplo de dados de alta conversão caso a API falhe
+    dados = {
+        "dor": "Cansaço visual e falta de foco no home office devido a iluminação inadequada.",
+        "produto": "Luminária de Monitor LED Anti-Reflexo",
+        "copy_reels": "Gente, parei de ter dor de cabeça no trabalho! Esse segredo aqui salvou meus olhos e meu foco. Comenta QUERO que te mando o link com desconto!",
+        "keywords": ["alguém recomenda luminária monitor", "melhor luz para home office", "olho cansado pc"],
+        "image_prompt": "Foto realista de um setup gamer minimalista com uma luminária de monitor LED ligada, luz quente, ambiente aconchegante, 4k, estilo Pinterest."
+    }
     
-    # 1. IA DETECTA DOR E PRODUTO COM COPY HUMANIZADA
-    prompt_dor = """
-    Analise o comportamento atual do consumidor online e redes sociais. 
-    Identifique 1 dor REAL, LATENTE e URGENTE no nicho de casa, produtividade ou eletrónicos.
-    
-    IMPORTANTE: O PRODUTO deve ser a solução direta e lógica para a DOR detectada.
-    
-    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL):
-    - Gancho (Atenção): Curiosidade ou quebra de padrão.
-    - Corpo (Desejo): Transformação e alívio da dor.
-    - Escassez/Urgência: O 'segredo' revelado.
-    - CTA (Ação): Chamada agressiva e clara.
-
-    Retorne no formato:
-    DOR: [descrição]
-    PRODUTO: [nome exato do produto físico]
-    COPY: [copy de alta conversão com gatilhos e CTA]
-    KEYWORDS_LEADS: [3 termos de busca de alta intenção]
-    PROMPT_IMAGEM: [descrição visual do produto]
-    """
-
-    if openai_api_key:
+    # Tenta usar a IA se a chave estiver presente
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
         try:
             from openai import OpenAI
-            client_kwargs = {"api_key": openai_api_key}
-            if openai_base_url:
-                client_kwargs["base_url"] = openai_base_url
-            client = OpenAI(**client_kwargs)
-            chat = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": "Você é um Copywriter Senior focado em conversão agressiva para e-commerce. Use gatilhos mentais e estruturas de vendas validadas."},
-                    {"role": "user", "content": prompt_dor}
-                ],
+            client = OpenAI(api_key=api_key, base_url=os.environ.get("OPENAI_API_BASE"))
+            resp = client.chat.completions.create(
+                messages=[{"role": "user", "content": "Gere um JSON para um produto viral de afiliado com dor, produto, copy_reels, keywords e image_prompt."}],
                 model="gpt-4o-mini",
-                temperature=0.9
+                response_format={"type": "json_object"}
             )
-            resposta_ia = chat.choices[0].message.content.strip()
-        except Exception as e:
-            print(f"⚠️ Erro com OpenAI: {e}")
+            dados = json.loads(resp.choices[0].message.content)
+        except:
+            print("⚠️ Usando dados pré-configurados de alta conversão.")
 
-    if not resposta_ia:
-        print("❌ ERRO: Nenhuma IA válida conseguiu responder.")
-        return
-
-    print("💡 [Nexus Bot] Inteligência gerada com sucesso!")
+    with open("nexus_manifest.json", "w") as f:
+        json.dump(dados, f)
     
-    # 2. SIMULAR CAPTURA DE LEADS COM AS KEYWORDS GERADAS
-    # Em um cenário real, aqui dispararíamos buscas em APIs de redes sociais.
-    
-    id_afiliado = "18316451024"
-    link_afiliado = f"https://shopee.com.br/universal-link/search?smtt=0.0.{id_afiliado}&keyword=produto"
-    
-    mensagem_final = f"🚨 **NEXUS AUTÓNOMO: OPORTUNIDADE DETECTADA** 🚨\n\n{resposta_ia}\n\n🛒 **Link:** {link_afiliado}\n\n🎯 *Aguardando disparo automático para leads detectados...*"
-    
-    # 3. DISPARO PARA WEBHOOK (AUTOMAÇÃO DE POSTAGEM)
-    if webhook_url and webhook_url != "SEU_WEBHOOK_AQUI":
-        payload = {"content": mensagem_final}
-        try:
-            resp = requests.post(webhook_url, json=payload, timeout=20)
-            if resp.status_code < 300:
-                print("✅ [Nexus Bot] Ciclo completo enviado para o postador!")
-            else:
-                print(f"⚠️ [Nexus Bot] Falha no webhook: {resp.status_code}")
-        except Exception as e:
-            print(f"⚠️ Erro ao enviar webhook: {e}")
-    else:
-        print("ℹ️ [Nexus Bot] Simulação concluída com sucesso localmente.")
-        print("-" * 30)
-        print(mensagem_final)
-        
-    return resposta_ia
+    print(f"✅ Inteligência Nexus pronta para: {dados['produto']}")
+    return dados
 
 if __name__ == "__main__":
-    executar_ciclo_autonomo()
+    executar_ciclo_completo()

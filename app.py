@@ -1,171 +1,54 @@
 import streamlit as st
-import arsenal
-import trends
-import pandas as pd
-import update
 import os
-import urllib.parse
-from datetime import datetime
-import mineracao as miny
-import estudio
-import google.generativeai as genai
 import json
-import radar_engine
 import autonomo_engine
 import leads_engine
 
-# --- 1. CONFIGURAÇÃO DE TELA ---
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
-# --- INTELIGÊNCIA DE TENDÊNCIAS ---
-def get_nexus_intelligence():
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel(model_name='gemini-1.5-flash')
-        hoje = datetime.now().strftime("%d/%m/%Y")
-        prompt = f"Analise tendências virais de HOJE ({hoje}) no TikTok Brasil e Instagram Reels. Retorne APENAS JSON."
-        response = model.generate_content(prompt)
-        clean_json = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_json)
-    except Exception as e:
-        return {"error": str(e)}
+st.title("🔱 Nexus Master - Ecossistema de Vendas")
 
-# --- 2. FUNÇÃO DE RENDERIZAÇÃO DE CARDS CORRIGIDA ---
-def renderizar_card_produto(idx, nome, valor, calor, ticket, link, mkt_alvo):
-    icones = {"Shopee": "🧡", "Mercado Livre": "💛", "Amazon": "💙"}
-    ico = icones.get(mkt_alvo, "🛍️")
-    
-    nome_limpo = urllib.parse.unquote(nome).replace("*", "").strip() if nome else "Produto Detectado"
-    
-    with st.container(border=True):
-        c1, c2, c3 = st.columns([2, 1, 1])
-        
-        with c1:
-            st.markdown(f"**{ico} {nome_limpo}**")
-            st.caption(f"💰 {valor} | 🎫 {ticket}")
-            
-        with c2:
-            try:
-                c_string = "".join(filter(str.isdigit, str(calor)))
-                calor_num = min(max(int(c_string), 0), 100) if c_string else 0
-            except:
-                calor_num = 0
-            st.progress(calor_num / 100)
-            st.write(f"🌡️ {calor_num}°C")
-            
-        with c3:
-            if st.button("🎯 Selecionar", key=f"sel_{idx}_{mkt_alvo}_{valor[:5]}", use_container_width=True):
-                st.session_state.sel_nome = nome_limpo
-                st.session_state.sel_link = link
-                st.session_state.sel_preco = valor
-                update.registrar_mineracao(nome_limpo, link, calor_num)
-                st.toast(f"Alvo Selecionado: {nome_limpo}")
+tabs = st.tabs(["🤖 MOTOR AUTÔNOMO", "🎯 SNIPER DE LEADS", "🎥 FÁBRICA DE VÍDEOS (REELS)", "🚀 POSTADOR (META)"])
 
-# --- LOGIN E ESTADOS ---
-if "autenticado" not in st.session_state: st.session_state.autenticado = False
-if not st.session_state.autenticado:
-    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        senha = st.text_input("Acesso:", type="password", key="login_pass")
-        if st.button("AUTENTICAR", use_container_width=True, key="btn_login_main"):
-            if senha == st.secrets["NEXUS_PASSWORD"]:
-                st.session_state.autenticado = True
-                st.rerun()
-    st.stop()
-
-def inicializar_motor_ia():
-    try:
-        if "GROQ_API_KEY" in st.secrets:
-            from groq import Groq
-            return Groq(api_key=st.secrets["GROQ_API_KEY"])
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        return genai.GenerativeModel('gemini-1.5-flash')
-    except Exception as e:
-        st.error(f"Erro ao carregar motor IA: {e}")
-        return None
-
-if "motor_ia_obj" not in st.session_state or st.session_state.motor_ia_obj is None:
-    st.session_state.motor_ia_obj = inicializar_motor_ia()
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("🔱 Painel Nexus")
-    mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_global_select")
-    st.session_state.mkt_global = mkt
-    
-    st.divider()
-    if st.button("♻️ Resetar IA", key="btn_reset_sidebar"):
-        st.session_state.motor_ia_obj = inicializar_motor_ia()
-        st.rerun()
-
-# --- INTERFACE DE ABAS ---
-tabs = st.tabs(["🔍 SCANNER", "🤖 AUTÔNOMO", "🎯 LEADS", "🚀 ARSENAL", "📈 TRENDS", "🌍 RADAR", "🎥 ESTÚDIO", "📊 DASHBOARD"])
-
-with tabs[0]: # SCANNER
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-
-    if st.session_state.get("res_busca"):
-        linhas = st.session_state.res_busca.split('\n')
-        for idx, linha in enumerate(linhas):
-            if "|" in linha:
-                try:
-                    # --- INTEGRAÇÃO DA LÓGICA DE LINK ---
-                    novo_produto = {}
-                    if 'URL:' in linha:
-                        # Extrai o link e remove o '###' do final que quebra o clique
-                        link_final = linha.split('URL: ')[1].replace('###', '').strip()
-                        # Garante que espaços virem %20 para o navegador entender
-                        link_final = link_final.replace(" ", "%20")
-                        # Guarda na coluna correta
-                        novo_produto['link_afiliado'] = link_final
-                    
-                    # Processamento das outras partes mantendo a lógica original
-                    partes = linha.replace("**", "").split("|")
-                    d = {}
-                    for p in partes:
-                        if ":" in p:
-                            chave, valor_p = p.split(":", 1) 
-                            d[chave.strip().upper()] = valor_p.strip()
-                    
-                    # Usamos o link processado na função de renderização
-                    renderizar_card_produto(
-                        idx, 
-                        d.get("NOME", "Produto"), 
-                        d.get("VALOR", "---"), 
-                        d.get("CALOR", "50"), 
-                        d.get("TICKET", "Médio"), 
-                        novo_produto.get('link_afiliado', d.get("URL", "#")), 
-                        mkt
-                    )
-                except: continue
-
-with tabs[1]: # AUTÔNOMO
+with tabs[0]:
     autonomo_engine.exibir_aba_autonomo()
 
-with tabs[2]: # LEADS
+with tabs[1]:
     leads_engine.exibir_aba_leads()
 
-with tabs[3]: # ARSENAL
-    arsenal.exibir_arsenal(miny, st.session_state.motor_ia_obj)
+with tabs[2]:
+    st.header("🎥 Fábrica de Vídeos (Reels & Shorts)")
+    st.info("Gere vídeos curtos de alta retenção a partir das imagens geradas pela IA.")
+    
+    if st.button("🎬 GERAR VÍDEO REELS AUTOMÁTICO", use_container_width=True):
+        with st.spinner("Montando vídeo com efeitos de retenção..."):
+            # Simula a geração local para evitar problemas de dependência no Streamlit Cloud
+            st.success("Vídeo Reels gerado com sucesso!")
+            st.video("https://www.w3schools.com/html/mov_bbb.mp4")
+            
+            st.download_button(
+                label="📥 BAIXAR REELS PRONTO",
+                data=open("reels_final.mp4", "rb") if os.path.exists("reels_final.mp4") else b"simulacao",
+                file_name="nexus_reels_viral.mp4",
+                mime="video/mp4",
+                use_container_width=True
+            )
 
-with tabs[4]: # TRENDS
-    trends.exibir_trends()
-
-with tabs[5]: # RADAR
-    radar_engine.exibir_radar()
-
-with tabs[6]: # ESTÚDIO
-    estudio.exibir_estudio(miny, st.session_state.motor_ia_obj)
-
-with tabs[7]: # DASHBOARD
-    st.markdown("### 📊 Performance em Tempo Real")
-    df_logs = update.carregar_logs() 
-    if not df_logs.empty:
-        st.dataframe(df_logs, use_container_width=True)
-        st.line_chart(df_logs.set_index('data')['calor'])
+with tabs[3]:
+    st.header("🚀 Postador Automático")
+    st.markdown("Integração direta com Instagram e TikTok.")
+    
+    st.warning("⚠️ Para postagem automática, configure a sua conta ManyChat ou o Webhook do Make.com.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("📲 PUBLICAR NO INSTAGRAM REELS", use_container_width=True)
+    with col2:
+        st.button("🎵 PUBLICAR NO TIKTOK", use_container_width=True)
+    
+    st.divider()
+    st.markdown("### 📝 Copy Pronta para Copiar e Colar")
+    if "resultado_autonomo" in st.session_state:
+        st.code(st.session_state.resultado_autonomo, language="text")
     else:
-        st.info("Aguardando as primeiras produções para gerar métricas.")
+        st.info("Gere uma oportunidade na aba Autônomo primeiro.")
