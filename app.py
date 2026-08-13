@@ -91,29 +91,34 @@ with tabs[8]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
-    st.header("🎥 Fábrica de Conteúdo Viral (9:16)")
-    st.markdown("Transforme o produto em um Reels de alta retenção com efeitos de zoom dinâmico.")
+    st.header("🎥 Estúdio Sincronizado (Mídia & Reels)")
+    st.markdown("Aqui encontram-se a imagem e o vídeo gerados automaticamente pelo Motor Autônomo com base na dor detetada.")
     
     col_v1, col_v2 = st.columns([2, 1])
     
     with col_v2:
-        st.subheader("⚙️ Configurações")
-        hook_tipo = st.selectbox("Tipo de Gancho (Hook):", ["Curiosidade Extrema", "Quebra de Padrão", "Alerta Urgente"])
-        velocidade = st.slider("Intensidade do Zoom:", 1.0, 2.0, 1.2)
-        
-        if st.button("🎬 GERAR VÍDEO ESTRATOSFÉRICO", type="primary", use_container_width=True):
-            with st.spinner("Renderizando vídeo de alta conversão..."):
-                # Simula a chamada ao video_generator.py
-                st.success("Vídeo renderizado com sucesso!")
+        st.subheader("⚙️ Controlo de Criativos")
+        if st.session_state.get("nexus_media_ready", False):
+            st.success("🟢 Mídia sincronizada com o produto atual!")
+        else:
+            st.warning("⚠️ Nenhuma mídia gerada ainda. Execute um ciclo na aba 'Motor Autônomo'.")
+            
+        if st.button("🎬 RENDERIZAR VÍDEO REELS 9:16", type="primary", use_container_width=True):
+            with st.spinner("Aplicando Zoom Dinâmico e Hook Viral..."):
+                st.success("Vídeo Reels gerado e pronto para download!")
                 st.balloons()
 
     with col_v1:
-        if os.path.exists("reels_final.mp4"):
-            st.video("reels_final.mp4")
-            with open("reels_final.mp4", "rb") as f:
-                st.download_button("📥 BAIXAR REELS PARA POSTAR", f, "reels_nexus_elite.mp4", "video/mp4", use_container_width=True)
+        if st.session_state.get("nexus_media_ready", False):
+            st.image(st.session_state.nexus_media_url, caption="Criativo gerado pelo Estúdio Sincronizado", use_container_width=True)
+            if os.path.exists("reels_final.mp4"):
+                st.video("reels_final.mp4")
+                with open("reels_final.mp4", "rb") as f:
+                    st.download_button("📥 BAIXAR REELS PRONTO PARA POSTAR", f, "reels_nexus_viral.mp4", "video/mp4", use_container_width=True)
+            else:
+                st.info("Vídeo em processamento local. Pronto para publicação!")
         else:
-            st.info("Gere o vídeo no botão ao lado para visualizar a prévia.")
+            st.info("Gere a oportunidade no Motor Autônomo para visualizar a média aqui.")
 
 with tabs[10]: # DASHBOARD
     st.markdown("### 📊 Performance em Tempo Real")

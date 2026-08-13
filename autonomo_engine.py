@@ -3,22 +3,22 @@ import os
 
 def processar_ciclo_visual(api_key, base_url, provedor="openai"):
     prompt_dor = """
-    Analise o comportamento atual do consumidor online e redes sociais (TikTok, Pinterest, Google Trends). 
+    Analise o comportamento atual do consumidor online e redes sociais. 
     Identifique 1 dor REAL, LATENTE e URGENTE que as pessoas estão a enfrentar agora.
     
     IMPORTANTE: O PRODUTO_SOLUCAO deve ser a cura direta para a DOR detectada. 
     
-    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL + HOOK DE 3 SEGUNDOS):
+    REGRAS RÍGIDAS PARA A COPY (ESTILO AGÊNCIA DE PERFORMANCE + CTA OBRIGATÓRIO):
     - Use o framework AIDA (Atenção, Interesse, Desejo, Ação).
     - Hook / Gancho Inicial (Primeiros 3 segundos): Frase altamente curiosa ou contra-intuitiva para parar o scroll.
-    - Corpo: Foque na transformação/alívio da dor, não nas características frias.
-    - CTA Agressivo: Chamada clara para ação (ex: 'Comenta QUERO que te envio o segredo no direct').
-    
+    - Corpo: Foque na transformação e alívio imediato da dor.
+    - CTA OBRIGATÓRIO E EXPLICÍCITO: Termine obrigatoriamente com uma Chamada para Ação irresistível (ex: 'Clica no link da bio ou comenta QUERO para garantir o teu com desconto exclusivo no Mercado Livre!').
+
     Retorne estritamente no formato exato:
-    DOR: [descrição da dor]
+    DOR: [descrição detalhada da dor]
     NICHO: [nicho]
     PRODUTO_SOLUCAO: [nome do produto físico exato]
-    COPY_OFERTA: [copy de alta conversão com hook, AIDA e CTA]
+    COPY_OFERTA: [copy completa com gancho, corpo AIDA e CTA agressivo]
     PROMPT_IMAGEM: [descrição visual cinematográfica do produto em uso para geração por IA]
     """
     
@@ -55,13 +55,13 @@ def processar_ciclo_visual(api_key, base_url, provedor="openai"):
         return f"Erro: {str(e)}"
 
 def exibir_aba_autonomo():
-    st.header("🤖 Nexus Autônomo: Motor de Vendas com IA & Gemini")
+    st.header("🤖 Nexus Autônomo: Sincronização & Funil Completo")
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
     
     with col2:
-        st.info("💡 **Funil Automático:** Escolha o seu motor de IA favorito para detetar dores, criar copies virais com ganchos (Hooks) e gerar links de afiliado.")
+        st.info("💡 **Fluxo Sincronizado:** Ao gerar um ciclo, o Nexus deteta a dor, alimenta o motor SEO (Ubersuggest) e envia a média diretamente para a aba 'Estúdio'.")
         
         provedor = st.radio("Selecione o Provedor de IA:", ["ChatGPT (OpenAI)", "Google Gemini", "Groq"], horizontal=True)
         
@@ -82,10 +82,10 @@ def exibir_aba_autonomo():
             if not api_key:
                 st.error(f"Chave de API para {provedor} não encontrada nos Secrets!")
             else:
-                with st.spinner(f"IA Nexus ({provedor}) a escanear dores e criar Hooks virais..."):
+                with st.spinner(f"IA Nexus ({provedor}) a cruzar dores, SEO e Ganchos Virais..."):
                     resultado = processar_ciclo_visual(api_key, base_url, p_nome)
                     st.session_state.resultado_autonomo = resultado
-                    st.success("Ciclo concluído com sucesso!")
+                    st.success("Ciclo sincronizado com sucesso!")
 
     with col1:
         if "resultado_autonomo" in st.session_state:
@@ -110,24 +110,27 @@ def exibir_aba_autonomo():
                 if chave_atual:
                     dados[chave_atual] = "\n".join(valor_atual).strip()
                 
+                # Sincronização automática com session_state para SEO e Estúdio
                 st.session_state.sel_nome = dados.get('PRODUTO_SOLUCAO', 'Produto Exemplo')
                 st.session_state.sel_dor = dados.get('DOR', 'Necessidade do mercado')
+                st.session_state.ultima_copy = dados.get('COPY_OFERTA', '---')
                 
                 with st.container(border=True):
                     st.subheader(f"🎯 Foco: {dados.get('NICHO', 'Mercado Geral')}")
                     st.warning(f"**DOR DETECTADA:** {dados.get('DOR', '---')}")
                     st.success(f"**PRODUTO SOLUÇÃO:** {dados.get('PRODUTO_SOLUCAO', '---')}")
                     
-                    st.markdown("### 📝 Copy Viral (Hook + AIDA + CTA)")
+                    st.markdown("### 📝 Copy de Alta Conversão (Com Hook, AIDA & CTA)")
                     st.code(dados.get('COPY_OFERTA', '---'), language="text")
                     
-                    st.markdown("### 🖼️ Mídia & Vídeo (Estúdio Gemini)")
-                    st.info(f"**Prompt Visual Gerado:** {dados.get('PROMPT_IMAGEM', '---')}")
-                    if st.button("🎨 GERAR IMAGEM & VÍDEO REELS", key="btn_img_gemini"):
-                        with st.spinner("Renderizando criativo de alta conversão..."):
+                    st.markdown("### 🖼️ Envio para o Estúdio & Mídia")
+                    if st.button("🚀 GERAR MÉDIA E ENVIAR PARA O ESTÚDIO", key="btn_send_estudio", type="primary"):
+                        with st.spinner("Gerando criativo e sincronizando com o Estúdio..."):
                             query = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "+")
-                            st.image(f"https://source.unsplash.com/featured/?{query}", caption="Criativo gerado com sucesso!")
-                            st.success("Vídeo Reels com Zoom Dinâmico pronto na aba 'Estúdio'!")
+                            url_img = f"https://source.unsplash.com/featured/?{query}"
+                            st.session_state.nexus_media_url = url_img
+                            st.session_state.nexus_media_ready = True
+                            st.success("Mídia gerada e sincronizada com sucesso! Vá à aba 'ESTÚDIO' para visualizar e exportar.")
                     
                     st.markdown("### 🛒 Funil de Afiliados (Mercado Livre / Shopee)")
                     mkt_escolhido = st.selectbox("Escolha a Vitrine:", ["Mercado Livre", "Shopee", "Amazon"], key=f"mkt_{hash(res)}")
