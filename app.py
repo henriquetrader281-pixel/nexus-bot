@@ -3,12 +3,53 @@ import os
 import json
 import autonomo_engine
 import leads_engine
+import mineracao as miny
+import arsenal
+import trends
+import radar_engine
+import estudio
+import update
 
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
 
+# --- LOGIN E SEGURANÇA ---
+if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if not st.session_state.autenticado:
+    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        senha = st.text_input("Acesso:", type="password", key="login_pass")
+        if st.button("AUTENTICAR", use_container_width=True, key="btn_login_main"):
+            if senha == st.secrets.get("NEXUS_PASSWORD", "admin"):
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta!")
+    st.stop()
+
 st.title("🔱 Nexus Master - Ecossistema de Vendas")
 
-tabs = st.tabs(["🤖 MOTOR AUTÔNOMO", "🎯 SNIPER DE LEADS", "🎥 FÁBRICA DE VÍDEOS (REELS)", "🚀 POSTADOR (META)"])
+# --- SIDEBAR ---
+with st.sidebar:
+    st.title("🔱 Painel Nexus")
+    mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_global_select")
+    st.session_state.mkt_global = mkt
+    st.divider()
+    if st.button("♻️ Resetar Sessão", key="btn_reset_sidebar"):
+        st.session_state.clear()
+        st.rerun()
+
+# --- INTERFACE DE ABAS ---
+tabs = st.tabs([
+    "🤖 MOTOR AUTÔNOMO", 
+    "🎯 SNIPER DE LEADS", 
+    "🔍 SCANNER", 
+    "🚀 ARSENAL", 
+    "📈 TRENDS", 
+    "🌍 RADAR", 
+    "🎥 ESTÚDIO", 
+    "📊 DASHBOARD"
+])
 
 with tabs[0]:
     autonomo_engine.exibir_aba_autonomo()
@@ -16,39 +57,35 @@ with tabs[0]:
 with tabs[1]:
     leads_engine.exibir_aba_leads()
 
-with tabs[2]:
-    st.header("🎥 Fábrica de Vídeos (Reels & Shorts)")
-    st.info("Gere vídeos curtos de alta retenção a partir das imagens geradas pela IA.")
-    
-    if st.button("🎬 GERAR VÍDEO REELS AUTOMÁTICO", use_container_width=True):
-        with st.spinner("Montando vídeo com efeitos de retenção..."):
-            # Simula a geração local para evitar problemas de dependência no Streamlit Cloud
-            st.success("Vídeo Reels gerado com sucesso!")
-            st.video("https://www.w3schools.com/html/mov_bbb.mp4")
-            
-            st.download_button(
-                label="📥 BAIXAR REELS PRONTO",
-                data=open("reels_final.mp4", "rb") if os.path.exists("reels_final.mp4") else b"simulacao",
-                file_name="nexus_reels_viral.mp4",
-                mime="video/mp4",
-                use_container_width=True
-            )
+with tabs[2]: # SCANNER
+    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
+        with st.spinner("Minerando..."):
+            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
+            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
+    # Lógica de exibição do scanner (mantida do original)
+    if st.session_state.get("res_busca"):
+        st.write(st.session_state.res_busca)
 
-with tabs[3]:
-    st.header("🚀 Postador Automático")
-    st.markdown("Integração direta com Instagram e TikTok.")
-    
-    st.warning("⚠️ Para postagem automática, configure a sua conta ManyChat ou o Webhook do Make.com.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.button("📲 PUBLICAR NO INSTAGRAM REELS", use_container_width=True)
-    with col2:
-        st.button("🎵 PUBLICAR NO TIKTOK", use_container_width=True)
-    
-    st.divider()
-    st.markdown("### 📝 Copy Pronta para Copiar e Colar")
-    if "resultado_autonomo" in st.session_state:
-        st.code(st.session_state.resultado_autonomo, language="text")
-    else:
-        st.info("Gere uma oportunidade na aba Autônomo primeiro.")
+with tabs[3]: # ARSENAL
+    arsenal.exibir_arsenal(miny, None)
+
+with tabs[4]: # TRENDS
+    trends.exibir_trends()
+
+with tabs[5]: # RADAR
+    radar_engine.exibir_radar()
+
+with tabs[6]: # ESTÚDIO / FÁBRICA DE VÍDEOS
+    st.header("🎥 Fábrica de Vídeos (Reels & Shorts)")
+    if st.button("🎬 GERAR VÍDEO REELS AUTOMÁTICO", use_container_width=True):
+        st.success("Vídeo Reels pronto para baixar!")
+        if os.path.exists("reels_final.mp4"):
+            st.video("reels_final.mp4")
+            with open("reels_final.mp4", "rb") as f:
+                st.download_button("📥 BAIXAR REELS", f, "reels_nexus.mp4", "video/mp4")
+
+with tabs[7]: # DASHBOARD
+    st.markdown("### 📊 Performance em Tempo Real")
+    df_logs = update.carregar_logs() 
+    if not df_logs.empty:
+        st.dataframe(df_logs, use_container_width=True)
