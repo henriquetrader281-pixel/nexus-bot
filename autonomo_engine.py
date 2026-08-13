@@ -88,6 +88,9 @@ def exibir_aba_autonomo():
                     st.success("Ciclo sincronizado com sucesso!")
 
     with col1:
+        st.markdown("### 🌐 Dados em Tempo Real (Google Trends BR)")
+        st.info("O motor cruza as dores detetadas com os termos mais pesquisados no [Google Trends Brasil](https://trends.google.com.br/trends/).")
+        
         if "resultado_autonomo" in st.session_state:
             res = st.session_state.resultado_autonomo
             if "Erro:" in res:
