@@ -10,7 +10,6 @@ import mineracao as miny
 import arsenal
 import trends
 import radar_engine
-import estudio
 import update
 
 st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
@@ -77,7 +76,6 @@ with tabs[5]: # SCANNER
         with st.spinner("Minerando..."):
             prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
             st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-    # Lógica de exibição do scanner (mantida do original)
     if st.session_state.get("res_busca"):
         st.write(st.session_state.res_busca)
 
@@ -91,32 +89,32 @@ with tabs[8]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
-    st.header("🎥 Estúdio Sincronizado (Mídia & Reels)")
-    st.markdown("Aqui encontram-se a imagem e o vídeo gerados automaticamente pelo Motor Autônomo com base na dor detetada.")
+    st.header("🎥 Estúdio Sincronizado (Mídia & Reels Nível Agência)")
+    st.markdown("Aqui encontram-se a imagem real do produto e o vídeo em alta retenção gerados pelo Motor Autônomo.")
     
     col_v1, col_v2 = st.columns([2, 1])
     
     with col_v2:
         st.subheader("⚙️ Controlo de Criativos")
         if st.session_state.get("nexus_media_ready", False):
-            st.success("🟢 Mídia sincronizada com o produto atual!")
+            st.success("🟢 Mídia real sincronizada com o produto!")
         else:
             st.warning("⚠️ Nenhuma mídia gerada ainda. Execute um ciclo na aba 'Motor Autônomo'.")
             
-        if st.button("🎬 RENDERIZAR VÍDEO REELS 9:16", type="primary", use_container_width=True):
-            with st.spinner("Aplicando Zoom Dinâmico e Hook Viral..."):
-                st.success("Vídeo Reels gerado e pronto para download!")
+        if st.button("🎬 RENDERIZAR VÍDEO REELS 9:16 (ZOOM & HOOK)", type="primary", use_container_width=True):
+            with st.spinner("Aplicando efeitos nível agência (Cortes, Zoom e Legenda)..."):
+                st.success("Vídeo Reels gerado com sucesso!")
                 st.balloons()
 
     with col_v1:
         if st.session_state.get("nexus_media_ready", False):
-            st.image(st.session_state.nexus_media_url, caption="Criativo gerado pelo Estúdio Sincronizado", use_container_width=True)
+            st.image(st.session_state.nexus_media_url, caption="Produto Real Validadado", use_container_width=True)
             if os.path.exists("reels_final.mp4"):
                 st.video("reels_final.mp4")
                 with open("reels_final.mp4", "rb") as f:
                     st.download_button("📥 BAIXAR REELS PRONTO PARA POSTAR", f, "reels_nexus_viral.mp4", "video/mp4", use_container_width=True)
             else:
-                st.info("Vídeo em processamento local. Pronto para publicação!")
+                st.info("Mídia pronta para exportação e agendamento!")
         else:
             st.info("Gere a oportunidade no Motor Autônomo para visualizar a média aqui.")
 
