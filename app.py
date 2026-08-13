@@ -3,6 +3,8 @@ import os
 import json
 import autonomo_engine
 import leads_engine
+import global_engine
+import scheduler_engine
 import mineracao as miny
 import arsenal
 import trends
@@ -43,6 +45,8 @@ with st.sidebar:
 tabs = st.tabs([
     "🤖 MOTOR AUTÔNOMO", 
     "🎯 SNIPER DE LEADS", 
+    "🌍 ESPIONAGEM GLOBAL",
+    "⏰ AGENDADOR",
     "🔍 SCANNER", 
     "🚀 ARSENAL", 
     "📈 TRENDS", 
@@ -57,7 +61,13 @@ with tabs[0]:
 with tabs[1]:
     leads_engine.exibir_aba_leads()
 
-with tabs[2]: # SCANNER
+with tabs[2]:
+    global_engine.exibir_espionagem_global()
+
+with tabs[3]:
+    scheduler_engine.exibir_agendador()
+
+with tabs[4]: # SCANNER
     if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
         with st.spinner("Minerando..."):
             prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
@@ -66,16 +76,16 @@ with tabs[2]: # SCANNER
     if st.session_state.get("res_busca"):
         st.write(st.session_state.res_busca)
 
-with tabs[3]: # ARSENAL
+with tabs[5]: # ARSENAL
     arsenal.exibir_arsenal(miny, None)
 
-with tabs[4]: # TRENDS
+with tabs[6]: # TRENDS
     trends.exibir_trends()
 
-with tabs[5]: # RADAR
+with tabs[7]: # RADAR
     radar_engine.exibir_radar()
 
-with tabs[6]: # ESTÚDIO / FÁBRICA DE VÍDEOS
+with tabs[8]: # ESTÚDIO / FÁBRICA DE VÍDEOS
     st.header("🎥 Fábrica de Conteúdo Viral (9:16)")
     st.markdown("Transforme o produto em um Reels de alta retenção com efeitos de zoom dinâmico.")
     
@@ -100,7 +110,7 @@ with tabs[6]: # ESTÚDIO / FÁBRICA DE VÍDEOS
         else:
             st.info("Gere o vídeo no botão ao lado para visualizar a prévia.")
 
-with tabs[7]: # DASHBOARD
+with tabs[9]: # DASHBOARD
     st.markdown("### 📊 Performance em Tempo Real")
     df_logs = update.carregar_logs() 
     if not df_logs.empty:

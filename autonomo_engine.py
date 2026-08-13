@@ -116,11 +116,20 @@ def exibir_aba_autonomo():
                             st.image(url_imagem, caption=f"Sugestão visual para: {dados.get('PRODUTO_SOLUCAO')}")
                             st.success("Imagem localizada com sucesso!")
 
-                    id_afiliado = "18316451024"
-                    produto_nome = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "%20")
-                    link = f"https://shopee.com.br/universal-link/search?smtt=0.0.{id_afiliado}&keyword={produto_nome}"
+                    st.markdown("### 🛒 Links de Afiliado (Geração Automática)")
+                    mkt_escolhido = st.selectbox("Escolha a Vitrine:", ["Shopee", "Mercado Livre", "Amazon"], key=f"mkt_{dados.get('PRODUTO_SOLUCAO')}")
                     
-                    st.link_button("🛒 Ver Produto no Marketplace", link, use_container_width=True)
+                    produto_nome = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "%20")
+                    if mkt_escolhido == "Mercado Livre":
+                        id_ml = st.text_input("ID de Afiliado Mercado Livre:", value="ML_BR_12345")
+                        link = f"https://lista.mercadolivre.com.br/{produto_nome}_NoIndex_True#D[A:{produto_nome}]"
+                    elif mkt_escolhido == "Amazon":
+                        link = f"https://www.amazon.com.br/s?k={produto_nome}&tag=nexusbot-20"
+                    else:
+                        id_shopee = "18316451024"
+                        link = f"https://shopee.com.br/universal-link/search?smtt=0.0.{id_shopee}&keyword={produto_nome}"
+                    
+                    st.link_button(f"🛒 Ver no {mkt_escolhido} (Afiliado Ativo)", link, use_container_width=True)
                     
                     if st.button("🚀 DISPARAR POSTAGEM AGORA", type="primary"):
                         st.balloons()
