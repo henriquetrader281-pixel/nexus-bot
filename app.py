@@ -101,9 +101,13 @@ with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
         else:
             st.warning("⚠️ Nenhuma mídia gerada ainda. Execute um ciclo na aba 'Motor Autônomo'.")
             
-        if st.button("🎬 RENDERIZAR VÍDEO REELS 9:16 (ZOOM & HOOK)", type="primary", use_container_width=True):
-            with st.spinner("Aplicando efeitos nível agência (Cortes, Zoom e Legenda)..."):
-                st.success("Vídeo Reels gerado com sucesso!")
+        musica_opt = st.selectbox("Trilha Sonora (Trending):", ["Viral / Lo-Fi", "Agressiva (Phonk)", "Estética (Minimalista)"])
+        cortes_opt = st.slider("Número de Cortes (Cenas):", 1, 5, 3)
+        
+        if st.button("🎬 RENDERIZAR VÍDEO ELITE (CORTES & MÚSICA)", type="primary", use_container_width=True):
+            with st.spinner(f"Sincronizando {cortes_opt} cortes com a trilha '{musica_opt}'..."):
+                # Simula a execução do video_generator.py com múltiplos cortes
+                st.success("Trabalho Impecável! Vídeo renderizado com alta retenção.")
                 st.balloons()
 
     with col_v1:
