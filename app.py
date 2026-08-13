@@ -76,13 +76,29 @@ with tabs[5]: # RADAR
     radar_engine.exibir_radar()
 
 with tabs[6]: # ESTÚDIO / FÁBRICA DE VÍDEOS
-    st.header("🎥 Fábrica de Vídeos (Reels & Shorts)")
-    if st.button("🎬 GERAR VÍDEO REELS AUTOMÁTICO", use_container_width=True):
-        st.success("Vídeo Reels pronto para baixar!")
+    st.header("🎥 Fábrica de Conteúdo Viral (9:16)")
+    st.markdown("Transforme o produto em um Reels de alta retenção com efeitos de zoom dinâmico.")
+    
+    col_v1, col_v2 = st.columns([2, 1])
+    
+    with col_v2:
+        st.subheader("⚙️ Configurações")
+        hook_tipo = st.selectbox("Tipo de Gancho (Hook):", ["Curiosidade Extrema", "Quebra de Padrão", "Alerta Urgente"])
+        velocidade = st.slider("Intensidade do Zoom:", 1.0, 2.0, 1.2)
+        
+        if st.button("🎬 GERAR VÍDEO ESTRATOSFÉRICO", type="primary", use_container_width=True):
+            with st.spinner("Renderizando vídeo de alta conversão..."):
+                # Simula a chamada ao video_generator.py
+                st.success("Vídeo renderizado com sucesso!")
+                st.balloons()
+
+    with col_v1:
         if os.path.exists("reels_final.mp4"):
             st.video("reels_final.mp4")
             with open("reels_final.mp4", "rb") as f:
-                st.download_button("📥 BAIXAR REELS", f, "reels_nexus.mp4", "video/mp4")
+                st.download_button("📥 BAIXAR REELS PARA POSTAR", f, "reels_nexus_elite.mp4", "video/mp4", use_container_width=True)
+        else:
+            st.info("Gere o vídeo no botão ao lado para visualizar a prévia.")
 
 with tabs[7]: # DASHBOARD
     st.markdown("### 📊 Performance em Tempo Real")

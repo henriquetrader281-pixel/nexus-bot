@@ -36,7 +36,7 @@ def processar_ciclo_visual(api_key, base_url, provedor="openai"):
             if base_url:
                 client_kwargs["base_url"] = base_url
             client = OpenAI(**client_kwargs)
-            model_name = "gpt-4o-mini"
+            model_name = "gpt-4o"
         
         chat = client.chat.completions.create(
             messages=[
@@ -59,7 +59,7 @@ def exibir_aba_autonomo():
     with col2:
         st.info("💡 **Como funciona?** O Nexus analisa tendências globais para encontrar 'dores' reais e sugere o produto exato para resolvê-las.")
         
-        provedor = st.radio("Selecione o Provedor de IA:", ["OpenAI", "Groq"], horizontal=True)
+        provedor = st.radio("Selecione o Provedor de IA:", ["ChatGPT (OpenAI)", "Groq"], horizontal=True)
         
         if st.button("🚀 INICIAR CICLO AUTÔNOMO", use_container_width=True):
             # Tentar pegar as chaves dos secrets ou env
