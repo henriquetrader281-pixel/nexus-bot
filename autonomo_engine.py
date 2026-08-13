@@ -35,15 +35,15 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     time.sleep(1.5)
     st.session_state.video_renderizado = True
     
-    # PASSO 4: Disparo (Pinterest / API)
-    progresso.progress(80, text="🚀 [4/5] Disparando postagem automática via API...")
-    token_p = st.secrets.get("PINTEREST_ACCESS_TOKEN") or os.environ.get("PINTEREST_ACCESS_TOKEN")
-    if token_p:
-        # Se houver token, tenta postar de verdade
-        # pinterest_engine.postar_pinterest(...)
-        status_post = "Postagem Real Efetuada via API!"
+    # PASSO 4: Disparo (ManyChat Webhook & Pinterest)
+    progresso.progress(80, text="🚀 [4/5] Disparando Webhook para ManyChat e Redes Sociais...")
+    from manychat_engine import disparar_webhook_manychat
+    res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], dados['copy'])
+    
+    if res_mc['success']:
+        status_post = "Webhook ManyChat disparado com sucesso! DMs automatizadas ativas."
     else:
-        status_post = "Simulação de Postagem Concluída (Configure o Token para Real)!"
+        status_post = "Mídia pronta no Estúdio (Adicione MANYCHAT_WEBHOOK_URL nos Secrets para disparo automático)!"
     
     # PASSO 5: Conclusão
     progresso.progress(100, text="💰 [5/5] Funil de Vendas Ativo! Agente em modo de espera.")
