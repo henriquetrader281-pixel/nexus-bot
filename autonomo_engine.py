@@ -21,6 +21,9 @@ def exibir_aba_autonomo():
                 st.session_state.sel_dor = dados['dificuldade']
                 st.session_state.nexus_media_url = dados['imagem']
                 st.session_state.nexus_media_ready = True
+                # Registrar no Dashboard
+                import update
+                update.registrar_mineracao(dados['produto'], dados['link_ml'], 99)
                 st.success("Oportunidade real gerada e sincronizada com o Estúdio!")
 
     with col1:

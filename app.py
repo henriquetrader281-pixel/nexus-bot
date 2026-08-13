@@ -123,7 +123,4 @@ with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
             st.info("Gere a oportunidade no Motor Autônomo para visualizar a média aqui.")
 
 with tabs[10]: # DASHBOARD
-    st.markdown("### 📊 Performance em Tempo Real")
-    df_logs = update.carregar_logs() 
-    if not df_logs.empty:
-        st.dataframe(df_logs, use_container_width=True)
+    update.exibir_dashboard()
