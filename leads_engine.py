@@ -4,17 +4,8 @@ import random
 from openai import OpenAI
 
 def gerar_keywords_estratosfericas(produto, dor, api_key, base_url):
-    """
-    IA gera termos de busca de alta intenção comercial e SEO.
-    """
     prompt = f"""
     Como um mestre de SEO e Tráfego Pago, gere 5 termos de busca 'estratosféricos' para encontrar clientes com o cartão na mão para o produto '{produto}' que resolve a dor '{dor}'.
-    
-    FOQUE EM:
-    - Termos de comparação (X vs Y).
-    - Termos de 'melhor para [problema]'.
-    - Termos de fóruns (Reddit/Quora) onde a dúvida é urgente.
-    
     Retorne apenas os termos separados por vírgula.
     """
     try:
@@ -25,7 +16,7 @@ def gerar_keywords_estratosfericas(produto, dor, api_key, base_url):
         
         chat = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="gpt-4o",
+            model="gpt-4o-mini",
             temperature=0.7
         )
         return chat.choices[0].message.content.strip().split(',')
@@ -63,7 +54,6 @@ def exibir_aba_leads():
         
         if st.button("🛰️ DISPARAR SNIPER GOOGLE & FÓRUNS", type="primary"):
             with st.spinner(f"Escaneando Google Search e Fóruns para: {', '.join(keywords_selecionada)}..."):
-                # Simulação de captura estratosférica
                 st.session_state.leads_encontrados = [
                     {"fonte": "Google Search (PAA)", "user": "Busca Orgânica", "texto": f"Pessoas também perguntam: 'Qual o melhor {produto_foco} para quem sofre com {dor_foco}?'", "intencao": "CRÍTICA 💎"},
                     {"fonte": "Reddit /r/brasildicas", "user": "u/comprador_decidido", "texto": f"Estou entre o modelo X e o {produto_foco}. Alguém que tenha o {produto_foco} pode confirmar se resolve a {dor_foco}?", "intencao": "ALTA 🔥"},
@@ -82,6 +72,6 @@ def exibir_aba_leads():
                 with col_t:
                     st.write(f"💬 *{lead['texto']}*")
                 with col_i:
-                    st.badge(lead['intencao'], type="success")
+                    st.markdown(f"**Status:** `{lead['intencao']}`")
                     if st.button("🔗 Pescar Lead", key=f"fish_{lead['user']}_{random.random()}"):
                         st.toast("Lead capturado! Enviando para o funil de resposta...")

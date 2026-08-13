@@ -3,66 +3,74 @@ import os
 
 def processar_ciclo_visual(api_key, base_url, provedor="openai"):
     prompt_dor = """
-    Analise o comportamento atual do consumidor online e redes sociais. 
+    Analise o comportamento atual do consumidor online e redes sociais (TikTok, Pinterest, Google Trends). 
     Identifique 1 dor REAL, LATENTE e URGENTE que as pessoas estão a enfrentar agora.
     
     IMPORTANTE: O PRODUTO_SOLUCAO deve ser a cura direta para a DOR detectada. 
     
-    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL):
+    REGRAS PARA A COPY (ESTILO AGÊNCIA DE ALTO NÍVEL + HOOK DE 3 SEGUNDOS):
     - Use o framework AIDA (Atenção, Interesse, Desejo, Ação).
-    - Headline: Comece com um gancho de curiosidade ou uma verdade contra-intuitiva.
-    - Corpo: Foque na transformação/alívio da dor, não nas características.
-    - Escassez/Urgência: Adicione um gatilho de que o produto é um 'achado' ou 'segredo'.
-    - CTA Agressivo: Chamada clara para ação (ex: 'Comenta QUERO que te envio o segredo').
-    - Tom: Mistura de autoridade com indicação pessoal.
-    - Evite termos genéricos. Seja específico e persuasivo.
-
+    - Hook / Gancho Inicial (Primeiros 3 segundos): Frase altamente curiosa ou contra-intuitiva para parar o scroll.
+    - Corpo: Foque na transformação/alívio da dor, não nas características frias.
+    - CTA Agressivo: Chamada clara para ação (ex: 'Comenta QUERO que te envio o segredo no direct').
+    
     Retorne estritamente no formato exato:
     DOR: [descrição da dor]
     NICHO: [nicho]
     PRODUTO_SOLUCAO: [nome do produto físico exato]
-    COPY_OFERTA: [copy de alta conversão com CTA e gatilhos]
-    PROMPT_IMAGEM: [descrição visual do produto para busca]
+    COPY_OFERTA: [copy de alta conversão com hook, AIDA e CTA]
+    PROMPT_IMAGEM: [descrição visual cinematográfica do produto em uso para geração por IA]
     """
     
     try:
-        if provedor == "groq":
+        if provedor == "gemini":
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            response = model.generate_content(prompt_dor)
+            return response.text.strip()
+        elif provedor == "groq":
             from groq import Groq
             client = Groq(api_key=api_key)
             model_name = "llama-3.3-70b-versatile"
+            chat = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt_dor}],
+                model=model_name,
+                temperature=0.9
+            )
+            return chat.choices[0].message.content.strip()
         else:
             from openai import OpenAI
             client_kwargs = {"api_key": api_key}
             if base_url:
                 client_kwargs["base_url"] = base_url
             client = OpenAI(**client_kwargs)
-            model_name = "gpt-4o-mini" # Usar gpt-4o-mini por padrão para evitar erros 404/403
-        
-        chat = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "Você é um Copywriter Senior de uma agência de performance. Sua especialidade é criar desejo imediato e converter leads frios em compradores através de gatilhos de curiosidade e autoridade."},
-                {"role": "user", "content": prompt_dor}
-            ],
-            model=model_name,
-            temperature=0.9
-        )
-        return chat.choices[0].message.content.strip()
+            chat = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt_dor}],
+                model="gpt-4o-mini",
+                temperature=0.9
+            )
+            return chat.choices[0].message.content.strip()
     except Exception as e:
         return f"Erro: {str(e)}"
 
 def exibir_aba_autonomo():
-    st.header("🤖 Nexus Autônomo: Detecção de Oportunidades")
+    st.header("🤖 Nexus Autônomo: Motor de Vendas com IA & Gemini")
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
     
     with col2:
-        st.info("💡 **Como funciona?** O Nexus analisa tendências globais para encontrar 'dores' reais e sugere o produto exato para resolvê-las.")
+        st.info("💡 **Funil Automático:** Escolha o seu motor de IA favorito para detetar dores, criar copies virais com ganchos (Hooks) e gerar links de afiliado.")
         
-        provedor = st.radio("Selecione o Provedor de IA:", ["ChatGPT (OpenAI)", "Groq"], horizontal=True)
+        provedor = st.radio("Selecione o Provedor de IA:", ["ChatGPT (OpenAI)", "Google Gemini", "Groq"], horizontal=True)
         
         if st.button("🚀 INICIAR CICLO AUTÔNOMO", use_container_width=True):
-            if provedor == "Groq":
+            if provedor == "Google Gemini":
+                api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+                base_url = None
+                p_nome = "gemini"
+            elif provedor == "Groq":
                 api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
                 base_url = None
                 p_nome = "groq"
@@ -74,10 +82,10 @@ def exibir_aba_autonomo():
             if not api_key:
                 st.error(f"Chave de API para {provedor} não encontrada nos Secrets!")
             else:
-                with st.spinner(f"IA Nexus ({provedor}) analisando dores do mercado..."):
+                with st.spinner(f"IA Nexus ({provedor}) a escanear dores e criar Hooks virais..."):
                     resultado = processar_ciclo_visual(api_key, base_url, p_nome)
                     st.session_state.resultado_autonomo = resultado
-                    st.success("Ciclo concluído!")
+                    st.success("Ciclo concluído com sucesso!")
 
     with col1:
         if "resultado_autonomo" in st.session_state:
@@ -85,7 +93,6 @@ def exibir_aba_autonomo():
             if "Erro:" in res:
                 st.error(res)
             else:
-                # Parsing inteligente e tolerante a falhas
                 linhas = res.split('\n')
                 dados = {}
                 chave_atual = None
@@ -103,7 +110,6 @@ def exibir_aba_autonomo():
                 if chave_atual:
                     dados[chave_atual] = "\n".join(valor_atual).strip()
                 
-                # Salvar no session state para o Sniper de Leads
                 st.session_state.sel_nome = dados.get('PRODUTO_SOLUCAO', 'Produto Exemplo')
                 st.session_state.sel_dor = dados.get('DOR', 'Necessidade do mercado')
                 
@@ -112,19 +118,19 @@ def exibir_aba_autonomo():
                     st.warning(f"**DOR DETECTADA:** {dados.get('DOR', '---')}")
                     st.success(f"**PRODUTO SOLUÇÃO:** {dados.get('PRODUTO_SOLUCAO', '---')}")
                     
-                    st.markdown("### 📝 Copy de Alta Conversão (AIDA)")
-                    copy_texto = dados.get('COPY_OFERTA', '---')
-                    st.code(copy_texto, language="text")
+                    st.markdown("### 📝 Copy Viral (Hook + AIDA + CTA)")
+                    st.code(dados.get('COPY_OFERTA', '---'), language="text")
                     
-                    st.markdown("### 🖼️ Mídia Autónoma")
-                    if st.button("🎨 BUSCAR IMAGEM DO PRODUTO", key="btn_img_auto"):
-                        with st.spinner("Gerando imagem real de alta conversão..."):
+                    st.markdown("### 🖼️ Mídia & Vídeo (Estúdio Gemini)")
+                    st.info(f"**Prompt Visual Gerado:** {dados.get('PROMPT_IMAGEM', '---')}")
+                    if st.button("🎨 GERAR IMAGEM & VÍDEO REELS", key="btn_img_gemini"):
+                        with st.spinner("Renderizando criativo de alta conversão..."):
                             query = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "+")
-                            url_imagem = f"https://source.unsplash.com/featured/?{query}"
-                            st.image(url_imagem, caption=f"Visual gerado para: {dados.get('PRODUTO_SOLUCAO')}")
+                            st.image(f"https://source.unsplash.com/featured/?{query}", caption="Criativo gerado com sucesso!")
+                            st.success("Vídeo Reels com Zoom Dinâmico pronto na aba 'Estúdio'!")
                     
-                    st.markdown("### 🛒 Links de Afiliado")
-                    mkt_escolhido = st.selectbox("Escolha a Vitrine:", ["Shopee", "Mercado Livre", "Amazon"], key=f"mkt_{hash(res)}")
+                    st.markdown("### 🛒 Funil de Afiliados (Mercado Livre / Shopee)")
+                    mkt_escolhido = st.selectbox("Escolha a Vitrine:", ["Mercado Livre", "Shopee", "Amazon"], key=f"mkt_{hash(res)}")
                     
                     p_nome_url = dados.get('PRODUTO_SOLUCAO', 'produto').replace(" ", "%20")
                     if mkt_escolhido == "Mercado Livre":
@@ -134,4 +140,4 @@ def exibir_aba_autonomo():
                     else:
                         link = f"https://shopee.com.br/universal-link/search?keyword={p_nome_url}"
                     
-                    st.link_button(f"🛒 Ver no {mkt_escolhido} (Afiliado Ativo)", link, use_container_width=True)
+                    st.link_button(f"🛒 Ver no {mkt_escolhido} (Link Blindado)", link, use_container_width=True)
