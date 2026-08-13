@@ -43,7 +43,7 @@ with st.sidebar:
 
 # --- INTERFACE DE ABAS ---
 tabs = st.tabs([
-    "🤖 MOTOR AUTÔNOMO", 
+    "🚀 AGENTE (1-CLIQUE)", 
     "🎯 SNIPER DE LEADS", 
     "🌍 ESPIONAGEM GLOBAL",
     "⏰ AGENDADOR",
