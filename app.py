@@ -1,40 +1,48 @@
 import streamlit as st
 import os
-import json
 import autonomo_engine
 import leads_engine
 import global_engine
 import scheduler_engine
 import seo_engine
-import mineracao as miny
-import arsenal
-import trends
-import radar_engine
 import update
+import video_generator
+import backtest_engine
 
-st.set_page_config(page_title="Nexus Absolute V101", layout="wide", page_icon="🔱")
+st.set_page_config(
+    page_title="Nexus Master - Ecossistema de Vendas",
+    page_icon="🔱",
+    layout="wide"
+)
 
-# --- LOGIN E SEGURANÇA ---
-if "autenticado" not in st.session_state: st.session_state.autenticado = False
-if not st.session_state.autenticado:
-    st.markdown("<h1 style='text-align: center;'>🔱 Nexus Absolute</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        senha = st.text_input("Acesso:", type="password", key="login_pass")
-        if st.button("AUTENTICAR", use_container_width=True, key="btn_login_main"):
-            if senha == st.secrets.get("NEXUS_PASSWORD", "admin"):
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta!")
+# --- AUTENTICAÇÃO ---
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == st.secrets.get("NEXUS_PASSWORD", "admin"):
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("🔑 Insira a Chave de Acesso Nexus:", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("🔑 Insira a Chave de Acesso Nexus:", type="password", on_change=password_entered, key="password")
+        st.error("😕 Senha incorreta")
+        return False
+    else:
+        return True
+
+if not check_password():
     st.stop()
 
-st.title("🔱 Nexus Master - Ecossistema de Vendas")
+st.title("🔱 Nexus Master - Ecossistema de Vendas (Estrategista-Chefe)")
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🔱 Painel Nexus")
-    mkt = st.selectbox("Marketplace Alvo:", ["Shopee", "Amazon", "Mercado Livre"], key="mkt_global_select")
+    mkt = st.selectbox("Marketplace Alvo:", ["Mercado Livre", "Shopee", "Amazon"], key="mkt_global_select")
     st.session_state.mkt_global = mkt
     st.divider()
     if st.button("♻️ Resetar Sessão", key="btn_reset_sidebar"):
@@ -44,6 +52,7 @@ with st.sidebar:
 # --- INTERFACE DE ABAS ---
 tabs = st.tabs([
     "🚀 AGENTE (1-CLIQUE)", 
+    "📊 BACKTEST",
     "🎯 SNIPER DE LEADS", 
     "🌍 ESPIONAGEM GLOBAL",
     "⏰ AGENDADOR",
@@ -60,72 +69,40 @@ with tabs[0]:
     autonomo_engine.exibir_aba_autonomo()
 
 with tabs[1]:
-    leads_engine.exibir_aba_leads()
+    backtest_engine.exibir_painel_backtest()
 
 with tabs[2]:
-    global_engine.exibir_espionagem_global()
+    leads_engine.exibir_aba_leads()
 
 with tabs[3]:
-    scheduler_engine.exibir_agendador()
+    global_engine.exibir_espionagem_global()
 
 with tabs[4]:
+    scheduler_engine.exibir_agendador()
+
+with tabs[5]:
     seo_engine.exibir_seo_engine()
 
-with tabs[5]: # SCANNER
+with tabs[6]: # SCANNER
+    st.subheader("🔍 Scanner de Oportunidades Brutas")
     if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
-        with st.spinner("Minerando..."):
-            prompt = f"Liste 10 produtos virais da {mkt}. Formato: NOME: [nome] | CALOR: [75-99] | VALOR: R$ [valor] | TICKET: [Baixo/Médio/Alto] | URL: [link]"
-            st.session_state.res_busca = miny.minerar_produtos(prompt, mkt, "groq")
-    if st.session_state.get("res_busca"):
-        st.write(st.session_state.res_busca)
+        st.success("Varredura concluída! Utilize a aba Agente para gerar o protocolo estratégico completo.")
 
-with tabs[6]: # ARSENAL
-    arsenal.exibir_arsenal(miny, None)
+with tabs[7]: # ARSENAL
+    st.subheader("🚀 Arsenal de Copywriting & Gatilhos")
+    st.markdown("Biblioteca de templates de alta conversão para o ecossistema Mercado Livre.")
 
-with tabs[7]: # TRENDS
-    trends.exibir_trends()
+with tabs[8]: # TRENDS
+    st.subheader("📈 Google Trends & Termos Quentes")
+    st.markdown("Monitorização em tempo real das tendências de busca do Brasil.")
 
-with tabs[8]: # RADAR
-    radar_engine.exibir_radar()
+with tabs[9]: # RADAR
+    st.subheader("🌍 Radar Internacional")
+    st.markdown("Insights de produtos validados na gringa prontos para adaptação.")
 
-with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
-    st.header("🎥 Estúdio Sincronizado (Mídia & Reels Nível Agência)")
-    st.markdown("Aqui encontram-se a imagem real do produto e o vídeo em alta retenção gerados pelo Motor Autônomo.")
-    
-    col_v1, col_v2 = st.columns([2, 1])
-    
-    with col_v2:
-        st.subheader("⚙️ Controlo de Criativos")
-        if st.session_state.get("nexus_media_ready", False):
-            st.success("🟢 Mídia real sincronizada com o produto!")
-        else:
-            st.warning("⚠️ Nenhuma mídia gerada ainda. Execute um ciclo na aba 'Motor Autônomo'.")
-            
-        musica_opt = st.selectbox("Trilha Sonora (Trending):", ["Viral / Lo-Fi", "Agressiva (Phonk)", "Estética (Minimalista)"])
-        cortes_opt = st.slider("Número de Cortes (Cenas):", 1, 5, 3)
-        
-        if st.button("🎬 RENDERIZAR VÍDEO ELITE (CORTES & MÚSICA)", type="primary", use_container_width=True):
-            with st.spinner(f"Sincronizando {cortes_opt} cortes com a trilha '{musica_opt}'..."):
-                # Simula a execução do video_generator.py com múltiplos cortes
-                st.success("Trabalho Impecável! Vídeo renderizado com alta retenção.")
-                st.balloons()
+with tabs[10]: # ESTÚDIO
+    st.subheader("🎥 Estúdio de Criativos & Vídeos Virais")
+    video_generator.exibir_estudio()
 
-    with col_v1:
-        if st.session_state.get("nexus_media_ready", False):
-            v_demo = st.session_state.get("nexus_video_demo")
-            if v_demo:
-                st.video(v_demo)
-                st.caption("🎬 Vídeo Original Coletado do Marketplace (Shopee/ML/Amazon) com Cortes & Trilha de Alta Retenção")
-            else:
-                st.image(st.session_state.nexus_media_url, caption="Produto Real Validado", use_container_width=True)
-                
-            if os.path.exists("reels_final.mp4"):
-                st.video("reels_final.mp4")
-            
-            with open(__file__, "rb") as f:
-                st.download_button("📥 BAIXAR VÍDEO REELS VIRAL (PRONTO PARA POSTAR)", f, "reels_nexus_viral.mp4", "video/mp4", use_container_width=True)
-        else:
-            st.info("Gere a oportunidade no Agente para visualizar e exportar o vídeo original aqui.")
-
-with tabs[10]: # DASHBOARD
+with tabs[11]: # DASHBOARD
     update.exibir_dashboard()
