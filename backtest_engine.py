@@ -32,7 +32,7 @@ def executar_backtest_estrategico(orcamento_diario=50.0, prateleira="🔥 Virais
         comissao_pct = 0.085
         
     # Cálculos da simulação para 7 dias de campanha
- dias = 7
+    dias = 7
     orcamento_total = orcamento_diario * dias
     
     impressoes = int((orcamento_total / cpm_medio) * 1000)
@@ -101,3 +101,25 @@ def exibir_painel_backtest():
                 st.success("🔥 **Campanha Altamente Lucrativa!** O apelo do Envio Full validado no backtest indica excelente tração para escala.")
             else:
                 st.warning("⚠️ **Margem Apertada:** Sugerimos testar um produto da prateleira 'Virais & Desejo' para aumentar o CTR.")
+
+        st.divider()
+        st.subheader("📈 Projeção de Escala (ROI vs Lucro)")
+        
+        # Gerar dados para o gráfico
+        import pandas as pd
+        import numpy as np
+        
+        orcamentos = np.arange(20, 520, 20)
+        data_plot = []
+        for b in orcamentos:
+            r = executar_backtest_estrategico(b, prat)
+            data_plot.append({
+                "Orçamento Diário": b,
+                "Lucro Líquido": r['lucro_estimado'],
+                "ROI": r['roi']
+            })
+        
+        df_plot = pd.DataFrame(data_plot).set_index("Orçamento Diário")
+        
+        st.line_chart(df_plot[["Lucro Líquido", "ROI"]])
+        st.caption("O gráfico acima mostra como o Lucro Líquido e o ROI se comportam à medida que aumenta o investimento diário.")
