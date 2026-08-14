@@ -14,21 +14,28 @@ def exibir_estudio(miny, motor_ia):
     c1, c2 = st.columns([1, 1])
     
     with c1:
-        if st.button("📝 GERAR COPY & PROMPT 4K", use_container_width=True):
-            with st.spinner("Minerando imagens reais e otimizando para 4K..."):
-                # 1. Busca de Imagem Real nos Marketplaces (Simulada via Google Images Link para agilidade)
+        if st.button("📝 GERAR COPY & PROMPT 4K (IMAGEM HYPE)", use_container_width=True):
+            with st.spinner("Minerando imagem campeã de vendas e otimizando 4K..."):
+                # 1. Busca de Imagem Hype (Campeã de Vendas) nos Marketplaces
                 search_query = produto.replace(" ", "+")
                 marketplace = st.session_state.get('mkt_global', 'Mercado Livre')
-                img_search_url = f"https://www.google.com/search?q={search_query}+{marketplace}+produto+original&tbm=isch"
+                # Filtro de busca para produtos mais vendidos/populares
+                img_search_url = f"https://www.google.com/search?q={search_query}+{marketplace}+mais+vendido+original&tbm=isch"
                 st.session_state.img_real_url = img_search_url
                 
-                # 2. Geração de Copy e Prompt 4K Ultra Realista seguindo o Roteiro Nexus
+                # 2. Geração de Copy e Prompt 4K seguindo o Roteiro Nexus de 15s
                 import tts_engine
                 trend = tts_engine.obter_audio_tendencia()
                 
+                # Recupera o roteiro do agente se disponível para manter consistência
+                roteiro_ref = ""
+                if "nexus_estrat" in st.session_state:
+                    roteiro_ref = "\n".join(st.session_state.nexus_estrat.get('roteiro_15s', []))
+
                 prompt_master = f"""
                 Ignore listas. Produto: {produto}. Marketplace: {marketplace}.
                 Trend do Dia: {trend['nome']}.
+                Roteiro Base: {roteiro_ref}
                 
                 1. Gere legenda AIDA em Português focada em Envio Full e Alta Qualidade.
                 2. Gere um Prompt VISUAL em INGLÊS para o Google Labs seguindo este Roteiro de 15s:

@@ -8,7 +8,9 @@ def exibir_seo_engine():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        keyword_input = st.text_input("Insira uma Palavra-Chave ou Nicho (ex: organizador de cozinha):", value="organizador de cozinha")
+        # Tenta pegar o produto do agente se existir
+        sugestao = st.session_state.get('sel_nome', 'organizador de cozinha')
+        keyword_input = st.text_input("Insira uma Palavra-Chave ou Nicho (ex: organizador de cozinha):", value=sugestao)
         
         if st.button("📊 ANALISAR MÉTRICAS DE SEO (UDS)", type="primary", use_container_width=True):
             with st.spinner("Anilhando dados de tráfego orgânico e concorrência..."):
