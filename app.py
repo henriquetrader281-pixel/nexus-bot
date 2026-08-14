@@ -6,7 +6,7 @@ import global_engine
 import scheduler_engine
 import seo_engine
 import update
-import video_generator
+import estudio
 import backtest_engine
 
 st.set_page_config(
@@ -102,7 +102,8 @@ with tabs[9]: # RADAR
 
 with tabs[10]: # ESTÚDIO
     st.subheader("🎥 Estúdio de Criativos & Vídeos Virais")
-    video_generator.exibir_estudio()
+    # estudio.py não usa realmente os parâmetros miny e motor_ia internamente, passamos None como placeholder
+    estudio.exibir_estudio(None, None)
 
 with tabs[11]: # DASHBOARD
     update.exibir_dashboard()
