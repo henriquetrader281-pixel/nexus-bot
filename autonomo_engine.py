@@ -53,35 +53,44 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     return dados
 
 def exibir_aba_autonomo():
-    st.header("🤖 Agente Nexus: Autonomia Total (Um Clique)")
+    st.header("🎯 Estrategista-Chefe: Vitrines Mercado Livre & Meta Ads (Lean)")
     st.markdown("---")
+    
+    from estrats_engine import analisar_produto_estrategista
     
     col1, col2 = st.columns([2, 1])
     
     with col2:
-        st.markdown("### ⚙️ Configurações do Agente")
-        provedor = st.radio("Cérebro da IA:", ["ChatGPT (OpenAI)", "Google Gemini", "Groq"], horizontal=True)
+        st.markdown("### ⚙️ Operação de Fricção Zero")
+        st.info("💡 **Foco Total no Mercado Livre (Vitrines):** Sem burocracia, com apelo de Envio Full e campanhas diretas de Meta Ads.")
         
-        st.divider()
-        st.warning("⚠️ O botão abaixo executa o funil completo: Mineração -> Copy -> Vídeo -> Postagem.")
-        
-        if st.button("🚀 ATIVAR AGENTE AGORA (1 CLIQUE)", type="primary", use_container_width=True):
-            executar_ciclo_mestre_um_clique(provedor)
+        if st.button("🚀 GERAR PROTOCOLO ESTRATÉGICO (1 CLIQUE)", type="primary", use_container_width=True):
+            dados_base = obter_produto_real_validado("gemini")
+            estrat = analisar_produto_estrategista(dados_base['produto'])
+            st.session_state.nexus_estrat = {**dados_base, **estrat}
+            st.success("Protocolo Estrategista gerado com sucesso!")
 
     with col1:
-        if "nexus_dados_reais" in st.session_state:
-            dados = st.session_state.nexus_dados_reais
+        if "nexus_estrat" in st.session_state:
+            e = st.session_state.nexus_estrat
             with st.container(border=True):
-                st.subheader(f"✅ Última Operação: {dados['produto']}")
-                st.info(f"**Dor Resolvida:** {dados['dificuldade']}")
+                st.subheader(f"📦 Produto: {e['produto']}")
+                st.success(f"**Prateleira da Vitrine:** {e['prateleira']}")
+                st.warning(f"**Título Curto (Vitrine ML):** {e['titulo_vitrine']}")
                 
-                st.markdown("#### 📝 Copy de Elite Enviada")
-                st.code(dados['copy'], language="text")
+                st.markdown("#### 🎣 Ganchos de 3 Segundos (The Hook)")
+                for h in e['hooks']:
+                    st.markdown(f"- {h}")
                 
-                st.markdown("#### 🖼️ Criativo Publicado")
-                st.image(dados['imagem'], use_container_width=True)
+                st.markdown("#### 📝 Fast-Copy (Meta Ads / Instagram)")
+                st.code(e['fast_copy'] + "\n\n" + e['cta'], language="text")
                 
-                st.markdown("#### 🛒 Destino do Lead")
-                st.link_button("Ver Página de Vendas (Afiliado)", dados['link_ml'], use_container_width=True)
+                veg = e['roteiro_15s']
+                st.markdown("#### 🎬 Roteiro de Vídeo (15 Segundos)")
+                for r in veg:
+                    st.markdown(f"- {r}")
+                
+                st.markdown("#### 🛒 Destino (Vitrine Oficial Mercado Livre)")
+                st.link_button("Aceder à Vitrine com Envio Full", e['link_ml'], use_container_width=True)
         else:
-            st.info("O Agente Nexus está aguardando o seu comando para iniciar a operação de vendas.")
+            st.info("Clique no botão ao lado para gerar o protocolo estratégico de conversão instantânea.")
