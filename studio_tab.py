@@ -14,16 +14,29 @@ def exibir_estudio(miny, motor_ia):
     c1, c2 = st.columns([1, 1])
     
     with c1:
-        if st.button("📝 GERAR COPY & PROMPT", use_container_width=True):
-            with st.spinner("Preparando comandos..."):
-                # Pedimos o AIDA e o Prompt em Inglês de uma vez só
+        if st.button("📝 GERAR COPY & PROMPT 4K", use_container_width=True):
+            with st.spinner("Minerando imagens reais e otimizando para 4K..."):
+                # 1. Busca de Imagem Real nos Marketplaces (Simulada via Google Images Link para agilidade)
+                search_query = produto.replace(" ", "+")
+                marketplace = st.session_state.get('mkt_global', 'Mercado Livre')
+                img_search_url = f"https://www.google.com/search?q={search_query}+{marketplace}+produto+original&tbm=isch"
+                st.session_state.img_real_url = img_search_url
+                
+                # 2. Geração de Copy e Prompt 4K Ultra Realista
                 prompt_master = f"""
-                Ignore listas. Produto: {produto}.
-                1. Gere legenda AIDA em Português (com ID 18316451024).
-                2. Gere um Prompt VISUAL em INGLÊS para vídeo cinematográfico.
+                Ignore listas. Produto: {produto}. Marketplace: {marketplace}.
+                1. Gere legenda AIDA em Português focada em Envio Full e Alta Qualidade.
+                2. Gere um Prompt VISUAL em INGLÊS para o Google Labs (Video Generation). 
+                   DEVE incluir: '8k resolution, photorealistic, cinematic lighting, 4k texture, professional product videography, highly detailed'.
                 Separe por '###'
                 """
-                res = miny.minerar_produtos(prompt_master, "Shopee", motor_ia)
+                # Fallback se miny for None (acontece na chamada direta do app.py)
+                if miny is None:
+                    import mineracao
+                    res = mineracao.minerar_produtos(prompt_master, marketplace, None)
+                else:
+                    res = miny.minerar_produtos(prompt_master, marketplace, motor_ia)
+                
                 st.session_state.micao_nexus = res.split('###')
                 st.rerun()
 
@@ -35,9 +48,12 @@ def exibir_estudio(miny, motor_ia):
         with st.expander("📄 LEGENDA PARA POSTAR", expanded=False):
             st.text_area("Copie aqui:", value=copy_pt, height=150)
 
-        st.success("🎯 PROMPT PARA COLAR NO GOOGLE LABS:")
+        st.success("🎯 PROMPT PARA COLAR NO GOOGLE LABS (OTIMIZADO 4K):")
         st.code(prompt_en, language="text")
-        st.caption("Clique no ícone de copiar no canto do bloco acima ☝️")
+        st.caption("DICA: Este prompt foi otimizado para gerar vídeos em alta definição no Google Labs.")
+
+        st.info(f"🖼️ **PESQUISA DE IMAGEM REAL:** [Clique aqui para ver fotos reais do produto no {st.session_state.get('mkt_global', 'Marketplace')}]({st.session_state.get('img_real_url', '#')})")
+        st.caption("Use estas imagens como referência visual ou faça upload no Google Labs para guiar a IA.")
 
         st.divider()
 
