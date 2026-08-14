@@ -36,15 +36,27 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.session_state.nexus_video_demo = dados.get('video_demo')
     st.session_state.video_renderizado = True
     
-    # PASSO 4: Disparo (ManyChat Webhook & Pinterest)
-    progresso.progress(80, text="🚀 [4/5] Disparando Webhook para ManyChat e Redes Sociais...")
+    # PASSO 4: Disparo Full Auto (ManyChat + Pinterest API)
+    progresso.progress(80, text="🚀 [4/5] Executando Disparo Full Auto (ManyChat + Redes Sociais)...")
     from manychat_engine import disparar_webhook_manychat
     res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], dados['copy'])
     
+    # Tentativa de Postagem Automática no Pinterest se token existir
+    token_pin = st.secrets.get("PINTEREST_ACCESS_TOKEN")
+    board_pin = st.secrets.get("PINTEREST_BOARD_ID")
+    status_pinterest = ""
+    if token_pin and board_pin:
+        import pinterest_engine
+        res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], dados['link_ml'], dados['imagem'])
+        if res_pin.get('success'):
+            status_pinterest = " | Pin publicado automaticamente no Pinterest!"
+        else:
+            status_pinterest = f" | Erro Pinterest: {res_pin.get('error')}"
+
     if res_mc['success']:
-        status_post = "Webhook ManyChat disparado com sucesso! DMs automatizadas ativas."
+        status_post = f"Webhook ManyChat disparado com sucesso! DMs ativas{status_pinterest}."
     else:
-        status_post = "Mídia pronta no Estúdio (Adicione MANYCHAT_WEBHOOK_URL nos Secrets para disparo automático)!"
+        status_post = f"Mídia pronta no Estúdio{status_pinterest}."
     
     # PASSO 5: Auto-Otimização Pensante (Self-Improving)
     progresso.progress(95, text="🧠 [5/6] Analisando conversão e auto-otimizando parâmetros da IA...")
