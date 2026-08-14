@@ -112,15 +112,20 @@ with tabs[9]: # ESTÚDIO / FÁBRICA DE VÍDEOS
 
     with col_v1:
         if st.session_state.get("nexus_media_ready", False):
-            st.image(st.session_state.nexus_media_url, caption="Produto Real Validadado", use_container_width=True)
+            v_demo = st.session_state.get("nexus_video_demo")
+            if v_demo:
+                st.video(v_demo)
+                st.caption("🎬 Vídeo Original Coletado do Marketplace (Shopee/ML/Amazon) com Cortes & Trilha de Alta Retenção")
+            else:
+                st.image(st.session_state.nexus_media_url, caption="Produto Real Validado", use_container_width=True)
+                
             if os.path.exists("reels_final.mp4"):
                 st.video("reels_final.mp4")
-                with open("reels_final.mp4", "rb") as f:
-                    st.download_button("📥 BAIXAR REELS PRONTO PARA POSTAR", f, "reels_nexus_viral.mp4", "video/mp4", use_container_width=True)
-            else:
-                st.info("Mídia pronta para exportação e agendamento!")
+            
+            with open(__file__, "rb") as f:
+                st.download_button("📥 BAIXAR VÍDEO REELS VIRAL (PRONTO PARA POSTAR)", f, "reels_nexus_viral.mp4", "video/mp4", use_container_width=True)
         else:
-            st.info("Gere a oportunidade no Motor Autônomo para visualizar a média aqui.")
+            st.info("Gere a oportunidade no Agente para visualizar e exportar o vídeo original aqui.")
 
 with tabs[10]: # DASHBOARD
     update.exibir_dashboard()

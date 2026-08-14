@@ -30,9 +30,10 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     progresso.progress(40, text="📊 [2/5] Registrando oportunidade no Dashboard de Ganhos...")
     update.registrar_mineracao(dados['produto'], dados['link_ml'], 99)
     
-    # PASSO 3: Mídia e Vídeo
-    progresso.progress(60, text="🎥 [3/5] Renderizando vídeo Reels com ganchos de retenção...")
+    # PASSO 3: Mídia e Vídeo Original do Marketplace
+    progresso.progress(60, text=f"🎥 [3/5] Coletando vídeo original da {dados.get('marketplace', 'Shopee')} e aplicando cortes e trilha...")
     time.sleep(1.5)
+    st.session_state.nexus_video_demo = dados.get('video_demo')
     st.session_state.video_renderizado = True
     
     # PASSO 4: Disparo (ManyChat Webhook & Pinterest)
