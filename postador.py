@@ -50,40 +50,56 @@ def exibir_postador(miny=None, motor_ia=None):
         
         if st.button(f"🚀 PUBLICAR AGORA NO {rede.upper()}", use_container_width=True, type="primary"):
             with st.spinner(f"Comunicando com API do {rede}..."):
+                # Simulação de URL pública para vídeo (Em produção seria S3 ou link do Estúdio)
+                video_url_publica = st.session_state.get('nexus_video_demo', 'https://assets.mixkit.co/videos/preview/mixkit-hands-typing-on-a-computer-keyboard-42998-large.mp4')
+                
                 if "Pinterest" in rede:
                     import pinterest_engine
-                    # Tenta pegar as chaves dos secrets
-                    token = st.secrets.get("PINTEREST_ACCESS_TOKEN", None)
-                    board = st.secrets.get("PINTEREST_BOARD_ID", None)
-                    
+                    token = st.secrets.get("PINTEREST_ACCESS_TOKEN")
+                    board = st.secrets.get("PINTEREST_BOARD_ID")
                     if token and board:
-                        res = pinterest_engine.postar_pinterest(
-                            token, board, 
-                            st.session_state.get('sel_nome', 'Oferta Nexus'),
-                            texto_completo,
-                            link_blindado,
-                            st.session_state.get('img_real_url', 'https://via.placeholder.com/1080x1920')
-                        )
-                        if res.get('success'):
-                            st.success("🔥 PIN PUBLICADO COM SUCESSO!")
-                        else:
-                            st.error(f"Erro na API: {res.get('error')}")
-                    else:
-                        st.warning("⚠️ Configure PINTEREST_ACCESS_TOKEN nos Secrets do Streamlit.")
-                else:
-                    st.info("Simulação: Webhook enviado para o ManyChat/Make para publicação agendada.")
-                    st.toast("Disparo realizado com sucesso!")
+                        res = pinterest_engine.postar_pinterest(token, board, st.session_state.get('sel_nome', 'Oferta'), texto_completo, link_blindado, st.session_state.get('img_real_url', 'https://via.placeholder.com/1080x1920'))
+                        if res.get('success'): st.success("🔥 PIN PUBLICADO!")
+                        else: st.error(f"Erro Pinterest: {res.get('error')}")
+                    else: st.warning("⚠️ Configure PINTEREST_ACCESS_TOKEN nos Secrets.")
+                
+                elif "Instagram" in rede:
+                    import instagram_engine
+                    res = instagram_engine.postar_instagram_reels(video_url_publica, texto_completo)
+                    if res.get('success'): st.success(f"📸 {res['data']}")
+                    else: st.error(f"Erro Instagram: {res.get('error')}")
+                
+                elif "TikTok" in rede:
+                    import tiktok_engine
+                    res = tiktok_engine.postar_tiktok_video(video_url_publica, st.session_state.get('sel_nome', 'Oferta Nexus'))
+                    if res.get('success'): st.success("🎵 VÍDEO ENVIADO PARA O TIKTOK!")
+                    else: st.error(f"Erro TikTok: {res.get('error')}")
 
     st.divider()
     
-    # --- CONFIGURAÇÃO DE REDES ---
-    with st.expander("⚙️ CONFIGURAR REDES SOCIAIS (API KEYS)"):
+    # --- CONFIGURAÇÃO DE REDES & AFILIADOS ---
+    with st.expander("⚙️ GUIA DE CONFIGURAÇÃO: SECRETS (API KEYS)", expanded=False):
         st.markdown("""
-        Para automação total, adicione as chaves abaixo nos **Secrets** do Streamlit Cloud:
-        - `PINTEREST_ACCESS_TOKEN`: Token da sua App no Pinterest Developers.
-        - `PINTEREST_BOARD_ID`: ID da pasta onde o robô vai postar.
-        - `MANYCHAT_WEBHOOK_URL`: Para automação de DMs e comentários.
-        - `INSTAGRAM_PAGE_ID`: Para postagem direta via Graph API.
+        Para o Nexus rodar 100% automático, você deve adicionar estas chaves nos **Secrets** do Streamlit Cloud:
+        
+        ### 🤝 Afiliados & Vendas
+        - `ML_TRACKING_ID`: Seu ID de afiliado Mercado Livre.
+        - `SHOPEE_TRACKING_ID`: Seu ID de afiliado Shopee.
+        - `AMAZON_TRACKING_ID`: Seu ID de associado Amazon.
+        - `MANYCHAT_WEBHOOK_URL`: URL do seu fluxo no ManyChat.
+        
+        ### 📱 Redes Sociais (Postagem Direta)
+        - `INSTAGRAM_ACCESS_TOKEN`: Token de acesso de longa duração (Graph API).
+        - `INSTAGRAM_BUSINESS_ACCOUNT_ID`: ID da sua conta Business.
+        - `TIKTOK_ACCESS_TOKEN`: Token da Content Posting API do TikTok.
+        - `PINTEREST_ACCESS_TOKEN`: Token do Pinterest Developers.
+        - `PINTEREST_BOARD_ID`: ID da sua pasta no Pinterest.
+        
+        ### 🧠 Inteligência Artificial
+        - `GROQ_API_KEY`: Para o motor de copy ultra-rápido.
+        - `OPENAI_API_KEY`: Para o motor de visão e análise.
+        - `GEMINI_API_KEY`: Para o Google Labs e análise de tendências.
         """)
         st.link_button("🔑 Abrir Painel de Secrets do Streamlit", "https://share.streamlit.io/")
+        st.caption("Dica: Vá em 'Settings' -> 'Secrets' no seu dashboard do Streamlit Cloud.")
     st.caption(f"🔱 Nexus V101 | Rastreio Ativo: 18316451024")
