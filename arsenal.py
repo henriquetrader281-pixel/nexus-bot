@@ -6,9 +6,8 @@ import random
 
 def aplicar_id_afiliado(link, mkt):
     """
-    Processa link do produto e adiciona ID afiliado Shopee (18316451024).
+    Processa link do produto e adiciona ID afiliado dinamicamente (ML ou Shopee).
     """
-    ID_FIXO_SHOPEE = "18316451024"
     if not link or len(str(link)) < 5: 
         return None
     
@@ -16,6 +15,14 @@ def aplicar_id_afiliado(link, mkt):
     raw_url = re.sub(r'[\*\t\r]', '', raw_url)
     raw_url = raw_url.replace(" ", "").strip()
     
+    # --- LÓGICA MERCADO LIVRE ---
+    if mkt == "Mercado Livre":
+        import ml_afiliados_engine
+        tracking_id = st.session_state.get('ml_tracking_id', '18316451024')
+        return ml_afiliados_engine.gerar_link_afiliado_ml(raw_url, tracking_id)
+        
+    # --- LÓGICA SHOPEE (LEGACY/PADRÃO) ---
+    ID_FIXO_SHOPEE = "18316451024"
     if "shopee" not in raw_url.lower():
         if "http" not in raw_url: raw_url = "https://" + raw_url.lstrip(":/")
         return raw_url
@@ -59,7 +66,10 @@ def exibir_arsenal(miny, motor_ia_gemini):
         col1, col2 = st.columns([2, 1])
         with col1:
             st.success(f"📦 **Alvo Ativo:** {nome_puro}")
-            st.caption(f"🔐 Rastreio Shopee: `18316451024` Ativo")
+            if mkt == "Mercado Livre":
+                st.caption(f"🔐 Rastreio ML: `{st.session_state.get('ml_tracking_id', '18316451024')}` Ativo")
+            else:
+                st.caption(f"🔐 Rastreio Shopee: `18316451024` Ativo")
         with col2:
             st.write(f"🔗 [ABRIR NA {mkt.upper()}]({link_rastreado})")
 

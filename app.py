@@ -9,6 +9,7 @@ import update
 import estudio
 import backtest_engine
 import postador
+import ml_afiliados_engine
 
 st.set_page_config(
     page_title="Nexus Master - Ecossistema de Vendas",
@@ -64,6 +65,7 @@ tabs = st.tabs([
     "🌍 RADAR", 
     "🎥 ESTÚDIO", 
     "🚀 CENTRAL DE DISPARO",
+    "🤝 AFILIADOS ML",
     "📊 DASHBOARD"
 ])
 
@@ -110,7 +112,10 @@ with tabs[10]: # ESTÚDIO
 with tabs[11]: # CENTRAL DE DISPARO
     postador.exibir_postador()
 
-with tabs[12]: # DASHBOARD
+with tabs[12]: # AFILIADOS ML
+    ml_afiliados_engine.exibir_config_ml()
+
+with tabs[13]: # DASHBOARD
     update.exibir_dashboard()
     st.divider()
     import self_optimizer
