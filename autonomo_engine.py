@@ -95,9 +95,22 @@ def exibir_aba_autonomo():
                 for r in veg:
                     st.markdown(f"- {r}")
                 
-                st.markdown("#### 🛒 Destino (Sua Vitrine Mercado Livre)")
-                vitrine_base = st.secrets.get("ML_VITRINE_URL", e['link_ml'])
-                st.link_button("🚀 Ver Produto na Minha Vitrine", vitrine_base, use_container_width=True)
-                st.caption(f"Configurado para: {vitrine_base}")
+                # --- BOTÃO DE VITRINE DINÂMICO ---
+                mkt_atual = st.session_state.get('mkt_global', 'Mercado Livre')
+                st.markdown(f"#### 🛒 Destino (Sua Vitrine {mkt_atual})")
+                
+                import ml_afiliados_engine
+                # Tenta pegar a URL da vitrine específica do marketplace
+                key_vitrine = 'ml_vitrine_url' if mkt_atual == "Mercado Livre" else ('shopee_vitrine_url' if mkt_atual == "Shopee" else 'amazon_vitrine_url')
+                vitrine_configurada = st.session_state.get(key_vitrine)
+                
+                if vitrine_configurada:
+                    link_destino = vitrine_configurada
+                else:
+                    # Se não tiver vitrine, gera o link de afiliado direto para o produto
+                    link_destino = ml_afiliados_engine.gerar_link_afiliado_dinamico(e['produto'], mkt_atual)
+                
+                st.link_button(f"🚀 Ver Produto na Minha Vitrine ({mkt_atual})", link_destino, use_container_width=True, type="primary")
+                st.caption(f"Configurado para: {link_destino}")
         else:
             st.info("Clique no botão ao lado para gerar o protocolo estratégico de conversão instantânea.")

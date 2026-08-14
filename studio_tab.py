@@ -22,11 +22,20 @@ def exibir_estudio(miny, motor_ia):
                 img_search_url = f"https://www.google.com/search?q={search_query}+{marketplace}+produto+original&tbm=isch"
                 st.session_state.img_real_url = img_search_url
                 
-                # 2. Geração de Copy e Prompt 4K Ultra Realista
+                # 2. Geração de Copy e Prompt 4K Ultra Realista seguindo o Roteiro Nexus
+                import tts_engine
+                trend = tts_engine.obter_audio_tendencia()
+                
                 prompt_master = f"""
                 Ignore listas. Produto: {produto}. Marketplace: {marketplace}.
+                Trend do Dia: {trend['nome']}.
+                
                 1. Gere legenda AIDA em Português focada em Envio Full e Alta Qualidade.
-                2. Gere um Prompt VISUAL em INGLÊS para o Google Labs (Video Generation). 
+                2. Gere um Prompt VISUAL em INGLÊS para o Google Labs seguindo este Roteiro de 15s:
+                   - 0-3s: Gancho visual rápido (Close no problema).
+                   - 3-10s: Demonstração prática (Produto em ação + Envio Full).
+                   - 10-15s: CTA de escassez (Entrega amanhã).
+                   
                    DEVE incluir: '8k resolution, photorealistic, cinematic lighting, 4k texture, professional product videography, highly detailed'.
                 Separe por '###'
                 """

@@ -1,42 +1,64 @@
 import streamlit as st
 
-def gerar_link_afiliado_ml(url_original, tracking_id=None):
+def gerar_link_afiliado_dinamico(url_original, marketplace, tracking_id=None):
     """
-    Simula a geração de um link de afiliado ou redirecionamento para Vitrine.
-    No Mercado Livre, os links costumam seguir o padrão de tracking ou vitrine personalizada.
+    Gera link de afiliado baseado no marketplace selecionado.
     """
     if not tracking_id:
-        tracking_id = st.secrets.get("ML_TRACKING_ID", "NEXUS_DEFAULT")
+        if marketplace == "Mercado Livre":
+            tracking_id = st.session_state.get('ml_tracking_id', st.secrets.get("ML_TRACKING_ID", "18316451024"))
+        elif marketplace == "Shopee":
+            tracking_id = st.session_state.get('shopee_tracking_id', st.secrets.get("SHOPEE_TRACKING_ID", "18316451024"))
+        else:
+            tracking_id = st.session_state.get('amazon_tracking_id', st.secrets.get("AMAZON_TRACKING_ID", "nexus-20"))
+
+    if marketplace == "Mercado Livre":
+        if "mercadolivre.com.br" in url_original:
+            return f"{url_original}?utm_source=nexus_bot&utm_medium=afiliado&utm_campaign={tracking_id}"
+        search = url_original.replace(" ", "%20")
+        return f"https://lista.mercadolivre.com.br/{search}#D[A:{search},L:undefined,utm_source=nexus_bot,utm_campaign={tracking_id}]"
     
-    # Simulação de link de afiliado (Mercado Livre Afiliados usa redirecionamento ou link direto com tracking)
-    if "mercadolivre.com.br" in url_original:
-        # Exemplo simplificado de link de afiliado
-        link_final = f"{url_original}?utm_source=nexus_bot&utm_medium=afiliado&utm_campaign={tracking_id}"
-    else:
-        # Se for um termo de busca, manda para a vitrine ou busca com tracking
-        search_query = url_original.replace(" ", "%20")
-        link_final = f"https://lista.mercadolivre.com.br/{search_query}#D[A:{search_query},L:undefined,utm_source=nexus_bot,utm_campaign={tracking_id}]"
+    elif marketplace == "Shopee":
+        search = url_original.replace(" ", "%20")
+        return f"https://shopee.com.br/search?keyword={search}&smtt=0.0.{tracking_id}"
     
-    return link_final
+    elif marketplace == "Amazon":
+        search = url_original.replace(" ", "+")
+        return f"https://www.amazon.com.br/s?k={search}&tag={tracking_id}"
+    
+    return url_original
 
 def exibir_config_ml():
-    st.markdown("### 🤝 Integração Mercado Livre Afiliados")
+    st.markdown("### 🤝 Central de Afiliados & Vitrines")
     
-    with st.expander("⚙️ CONFIGURAR MINHA CONTA DE AFILIADO", expanded=True):
-        st.info("Para gerar receita, você precisa estar inscrito no [Programa de Afiliados do Mercado Livre](https://www.mercadolivre.com.br/afiliados).")
+    mkt_config = st.selectbox("Configurar Marketplace:", ["Mercado Livre", "Shopee", "Amazon"])
+    
+    with st.expander(f"⚙️ CONFIGURAR CONTA: {mkt_config.upper()}", expanded=True):
+        if mkt_config == "Mercado Livre":
+            st.info("Inscreva-se no [Programa de Afiliados ML](https://www.mercadolivre.com.br/afiliados).")
+            key_id = 'ml_tracking_id'
+            key_url = 'ml_vitrine_url'
+        elif mkt_config == "Shopee":
+            st.info("Inscreva-se no [Programa de Afiliados Shopee](https://affiliate.shopee.com.br/).")
+            key_id = 'shopee_tracking_id'
+            key_url = 'shopee_vitrine_url'
+        else:
+            st.info("Inscreva-se no [Programa de Associados Amazon](https://associados.amazon.com.br/).")
+            key_id = 'amazon_tracking_id'
+            key_url = 'amazon_vitrine_url'
+
+        tracking_id = st.text_input(f"Seu ID de Rastreamento ({mkt_config}):", 
+                                    value=st.session_state.get(key_id, ''),
+                                    placeholder="Ex: seu_id_01")
         
-        tracking_id = st.text_input("Seu ID de Rastreamento (Tracking ID):", 
-                                    value=st.session_state.get('ml_tracking_id', ''),
-                                    placeholder="Ex: seu_nome_01")
+        vitrine_url = st.text_input(f"URL da sua Vitrine {mkt_config} (Opcional):", 
+                                     value=st.session_state.get(key_url, ''),
+                                     placeholder=f"https://www.{mkt_config.lower().replace(' ', '')}.com.br/vitrine")
         
-        vitrine_url = st.text_input("URL da sua Vitrine Personalizada (Opcional):", 
-                                     value=st.session_state.get('ml_vitrine_url', ''),
-                                     placeholder="https://www.mercadolivre.com.br/social/suavitrine")
-        
-        if st.button("💾 SALVAR CONFIGURAÇÕES DE AFILIADO", use_container_width=True):
-            st.session_state.ml_tracking_id = tracking_id
-            st.session_state.ml_vitrine_url = vitrine_url
-            st.success("✅ Configurações de Afiliado salvas com sucesso! Todos os links agora serão rastreados.")
+        if st.button(f"💾 SALVAR CONFIGURAÇÕES {mkt_config.upper()}", use_container_width=True):
+            st.session_state[key_id] = tracking_id
+            st.session_state[key_url] = vitrine_url
+            st.success(f"✅ Configurações para {mkt_config} salvas!")
             st.balloons()
 
     st.divider()
