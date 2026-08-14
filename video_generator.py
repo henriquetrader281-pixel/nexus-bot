@@ -1,5 +1,8 @@
 import os
-from moviepy import ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips
+try:
+    from moviepy.editor import ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips
+except ImportError:
+    from moviepy import ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips
 import random
 
 def criar_reels_elite(image_urls, audio_path=None, output_path="reels_final.mp4"):
