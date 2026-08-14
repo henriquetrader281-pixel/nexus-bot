@@ -106,3 +106,6 @@ with tabs[10]: # ESTÚDIO
 
 with tabs[11]: # DASHBOARD
     update.exibir_dashboard()
+    st.divider()
+    import self_optimizer
+    self_optimizer.exibir_painel_evolutivo()

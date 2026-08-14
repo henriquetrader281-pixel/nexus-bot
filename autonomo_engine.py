@@ -46,9 +46,14 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     else:
         status_post = "Mídia pronta no Estúdio (Adicione MANYCHAT_WEBHOOK_URL nos Secrets para disparo automático)!"
     
-    # PASSO 5: Conclusão
-    progresso.progress(100, text="💰 [5/5] Funil de Vendas Ativo! Agente em modo de espera.")
-    st.success(f"**SUCESSO ESTRATOSFÉRICO!** O Agente Nexus completou o ciclo: {status_post}")
+    # PASSO 5: Auto-Otimização Pensante (Self-Improving)
+    progresso.progress(95, text="🧠 [5/6] Analisando conversão e auto-otimizando parâmetros da IA...")
+    from self_optimizer import avaliar_e_otimizar
+    feedback_ia = avaliar_e_otimizar(dados['produto'], dados.get('prateleira', '🔥 Virais & Desejo'))
+    
+    progresso.progress(100, text="💰 [6/6] Funil de Vendas Otimizado e Ativo! Agente em modo autônomo.")
+    st.success(f"**SUCESSO ESTRATOSFÉRICO!** {status_post}")
+    st.info(f"🧠 **Relatório de Auto-Melhoria da IA:** {feedback_ia}")
     st.balloons()
     return dados
 
