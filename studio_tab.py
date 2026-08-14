@@ -56,6 +56,12 @@ def exibir_estudio(miny, motor_ia):
         st.caption("Use estas imagens como referência visual ou faça upload no Google Labs para guiar a IA.")
 
         st.divider()
+        
+        # --- NOVO: NARRAÇÃO E VOZ IA ---
+        import tts_engine
+        tts_engine.exibir_painel_voz()
+        
+        st.divider()
 
         # --- INTEGRAÇÃO DO GOOGLE LABS DENTRO DO NEXUS ---
         st.markdown("#### 📺 Gerador de Vídeo (Execução Direta)")

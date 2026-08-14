@@ -8,6 +8,7 @@ import seo_engine
 import update
 import estudio
 import backtest_engine
+import postador
 
 st.set_page_config(
     page_title="Nexus Master - Ecossistema de Vendas",
@@ -62,6 +63,7 @@ tabs = st.tabs([
     "📈 TRENDS", 
     "🌍 RADAR", 
     "🎥 ESTÚDIO", 
+    "🚀 CENTRAL DE DISPARO",
     "📊 DASHBOARD"
 ])
 
@@ -105,7 +107,10 @@ with tabs[10]: # ESTÚDIO
     # estudio.py não usa realmente os parâmetros miny e motor_ia internamente, passamos None como placeholder
     estudio.exibir_estudio(None, None)
 
-with tabs[11]: # DASHBOARD
+with tabs[11]: # CENTRAL DE DISPARO
+    postador.exibir_postador()
+
+with tabs[12]: # DASHBOARD
     update.exibir_dashboard()
     st.divider()
     import self_optimizer
