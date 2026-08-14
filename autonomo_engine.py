@@ -90,7 +90,9 @@ def exibir_aba_autonomo():
                 for r in veg:
                     st.markdown(f"- {r}")
                 
-                st.markdown("#### 🛒 Destino (Vitrine Oficial Mercado Livre)")
-                st.link_button("Aceder à Vitrine com Envio Full", e['link_ml'], use_container_width=True)
+                st.markdown("#### 🛒 Destino (Sua Vitrine Mercado Livre)")
+                vitrine_base = st.secrets.get("ML_VITRINE_URL", e['link_ml'])
+                st.link_button("🚀 Ver Produto na Minha Vitrine", vitrine_base, use_container_width=True)
+                st.caption(f"Configurado para: {vitrine_base}")
         else:
             st.info("Clique no botão ao lado para gerar o protocolo estratégico de conversão instantânea.")

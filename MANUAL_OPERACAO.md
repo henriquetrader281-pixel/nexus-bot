@@ -19,6 +19,7 @@ OPENAI_API_KEY = "sk-proj-sua-chave-openai-aqui"
 GROQ_API_KEY = "gsk_sua-chave-groq-aqui"
 PINTEREST_ACCESS_TOKEN = "puna_seu_token_do_pinterest_aqui"
 ML_AFFILIATE_ID = "ML_BR_12345"
+ML_VITRINE_URL = "https://www.mercadolivre.com.br/sua-vitrine-aqui"
 ```
 
 ---
@@ -56,6 +57,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
           ML_AFFILIATE_ID: ${{ secrets.ML_AFFILIATE_ID }}
+          ML_VITRINE_URL: ${{ secrets.ML_VITRINE_URL }}
         run: |
           python nexus_autonome.py
 ```
