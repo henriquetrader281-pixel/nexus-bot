@@ -69,12 +69,21 @@ def exibir_painel_backtest():
     
     with col1:
         orc = st.slider("Orçamento Diário de Meta Ads (R$):", 15.0, 500.0, 50.0, 10.0)
+        
+        # Sincronização inteligente com o produto ativo
+        sugestao_prat = 0
+        if "nexus_estrat" in st.session_state:
+            prat_ativa = st.session_state.nexus_estrat.get('prateleira', '')
+            if "Tech" in prat_ativa: sugestao_prat = 1
+            elif "Ofertas" in prat_ativa: sugestao_prat = 2
+            elif "Casa" in prat_ativa: sugestao_prat = 3
+
         prat = st.selectbox("Prateleira Alvo da Vitrine:", [
             "🔥 Virais & Desejo",
             "⚡ Tech & Gadgets",
             "🚀 Ofertas Relâmpago (Full)",
             "🏠 Utilidades & Casa"
-        ])
+        ], index=sugestao_prat)
         
     with col2:
         st.markdown("### ⚙️ Parâmetros de Simulação")

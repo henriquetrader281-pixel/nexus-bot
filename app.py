@@ -94,8 +94,35 @@ with tabs[5]:
 
 with tabs[6]: # SCANNER
     st.subheader("🔍 Scanner de Oportunidades Brutas")
-    if st.button("🚀 INICIAR VARREDURA", use_container_width=True, key="btn_start_scan"):
-        st.success("Varredura concluída! Utilize a aba Agente para gerar o protocolo estratégico completo.")
+    st.markdown("Varredura profunda nos marketplaces para identificar produtos com alta demanda e baixa concorrência.")
+    
+    c_scan1, c_scan2 = st.columns([1, 1])
+    with c_scan1:
+        nicho_scan = st.text_input("Nicho para Varredura:", value="Cozinha Inteligente")
+    with c_scan2:
+        mkt_scan = st.selectbox("Marketplace Alvo:", ["Mercado Livre", "Shopee", "Amazon"], key="mkt_scan_select")
+
+    if st.button("🚀 INICIAR VARREDURA PROFUNDA", use_container_width=True, key="btn_start_scan"):
+        with st.spinner(f"Escaneando {mkt_scan} para o nicho {nicho_scan}..."):
+            prompt_scan = f"Liste 5 produtos virais e promissores de {nicho_scan} no {mkt_scan} com alto potencial de venda."
+            res_scan = mineracao.minerar_produtos(prompt_scan, mkt_scan, None)
+            st.session_state.scan_results = res_scan
+            st.success("Varredura concluída!")
+
+    if "scan_results" in st.session_state:
+        st.divider()
+        st.markdown("#### 📦 Produtos Detectados:")
+        linhas = st.session_state.scan_results.split('\n')
+        for linha in linhas:
+            if "|" in linha:
+                with st.container(border=True):
+                    st.write(linha)
+                    nome_prod = linha.split('|')[0].replace("NOME:", "").strip()
+                    if st.button(f"🎯 ATIVAR {nome_prod.upper()}", key=f"act_{nome_prod}"):
+                        st.session_state.sel_nome = nome_prod
+                        st.session_state.sel_dor = f"Produto detectado no Scanner: {nicho_scan}"
+                        st.success(f"'{nome_prod}' ativado! Vá à aba Agente ou Arsenal.")
+                        st.rerun()
 
 with tabs[7]: # ARSENAL
     # Inicializa motor_ia como None ou mock se necessário
