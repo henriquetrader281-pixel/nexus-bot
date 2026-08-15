@@ -14,7 +14,7 @@ import arsenal
 import trends
 import radar_engine
 import mineracao
-import google_generativeai as genai # Placeholder para motor_ia
+import google.generativeai as genai # Placeholder para motor_ia
 
 st.set_page_config(
     page_title="Nexus Master - Ecossistema de Vendas",
