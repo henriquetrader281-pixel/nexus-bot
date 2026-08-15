@@ -9,3 +9,5 @@ proglog
 imageio==2.25.1
 google-generativeai
 python-dotenv
+pytrends
+gTTS
