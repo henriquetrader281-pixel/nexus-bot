@@ -28,16 +28,20 @@ def postar_instagram_reels(video_url, caption):
         if not container_id:
             return {"success": False, "error": res.text}
             
-        # 2. Publicação (Simplificado: na vida real precisa esperar o vídeo processar)
+        # 2. Publicação Real
         url_publish = f"https://graph.facebook.com/v19.0/{business_account_id}/media_publish"
         publish_payload = {
             "creation_id": container_id,
             "access_token": access_token
         }
         
-        # Nota: O Instagram exige que o vídeo esteja em uma URL pública acessível.
-        # Em produção, o Nexus usaria o S3 ou link temporário.
-        return {"success": True, "data": "Vídeo enviado para processamento no Instagram!"}
+        # Faz o disparo final da publicação
+        publish_res = requests.post(url_publish, data=publish_payload)
+        
+        if publish_res.status_code == 200:
+            return {"success": True, "data": "🚀 REELS PUBLICADO COM SUCESSO NO INSTAGRAM!"}
+        else:
+            return {"success": False, "error": f"Erro na publicação: {publish_res.text}"}
         
     except Exception as e:
         return {"success": False, "error": str(e)}

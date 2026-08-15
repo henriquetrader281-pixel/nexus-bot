@@ -1,51 +1,63 @@
 import streamlit as st
+from gtts import gTTS
+import os
 import random
 
-def gerar_narração_ia(texto_roteiro, estilo="Motivacional"):
+def gerar_narração_ia(texto_roteiro, estilo="Normal"):
     """
-    Simula a geração de narração de voz IA (ElevenLabs/Google TTS style)
+    Gera narração de voz real usando gTTS.
     """
-    vozes = ["Felipe (Grave/Vendas)", "Julia (Entusiasta)", "Ricardo (Narrador Doc)", "Sofia (Suave/Zen)"]
-    voz_escolhida = random.choice(vozes)
-    
-    # Simulação de processamento
-    return {
-        "voz": voz_escolhida,
-        "estilo": estilo,
-        "status": "Áudio Gerado com Sucesso",
-        "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Placeholder de áudio
-    }
+    try:
+        if not texto_roteiro:
+            texto_roteiro = "Confira este produto incrível no link da bio!"
+            
+        # Limpa o texto de tags e lixo
+        texto_limpo = texto_roteiro.split('###')[0].strip()
+        
+        # Gera o áudio
+        tts = gTTS(text=texto_limpo, lang='pt', tld='com.br')
+        output_path = "narração_nexus.mp3"
+        tts.save(output_path)
+        
+        return {
+            "voz": "Google AI (Brasil)",
+            "estilo": estilo,
+            "status": "Áudio Real Gerado",
+            "audio_path": output_path
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 def obter_audio_tendencia():
-    """
-    Retorna áudios que estão em alta no Instagram/TikTok
-    """
     trends = [
         {"nome": "Luxury Aesthetic (Trending)", "bpm": 128, "uso": "High Retention"},
         {"nome": "Phonk Viral 2026", "bpm": 140, "uso": "Dynamic Cuts"},
-        {"nome": "Lo-Fi Study Beats", "bpm": 90, "uso": "Product Review"},
-        {"nome": "Fast & Furious Remix", "bpm": 135, "uso": "Flash Sales"}
+        {"nome": "Lo-Fi Study Beats", "bpm": 90, "uso": "Product Review"}
     ]
     return random.choice(trends)
 
 def exibir_painel_voz():
-    st.markdown("#### 🎙️ Narração IA & Áudio Viral")
+    st.markdown("#### 🎙️ Narração IA Real & Áudio Viral")
     
     c1, c2 = st.columns(2)
     
     with c1:
-        voz = st.selectbox("Escolha a Voz da IA:", ["Felipe (Vendas)", "Julia (Desejo)", "Ricardo (Autoridade)", "Sofia (Suave)"])
-        estilo = st.select_slider("Estilo da Narração:", options=["Calmo", "Normal", "Energético", "Agressivo"])
+        voz = st.selectbox("Motor de Voz:", ["Google AI (Brasil)", "ElevenLabs (Requer API)"])
+        estilo = st.select_slider("Energia da Voz:", options=["Calmo", "Normal", "Energético"])
         
     with c2:
         trend = obter_audio_tendencia()
-        st.success(f"🎵 **Trend Detectada:** {trend['nome']}")
-        st.caption(f"Recomendado para: {trend['uso']} | BPM: {trend['bpm']}")
+        st.success(f"🎵 **Trend:** {trend['nome']}")
+        st.caption(f"BPM: {trend['bpm']} | Ideal para: {trend['uso']}")
         
-    if st.button("🔊 GERAR NARRAÇÃO & SINCRONIZAR TREND", use_container_width=True):
-        with st.spinner("Sincronizando áudio viral com narração IA..."):
-            roteiro = st.session_state.get('micao_nexus', [""])[0]
+    if st.button("🔊 GERAR NARRAÇÃO REAL", use_container_width=True):
+        with st.spinner("Sintetizando voz humana..."):
+            roteiro = st.session_state.get('copy_ativa', "Garanta já o seu com envio full!")
             resultado = gerar_narração_ia(roteiro, estilo)
-            st.session_state.audio_pronto = resultado
-            st.audio(resultado['audio_url'])
-            st.toast("Áudio e Narração prontos para o vídeo!")
+            
+            if "audio_path" in resultado:
+                st.session_state.audio_pronto = resultado
+                st.audio(resultado['audio_path'])
+                st.success("✅ Áudio gerado e pronto para o vídeo!")
+            else:
+                st.error(f"Erro na geração: {resultado.get('error')}")
