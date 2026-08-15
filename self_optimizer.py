@@ -44,6 +44,12 @@ def avaliar_e_otimizar(produto_atual, prateleira_atual):
     else:
         feedback += " Ajuste automático: Copy enxuta otimizada para conversão direta por impulso no Meta Ads."
         
+    # Define a melhor prateleira com base no sucesso do ciclo
+    if "Virais" in prateleira_atual:
+        memoria["melhor_prateleira"] = "🔥 Virais & Desejo"
+    elif "Tech" in prateleira_atual:
+        memoria["melhor_prateleira"] = "⚡ Tech & Inovação"
+        
     memoria["ajustes_realizados"].append(feedback)
     guardar_memoria_agente(memoria)
     return feedback

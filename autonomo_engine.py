@@ -104,11 +104,22 @@ def exibir_aba_autonomo():
         st.markdown("### ⚙️ Operação de Fricção Zero")
         st.info("💡 **Foco Total no Mercado Livre (Vitrines):** Sem burocracia, com apelo de Envio Full e campanhas diretas de Meta Ads.")
         
-        if st.button("🚀 GERAR PROTOCOLO ESTRATÉGICO (1 CLIQUE)", type="primary", use_container_width=True):
-            dados_base = obter_produto_real_validado("gemini")
-            estrat = analisar_produto_estrategista(dados_base['produto'])
-            st.session_state.nexus_estrat = {**dados_base, **estrat}
-            st.success("Protocolo Estrategista gerado com sucesso!")
+        # --- NOVO: INTERRUPTOR DE AUTONOMIA TOTAL ---
+        st.divider()
+        st.markdown("#### 🧠 Cérebro Artificial")
+        auto_mode = st.toggle("MODO AUTÓNOMO: APRENDER & REPLICAR", value=st.session_state.get('nexus_auto_mode', False), help="Quando ativo, o robô usa a memória evolutiva para escolher o melhor produto e postar sozinho.")
+        st.session_state.nexus_auto_mode = auto_mode
+        
+        if auto_mode:
+            st.warning("🤖 O Agente está em modo PENSANTE. Ele irá replicar as estratégias de maior ROI automaticamente.")
+            if st.button("⚡ INICIAR CICLO EVOLUTIVO AGORA", type="primary", use_container_width=True):
+                executar_ciclo_mestre_um_clique()
+        else:
+            if st.button("🚀 GERAR PROTOCOLO ESTRATÉGICO (1 CLIQUE)", type="primary", use_container_width=True):
+                dados_base = obter_produto_real_validado("gemini")
+                estrat = analisar_produto_estrategista(dados_base['produto'])
+                st.session_state.nexus_estrat = {**dados_base, **estrat}
+                st.success("Protocolo Estrategista gerado com sucesso!")
 
     with col1:
         if "nexus_estrat" in st.session_state:
