@@ -3,13 +3,14 @@ import streamlit as st
 def exibir_postador(miny=None, motor_ia=None):
     st.markdown("### 🛰️ Central de Disparo Nexus: Meta Suite")
     
-    # 🔗 Recupera os dados do Arsenal e Estúdio
-    copy_final = st.session_state.get('copy_final_pronta', '')
-    link_blindado = st.session_state.get('link_final_afiliado', '')
-    video_gerado = st.session_state.get('video_path_local', None)
+    # 🔗 Recupera os dados do Agente, Arsenal e Estúdio
+    # Tenta pegar a copy final, se não houver, tenta a copy ativa do agente
+    copy_final = st.session_state.get('copy_final_pronta', st.session_state.get('copy_ativa', ''))
+    link_blindado = st.session_state.get('link_final_afiliado', st.session_state.get('sel_link', ''))
+    video_gerado = st.session_state.get('video_path_local', st.session_state.get('nexus_video_demo', None))
 
     if not copy_final:
-        st.warning("⚠️ O Arsenal está vazio! Gere a copy antes de postar.")
+        st.warning("⚠️ O Arsenal e o Agente estão vazios! Execute o Agente de 1-Clique ou gere uma copy no Arsenal antes de postar.")
         return
 
     # --- ÁREA DE CONFERÊNCIA ---

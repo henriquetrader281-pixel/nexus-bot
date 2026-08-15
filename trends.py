@@ -23,8 +23,15 @@ def exibir_trends():
         ])
         
         if st.button("🚀 INJETAR TREND NO MOTOR AUTÓNOMO & SNIPER", type="primary", use_container_width=True):
-            st.session_state.sel_nome = termo_escolhido.replace("como acabar com ", "").replace("vale a pena 2026", "").strip().title()
+            nome_limpo = termo_escolhido.replace("como acabar com ", "").replace("vale a pena 2026", "").strip().title()
+            st.session_state.sel_nome = nome_limpo
             st.session_state.sel_dor = f"Busca ativa no Google Trends por: {termo_escolhido}"
+            
+            # Gera link de busca automático para o marketplace selecionado
+            import ml_afiliados_engine
+            mkt = st.session_state.get('mkt_global', 'Mercado Livre')
+            st.session_state.sel_link = ml_afiliados_engine.gerar_link_afiliado_dinamico(nome_limpo, mkt)
+            
             st.success(f"Termo '{termo_escolhido}' injetado com sucesso! Vá à aba Motor Autônomo ou Sniper de Leads.")
 
     with col2:

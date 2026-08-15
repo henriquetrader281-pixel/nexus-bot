@@ -28,6 +28,12 @@ def exibir_espionagem_global():
                     if st.button("🚀 IMPORTAR PARA O NEXUS", key=f"imp_{t['produto']}"):
                         st.session_state.sel_nome = t['produto']
                         st.session_state.sel_dor = t['angulo']
+                        
+                        # Gera link de busca automático
+                        import ml_afiliados_engine
+                        mkt = st.session_state.get('mkt_global', 'Mercado Livre')
+                        st.session_state.sel_link = ml_afiliados_engine.gerar_link_afiliado_dinamico(t['produto'], mkt)
+                        
                         st.success(f"'{t['produto']}' importado com sucesso! Vá à aba Autônomo ou Sniper.")
         else:
             st.info("Clique no botão ao lado para varrer as tendências globais.")

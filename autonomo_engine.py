@@ -31,8 +31,18 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.session_state.nexus_dados_reais = dados
     st.session_state.sel_nome = dados['produto']
     st.session_state.sel_dor = dados['dificuldade']
+    st.session_state.sel_link = dados['link_ml']
     st.session_state.nexus_media_url = dados['imagem']
     st.session_state.nexus_media_ready = True
+    
+    # Sincronização com Arsenal, Estúdio e Central de Disparo
+    st.session_state.copy_ativa = dados['copy']
+    st.session_state.copy_final_pronta = dados['copy']
+    
+    import ml_afiliados_engine
+    mkt_atual = st.session_state.get('mkt_global', 'Mercado Livre')
+    link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(dados['link_ml'], mkt_atual)
+    st.session_state.link_final_afiliado = link_rastreado
     
     # PASSO 2: Registro
     progresso.progress(40, text="📊 [2/5] Registrando oportunidade no Dashboard de Ganhos...")
@@ -46,6 +56,7 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     # Simula renderização com selo Envio Full
     res_visual = aplicar_camada_visual_elite("reels_final.mp4", dados['produto'])
     st.session_state.nexus_video_demo = dados.get('video_demo')
+    st.session_state.video_path_local = "reels_final.mp4" # Referência para download
     st.session_state.video_renderizado = True
     
     # PASSO 4: Disparo Full Auto (ManyChat + Pinterest API)
