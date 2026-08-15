@@ -27,7 +27,10 @@ def postar_pinterest(access_token, board_id, title, description, link, image_url
     try:
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code == 201:
-            return {"success": True, "data": response.json()}
+            data = response.json()
+            # Retorna o link direto do Pin para o Hermes
+            pin_id = data.get('id')
+            return {"success": True, "data": data, "url": f"https://www.pinterest.com/pin/{pin_id}/"}
         else:
             return {"success": False, "error": response.text}
     except Exception as e:

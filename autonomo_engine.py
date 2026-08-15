@@ -96,11 +96,24 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     feedback_ia = avaliar_e_otimizar(dados['produto'], dados.get('prateleira', '🔥 Virais & Desejo'))
     
     progresso.progress(100, text="💰 [6/6] Funil de Vendas Otimizado e Ativo! Agente em modo autônomo.")
-    st.success(f"**SUCESSO ESTRATOSFÉRICO!** {status_post}")
+    st.success(f"**SUCESSO ESTRATOSFÉRICO!**")
     st.info(f"🧠 **Relatório de Auto-Melhoria da IA:** {feedback_ia}")
+    
+    # --- NOVO: AGENTE HERMES SUPERVISOR ---
+    import hermes_engine
+    hermes_engine.supervisionar_entrega(
+        dados['produto'], 
+        link_rastreado, 
+        res_pin if 'res_pin' in locals() else {"success": False, "error": "Token não configurado"},
+        res_ig if 'res_ig' in locals() else {"success": False, "error": "Token não configurado"},
+        res_mc if 'res_mc' in locals() else {"success": False, "error": "Webhook não configurado"}
+    )
+    
     st.balloons()
-    time.sleep(2)
-    st.rerun()
+    # Removemos o st.rerun imediato para o usuário conseguir ler o relatório do Hermes
+    if st.button("🔄 INICIAR NOVO CICLO"):
+        st.rerun()
+        
     return dados
 
 def exibir_aba_autonomo():
