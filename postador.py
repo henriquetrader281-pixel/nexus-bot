@@ -79,6 +79,25 @@ def exibir_postador(miny=None, motor_ia=None):
     
     # --- CONFIGURAÇÃO DE REDES & AFILIADOS ---
     with st.expander("⚙️ GUIA DE CONFIGURAÇÃO: SECRETS (API KEYS)", expanded=False):
+        st.markdown("#### 🔍 Auxiliar: Encontrar ID da Pasta Pinterest")
+        if st.button("📋 LISTAR MINHAS PASTAS E IDs", use_container_width=True):
+            token_temp = st.secrets.get("PINTEREST_ACCESS_TOKEN")
+            if token_temp:
+                import pinterest_engine
+                res_boards = pinterest_engine.listar_pastas_pinterest(token_temp)
+                if res_boards['success']:
+                    if not res_boards['items']:
+                        st.warning("Nenhuma pasta encontrada. Crie uma pasta no Pinterest primeiro.")
+                    else:
+                        st.info("Copie o número (ID) da pasta desejada:")
+                        for b in res_boards['items']:
+                            st.code(f"Nome: {b['name']} | ID: {b['id']}", language="text")
+                else:
+                    st.error(f"Erro ao listar: {res_boards['error']}")
+            else:
+                st.warning("⚠️ Insira primeiro o PINTEREST_ACCESS_TOKEN nos Secrets.")
+        
+        st.divider()
         st.markdown("""
         Para o Nexus rodar 100% automático, você deve adicionar estas chaves nos **Secrets** do Streamlit Cloud:
         
