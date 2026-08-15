@@ -19,7 +19,7 @@ def aplicar_id_afiliado(link, mkt):
     if mkt == "Mercado Livre":
         import ml_afiliados_engine
         tracking_id = st.session_state.get('ml_tracking_id', '18316451024')
-        return ml_afiliados_engine.gerar_link_afiliado_ml(raw_url, tracking_id)
+        return ml_afiliados_engine.gerar_link_afiliado_dinamico(raw_url, mkt, tracking_id)
         
     # --- LÓGICA SHOPEE (LEGACY/PADRÃO) ---
     ID_FIXO_SHOPEE = "18316451024"

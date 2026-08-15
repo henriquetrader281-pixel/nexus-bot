@@ -38,11 +38,15 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     # Sincronização com Arsenal, Estúdio e Central de Disparo
     st.session_state.copy_ativa = dados['copy']
     st.session_state.copy_final_pronta = dados['copy']
+    st.session_state.res_arsenal = [dados['copy']] # Para a aba Arsenal não aparecer vazia
     
     import ml_afiliados_engine
     mkt_atual = st.session_state.get('mkt_global', 'Mercado Livre')
     link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(dados['link_ml'], mkt_atual)
     st.session_state.link_final_afiliado = link_rastreado
+    
+    # Sincronização específica para o Estúdio (Prompt 4K)
+    st.session_state.micao_nexus = [dados['copy'], f"Cinematic 4k video of {dados['produto']}, hyper-realistic product showcase."]
     
     # PASSO 2: Registro
     progresso.progress(40, text="📊 [2/5] Registrando oportunidade no Dashboard de Ganhos...")
@@ -90,6 +94,8 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.success(f"**SUCESSO ESTRATOSFÉRICO!** {status_post}")
     st.info(f"🧠 **Relatório de Auto-Melhoria da IA:** {feedback_ia}")
     st.balloons()
+    time.sleep(2)
+    st.rerun()
     return dados
 
 def exibir_aba_autonomo():

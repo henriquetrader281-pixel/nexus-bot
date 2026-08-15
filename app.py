@@ -6,10 +6,15 @@ import global_engine
 import scheduler_engine
 import seo_engine
 import update
-import estudio
+import studio_tab
 import backtest_engine
 import postador
 import ml_afiliados_engine
+import arsenal
+import trends
+import radar_engine
+import mineracao
+import google_generativeai as genai # Placeholder para motor_ia
 
 st.set_page_config(
     page_title="Nexus Master - Ecossistema de Vendas",
@@ -93,21 +98,17 @@ with tabs[6]: # SCANNER
         st.success("Varredura concluída! Utilize a aba Agente para gerar o protocolo estratégico completo.")
 
 with tabs[7]: # ARSENAL
-    st.subheader("🚀 Arsenal de Copywriting & Gatilhos")
-    st.markdown("Biblioteca de templates de alta conversão para o ecossistema Mercado Livre.")
+    # Inicializa motor_ia como None ou mock se necessário
+    arsenal.exibir_arsenal(mineracao, None)
 
 with tabs[8]: # TRENDS
-    st.subheader("📈 Google Trends & Termos Quentes")
-    st.markdown("Monitorização em tempo real das tendências de busca do Brasil.")
+    trends.exibir_trends()
 
 with tabs[9]: # RADAR
-    st.subheader("🌍 Radar Internacional")
-    st.markdown("Insights de produtos validados na gringa prontos para adaptação.")
+    radar_engine.exibir_radar()
 
 with tabs[10]: # ESTÚDIO
-    st.subheader("🎥 Estúdio de Criativos & Vídeos Virais")
-    # estudio.py não usa realmente os parâmetros miny e motor_ia internamente, passamos None como placeholder
-    estudio.exibir_estudio(None, None)
+    studio_tab.exibir_estudio(mineracao, None)
 
 with tabs[11]: # CENTRAL DE DISPARO
     postador.exibir_postador()
