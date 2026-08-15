@@ -16,10 +16,18 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     """
     progresso = st.progress(0, text="Iniciando Agente Autónomo Nexus...")
     
-    # PASSO 1: Mineração
-    progresso.progress(20, text="🧠 [1/5] Minerando dor e produto real em marketplaces...")
+    # PASSO 1: Mineração e Validação de Stock (Anti-Erro)
+    progresso.progress(15, text="🧠 [1/6] Minerando produto real e validando stock...")
     time.sleep(1)
     dados = obter_produto_real_validado(provedor)
+    
+    # Validação de stock
+    from stock_validator import validar_link_e_stock
+    val_stock = validar_link_e_stock(dados['link_ml'])
+    if not val_stock['valido']:
+        # Se esgotado, força outro
+        dados = obter_produto_real_validado(provedor)
+        
     st.session_state.nexus_dados_reais = dados
     st.session_state.sel_nome = dados['produto']
     st.session_state.sel_dor = dados['dificuldade']
@@ -30,9 +38,13 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     progresso.progress(40, text="📊 [2/5] Registrando oportunidade no Dashboard de Ganhos...")
     update.registrar_mineracao(dados['produto'], dados['link_ml'], 99)
     
-    # PASSO 3: Mídia e Vídeo Original do Marketplace
-    progresso.progress(60, text=f"🎥 [3/5] Coletando vídeo original da {dados.get('marketplace', 'Shopee')} e aplicando cortes e trilha...")
-    time.sleep(1.5)
+    # PASSO 3: Camada Visual e Vídeo Hype
+    progresso.progress(50, text=f"🎥 [3/6] Coletando vídeo original da {dados.get('marketplace', 'Mercado Livre')}...")
+    time.sleep(1)
+    
+    from visual_layer_engine import aplicar_camada_visual_elite
+    # Simula renderização com selo Envio Full
+    res_visual = aplicar_camada_visual_elite("reels_final.mp4", dados['produto'])
     st.session_state.nexus_video_demo = dados.get('video_demo')
     st.session_state.video_renderizado = True
     
