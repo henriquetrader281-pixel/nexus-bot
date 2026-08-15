@@ -16,6 +16,11 @@ def carregar_memoria_agente():
         "versao_modelo": "2.5-Evolutiva",
         "ciclos_executados": 0,
         "melhor_prateleira": "🔥 Virais & Desejo",
+        "parametros_otimizacao": {
+            "intensidade_gancho": "Normal",
+            "foco_conversao": "Curiosidade",
+            "estilo_copy": "AIDA Padrão"
+        },
         "ajustes_realizados": [
             "Foco exclusivo em Envio Full do Mercado Livre para zerar fricção.",
             "Inclusão de ganchos de curiosidade extrema (The Hook)."
@@ -27,6 +32,12 @@ def guardar_memoria_agente(memoria):
     with open(LOG_OTIMIZACAO, "w", encoding="utf-8") as f:
         json.dump(memoria, f, ensure_ascii=False, indent=4)
 
+def obter_instrucao_estrategica():
+    """Retorna as instruções de otimização para injetar no prompt da IA."""
+    memoria = carregar_memoria_agente()
+    p = memoria.get("parametros_otimizacao", {})
+    return f" [OTIMIZAÇÃO NEXUS: Gancho {p.get('intensidade_gancho')}, Foco em {p.get('foco_conversao')}, Estilo {p.get('estilo_copy')}]"
+
 def avaliar_e_otimizar(produto_atual, prateleira_atual):
     """
     Função pensante: O agente avalia a operação anterior e auto-aplica melhorias na estratégia.
@@ -34,23 +45,25 @@ def avaliar_e_otimizar(produto_atual, prateleira_atual):
     memoria = carregar_memoria_agente()
     memoria["ciclos_executados"] += 1
     
-    # Lógica de auto-melhoria adaptativa
-    feedback = f"Ciclo #{memoria['ciclos_executados']}: Produto '{produto_atual}' validado na prateleira '{prateleira_atual}'."
-    
+    # Lógica de mutação de parâmetros
     if "Virais" in prateleira_atual:
-        feedback += " Ajuste automático: O gancho visual foi intensificado com base na alta taxa de clique registrada."
+        memoria["parametros_otimizacao"] = {
+            "intensidade_gancho": "EXTREMA",
+            "foco_conversao": "Desejo Imediato",
+            "estilo_copy": "Agressivo/Viral"
+        }
+        feedback = "IA aprendeu: Produtos virais exigem ganchos extremos. Parâmetros atualizados."
     elif "Tech" in prateleira_atual:
-        feedback += " Ajuste automático: Ênfase reforçada nas especificações técnicas e na velocidade do Envio Full."
+        memoria["parametros_otimizacao"] = {
+            "intensidade_gancho": "Autoridade",
+            "foco_conversao": "Especificação Técnica",
+            "estilo_copy": "Prático/Direto"
+        }
+        feedback = "IA aprendeu: Nicho Tech exige autoridade e clareza técnica. Parâmetros atualizados."
     else:
-        feedback += " Ajuste automático: Copy enxuta otimizada para conversão direta por impulso no Meta Ads."
+        feedback = "IA validou estratégia atual. Mantendo parâmetros de conversão estáveis."
         
-    # Define a melhor prateleira com base no sucesso do ciclo
-    if "Virais" in prateleira_atual:
-        memoria["melhor_prateleira"] = "🔥 Virais & Desejo"
-    elif "Tech" in prateleira_atual:
-        memoria["melhor_prateleira"] = "⚡ Tech & Inovação"
-        
-    memoria["ajustes_realizados"].append(feedback)
+    memoria["ajustes_realizados"].append(f"Ciclo #{memoria['ciclos_executados']}: {feedback}")
     guardar_memoria_agente(memoria)
     return feedback
 

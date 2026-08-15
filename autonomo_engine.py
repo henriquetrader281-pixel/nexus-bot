@@ -65,8 +65,13 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     
     # PASSO 4: Disparo Full Auto (ManyChat + Pinterest API)
     progresso.progress(80, text="🚀 [4/5] Executando Disparo Full Auto (ManyChat + Redes Sociais)...")
+    # Aplica otimização evolutiva na copy
+    from self_optimizer import obter_instrucao_estrategica
+    instrucao_ia = obter_instrucao_estrategica()
+    copy_otimizada = dados['copy'] + f"\n\n(Auto-Otimizado: {instrucao_ia})"
+    
     from manychat_engine import disparar_webhook_manychat
-    res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], dados['copy'])
+    res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], copy_otimizada)
     
     # Tentativa de Postagem Automática no Pinterest se token existir
     token_pin = st.secrets.get("PINTEREST_ACCESS_TOKEN")
