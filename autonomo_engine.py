@@ -99,8 +99,13 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.success(f"**SUCESSO ESTRATOSFÉRICO!**")
     st.info(f"🧠 **Relatório de Auto-Melhoria da IA:** {feedback_ia}")
     
-    # --- NOVO: AGENTE HERMES SUPERVISOR ---
+    # --- NOVO: AGENTE HERMES PROGRAMADOR DE ELITE ---
     import hermes_engine
+    
+    # Hermes faz o diagnóstico antes de finalizar
+    hermes_engine.hermes_elite_programmer("diagnostico")
+    
+    # Hermes supervisiona a entrega e amarra as pontas
     hermes_engine.supervisionar_entrega(
         dados['produto'], 
         link_rastreado, 
