@@ -3,6 +3,7 @@ import nexus_copy as nxcopy
 import urllib.parse
 import re
 import random
+import campaign_state
 
 def aplicar_id_afiliado(link, mkt):
     """
@@ -52,13 +53,14 @@ def exibir_arsenal(miny, motor_ia_gemini):
         </div>
     """, unsafe_allow_html=True)
     
-    sel_nome = st.session_state.get("sel_nome")
+    campaign = campaign_state.get_campaign()
+    sel_nome = campaign.get("product_name")
     if not sel_nome or sel_nome == "Produto Detectado":
         st.warning("⚠️ Selecione um produto válido no Scanner primeiro.")
         return
 
-    mkt = st.session_state.get('mkt_global', 'Shopee')
-    link_original = st.session_state.get("sel_link", "")
+    mkt = campaign.get('marketplace') or st.session_state.get('mkt_global', 'Mercado Livre')
+    link_original = campaign.get("official_affiliate_url") or campaign.get("affiliate_url") or ""
     nome_puro = sel_nome.replace("*", "").strip()
     link_rastreado = aplicar_id_afiliado(link_original, mkt)
     
@@ -80,19 +82,39 @@ def exibir_arsenal(miny, motor_ia_gemini):
         with st.spinner("🔱 Nexus moldando munição de elite..."):
             prompt = nxcopy.gerar_prompt_aida(nome_puro, estilo=estilo)
             try:
-                if hasattr(motor_ia_gemini, 'chat'): # Groq
+                if hasattr(motor_ia_gemini, 'chat'):  # Cliente Groq/OpenAI
                     chat_completion = motor_ia_gemini.chat.completions.create(
                         messages=[{"role": "user", "content": prompt}],
                         model="llama-3.3-70b-versatile",
                     )
                     texto_gerado = chat_completion.choices[0].message.content
-                else: # Gemini
+                elif hasattr(motor_ia_gemini, 'generate_content'):  # Cliente Gemini
                     response = motor_ia_gemini.generate_content(prompt)
                     texto_gerado = response.text
+                else:
+                    # O app passa None de propósito; neste caso usa o cliente
+                    # Groq configurado no Secret, sem depender de um objeto global.
+                    import os
+                    from groq import Groq
+                    api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+                    if api_key:
+                        response = Groq(api_key=api_key).chat.completions.create(
+                            messages=[{"role": "user", "content": prompt}],
+                            model="llama-3.3-70b-versatile",
+                            temperature=0.8,
+                        )
+                        texto_gerado = response.choices[0].message.content
+                    else:
+                        pain = campaign.get("pain") or "o problema que você quer resolver"
+                        texto_gerado = (
+                            f"Você ainda sofre com {pain}?\n\n"
+                            f"O {nome_puro} foi escolhido para simplificar esta rotina sem complicação.\n\n"
+                            "Veja os detalhes da oferta oficial e comente EU QUERO para receber o link."
+                        )
 
                 if texto_gerado:
                     st.session_state.res_arsenal = [texto_gerado]
-                    st.rerun()
+                    campaign_state.set_campaign(copy=texto_gerado, source="arsenal")
             except Exception as e:
                 st.error(f"Erro na geração: {e}")
 
@@ -119,7 +141,7 @@ def exibir_arsenal(miny, motor_ia_gemini):
                 st.write(texto_limpo)
                 
                 if st.button(cta_final, key=f"btn_env_{i}", use_container_width=True, type="primary"):
-                    st.session_state.copy_ativa = f"{texto_limpo}\n\n🛒 LINK: {link_rastreado}"
-                    st.session_state.link_final_afiliado = link_rastreado
+                    copy_final = f"{texto_limpo}\n\n🛒 LINK: {link_rastreado}"
+                    campaign_state.set_campaign(copy=copy_final, copy_final=copy_final, affiliate_url=link_rastreado, source="arsenal")
                     st.balloons()
                     st.toast(f"🔥 Munição V{i+1} detonada e enviada ao Estúdio!")

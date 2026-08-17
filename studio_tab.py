@@ -1,97 +1,115 @@
+from __future__ import annotations
+
+from pathlib import Path
+
 import streamlit as st
 
-def exibir_estudio(miny, motor_ia):
-    st.markdown("### 🎬 Estúdio Automatizado Nexus | Google Labs 🔱")
-    
-    if "sel_nome" not in st.session_state:
-        st.warning("⚠️ Selecione um produto no Scanner primeiro.")
+import campaign_state
+from media_pipeline import generate_campaign_media
+
+
+GOOGLE_LABS_URL = "https://labs.google/fx/pt/tools/flow/project/b7c52242-fa5a-4370-9975-61cc86da1483"
+
+
+def _make_prompt(campaign: dict) -> str:
+    product = campaign.get("product_name", "produto selecionado")
+    marketplace = campaign.get("marketplace", "Mercado Livre")
+    trend = (campaign.get("trends") or ["conteúdo de demonstração"])[0]
+    return (
+        f"Commercial product video for {product}, sold through {marketplace}. "
+        f"Use the real product reference image. Trend angle: {trend}. "
+        "0-3s: show the pain immediately; 3-10s: demonstrate the product in use; "
+        "10-15s: show a clear official-offer CTA. Photorealistic, vertical 9:16, "
+        "4K texture, cinematic lighting, clean product details, no invented product features."
+    )
+
+
+def _render_saved_media(campaign: dict) -> None:
+    image_path = campaign.get("image_path")
+    video_path = campaign.get("video_path")
+    col_image, col_video = st.columns(2)
+    with col_image:
+        st.markdown("#### Imagem A · Controle")
+        if image_path and Path(str(image_path)).is_file():
+            st.image(str(image_path), use_container_width=True)
+            with open(str(image_path), "rb") as file:
+                st.download_button("Baixar Imagem A", file, file_name=Path(str(image_path)).name, mime="image/jpeg")
+        else:
+            st.info("A Imagem A ainda não foi gerada.")
+    with col_video:
+        st.markdown("#### Vídeo B · Teste de retenção")
+        if video_path and Path(str(video_path)).is_file():
+            st.video(str(video_path))
+            with open(str(video_path), "rb") as file:
+                st.download_button("Baixar Vídeo B", file, file_name=Path(str(video_path)).name, mime="video/mp4")
+        else:
+            st.info("O Vídeo B ainda não foi gerado.")
+
+
+def exibir_estudio(miny=None, motor_ia=None):
+    st.markdown("### 🎬 Estúdio Automatizado Nexus | Campanha Única")
+    campaign = campaign_state.get_campaign()
+    product = campaign.get("product_name")
+
+    if not product:
+        st.warning("Selecione ou mine um produto no Agente, Scanner, Trends ou Radar antes de abrir o Estúdio.")
         return
 
-    # Isola o nome para evitar confusão na IA
-    produto = st.session_state.sel_nome.split('|')[0].replace("NOME:", "").strip()
+    st.success(f"Campanha sincronizada: **{product}** · {campaign.get('marketplace', 'Mercado Livre')}")
+    st.caption(f"Dor: {campaign.get('pain', 'não definida')} | Link oficial: {campaign.get('official_affiliate_url', 'não definido')}")
 
-    # --- LINHA DE COMANDO: GERAÇÃO DE MUNIÇÃO ---
-    c1, c2 = st.columns([1, 1])
-    
-    with c1:
-        if st.button("📝 GERAR COPY & PROMPT 4K (IMAGEM HYPE)", use_container_width=True):
-            with st.spinner("Minerando imagem campeã de vendas e otimizando 4K..."):
-                # 1. Busca de Imagem Hype (Campeã de Vendas) nos Marketplaces
-                search_query = produto.replace(" ", "+")
-                marketplace = st.session_state.get('mkt_global', 'Mercado Livre')
-                # Filtro de busca para produtos mais vendidos/populares
-                img_search_url = f"https://www.google.com/search?q={search_query}+{marketplace}+mais+vendido+original&tbm=isch"
-                st.session_state.img_real_url = img_search_url
-                
-                # 2. Geração de Copy e Prompt 4K seguindo o Roteiro Nexus de 15s
-                import tts_engine
-                trend = tts_engine.obter_audio_tendencia()
-                
-                # Recupera o roteiro do agente se disponível para manter consistência
-                roteiro_ref = ""
-                if "nexus_estrat" in st.session_state:
-                    roteiro_ref = "\n".join(st.session_state.nexus_estrat.get('roteiro_15s', []))
+    copy_text = campaign.get("copy_final") or campaign.get("copy") or ""
+    if copy_text:
+        with st.expander("Copy e roteiro sincronizados", expanded=False):
+            edited_copy = st.text_area("Copy usada no criativo e na publicação", value=copy_text, height=180, key="studio_copy_editor")
+            if st.button("Guardar copy na campanha", key="studio_save_copy"):
+                campaign = campaign_state.set_campaign(copy=edited_copy, copy_final=edited_copy)
+                st.success("Copy guardada e enviada para a Central de Disparo.")
 
-                prompt_master = f"""
-                Ignore listas. Produto: {produto}. Marketplace: {marketplace}.
-                Trend do Dia: {trend['nome']}.
-                Roteiro Base: {roteiro_ref}
-                
-                1. Gere legenda AIDA em Português focada em Envio Full e Alta Qualidade.
-                2. Gere um Prompt VISUAL em INGLÊS para o Google Labs seguindo este Roteiro de 15s:
-                   - 0-3s: Gancho visual rápido (Close no problema).
-                   - 3-10s: Demonstração prática (Produto em ação + Envio Full).
-                   - 10-15s: CTA de escassez (Entrega amanhã).
-                   
-                   DEVE incluir: '8k resolution, photorealistic, cinematic lighting, 4k texture, professional product videography, highly detailed'.
-                Separe por '###'
-                """
-                # Fallback se miny for None (acontece na chamada direta do app.py)
-                if miny is None:
-                    import mineracao
-                    res = mineracao.minerar_produtos(prompt_master, marketplace, None)
-                else:
-                    res = miny.minerar_produtos(prompt_master, marketplace, motor_ia)
-                
-                st.session_state.micao_nexus = res.split('###')
-                st.rerun()
+    st.markdown("#### Produção de mídia")
+    st.info("O Nexus baixa a imagem pública associada ao link oficial e produz localmente uma Imagem A e um Vídeo B vertical. O Google Labs fica como opção adicional, não como etapa obrigatória.")
+    col1, col2 = st.columns(2)
+    with col1:
+        generate_button = st.button("🖼️ GERAR IMAGEM A + VÍDEO B", type="primary", use_container_width=True)
+    with col2:
+        voice_button = st.button("🎙️ GERAR VOZ + CRIATIVOS", use_container_width=True)
 
-    # --- EXIBIÇÃO DA MUNIÇÃO ---
-    if "micao_nexus" in st.session_state:
-        copy_pt = st.session_state.micao_nexus[0].strip()
-        prompt_en = st.session_state.micao_nexus[1].strip() if len(st.session_state.micao_nexus) > 1 else ""
+    if voice_button:
+        with st.spinner("Gerando narração e montando os criativos..."):
+            import tts_engine
+            voice = tts_engine.gerar_narração_ia(copy_text or f"Conheça {product}.")
+            if not voice.get("success"):
+                st.error(f"Falha na narração: {voice.get('error')}")
+            else:
+                campaign = campaign_state.set_campaign(audio_path=voice["audio_path"])
+                generate_button = True
+                st.success("Narração produzida e anexada à campanha.")
 
-        with st.expander("📄 LEGENDA PARA POSTAR", expanded=False):
-            st.text_area("Copie aqui:", value=copy_pt, height=150)
+    if generate_button:
+        with st.spinner("Baixando a referência real e renderizando a Imagem A e o Vídeo B..."):
+            try:
+                campaign = campaign_state.get_campaign()
+                manifest = generate_campaign_media(campaign)
+                campaign = campaign_state.set_campaign(
+                    image_path=manifest["image_a"],
+                    video_path=manifest["video_b"],
+                    image_url=manifest["product"].get("image_url"),
+                    media_manifest=manifest,
+                    prompt=_make_prompt(campaign),
+                )
+                st.success("Imagem A e Vídeo B gerados e enviados para a Central de Disparo.")
+            except Exception as exc:
+                st.error(f"Não foi possível gerar os criativos: {exc}")
 
-        st.success("🎯 PROMPT PARA COLAR NO GOOGLE LABS (OTIMIZADO 4K):")
-        st.code(prompt_en, language="text")
-        st.caption("DICA: Este prompt foi otimizado para gerar vídeos em alta definição no Google Labs.")
+    campaign = campaign_state.get_campaign()
+    if campaign.get("image_path") or campaign.get("video_path"):
+        _render_saved_media(campaign)
 
-        st.info(f"🖼️ **PESQUISA DE IMAGEM REAL:** [Clique aqui para ver fotos reais do produto no {st.session_state.get('mkt_global', 'Marketplace')}]({st.session_state.get('img_real_url', '#')})")
-        st.caption("Use estas imagens como referência visual ou faça upload no Google Labs para guiar a IA.")
-
-        st.divider()
-        
-        # --- NOVO: NARRAÇÃO E VOZ IA ---
-        import tts_engine
-        tts_engine.exibir_painel_voz()
-        
-        st.divider()
-
-        # --- INTEGRAÇÃO DO GOOGLE LABS DENTRO DO NEXUS ---
-        st.markdown("#### 📺 Gerador de Vídeo (Execução Direta)")
-        
-        # Link do projeto específico que você mandou
-        url_google = "https://labs.google/fx/pt/tools/flow/project/b7c52242-fa5a-4370-9975-61cc86da1483"
-        
-        # Criando a janela interna (IFrame)
-        # Nota: Alguns sites bloqueiam exibição em IFrame por segurança. 
-        # Se o Google bloquear, o botão de 'Abrir em Nova Aba' servirá como backup.
-        st.components.v1.iframe(url_google, height=600, scrolling=True)
-        
-        if st.button("🌍 Não carregou? Abrir Google Labs em tela cheia"):
-            st.markdown(f'<a href="{url_google}" target="_blank">Clique aqui para abrir</a>', unsafe_allow_value=True)
-
-    else:
-        st.info("Clique no botão acima para preparar a automação do produto.")
+    st.divider()
+    st.markdown("#### Prompt opcional para Google Labs")
+    prompt = campaign.get("prompt") or _make_prompt(campaign)
+    st.code(prompt, language="text")
+    if st.button("Guardar prompt na campanha", key="studio_save_prompt"):
+        campaign_state.set_campaign(prompt=prompt)
+        st.success("Prompt guardado e disponível para a Central de Disparo.")
+    st.link_button("Abrir Google Labs em nova aba", GOOGLE_LABS_URL)

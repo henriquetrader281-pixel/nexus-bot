@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import campaign_state
 
 def exibir_espionagem_global():
     st.header("🌍 Espionagem Global & Pinterest Trends")
@@ -26,14 +27,14 @@ def exibir_espionagem_global():
                     st.markdown(f"**{t['produto']}** (`{t['febre']}`)")
                     st.caption(f"🎯 Nicho: {t['nicho']} | 💡 Ângulo: {t['angulo']}")
                     if st.button("🚀 IMPORTAR PARA O NEXUS", key=f"imp_{t['produto']}"):
-                        st.session_state.sel_nome = t['produto']
-                        st.session_state.sel_dor = t['angulo']
-                        
-                        # Gera link de busca automático
-                        import ml_afiliados_engine
-                        mkt = st.session_state.get('mkt_global', 'Mercado Livre')
-                        st.session_state.sel_link = ml_afiliados_engine.gerar_link_afiliado_dinamico(t['produto'], mkt)
-                        
-                        st.success(f"'{t['produto']}' importado com sucesso! Vá à aba Autônomo ou Sniper.")
+                        campaign_state.set_campaign(
+                            product_name=t['produto'],
+                            pain=t['angulo'],
+                            niche=t['nicho'],
+                            marketplace=st.session_state.get('mkt_global', 'Mercado Livre'),
+                            trend_term=t['produto'],
+                            source="espionagem_global",
+                        )
+                        st.success(f"'{t['produto']}' importado para a campanha. Associe o link oficial antes de gerar mídia ou publicar.")
         else:
             st.info("Clique no botão ao lado para varrer as tendências globais.")

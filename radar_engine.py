@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import time
+import campaign_state
 
 # ── Base de Dados do Radar (Expansível) ──
 TRENDS_USA = [
@@ -25,15 +26,15 @@ def renderizar_lista_radar(produtos):
                 st.markdown(f"**{p['nome']}**")
                 st.caption(f"🏷️ Nicho: {p['nicho']} | 📊 {p['status']}")
                 if st.button(f"🚀 IMPORTAR {p['nome'].upper()}", key=f"radar_{p['nome']}"):
-                    st.session_state.sel_nome = p['nome']
-                    st.session_state.sel_dor = f"Tendência detectada no Radar: {p['status']}"
-                    
-                    # Gera link de busca automático
-                    import ml_afiliados_engine
-                    mkt = st.session_state.get('mkt_global', 'Mercado Livre')
-                    st.session_state.sel_link = ml_afiliados_engine.gerar_link_afiliado_dinamico(p['nome'], mkt)
-                    
-                    st.success(f"'{p['nome']}' importado! Vá ao Arsenal ou Estúdio.")
+                    campaign_state.set_campaign(
+                        product_name=p['nome'],
+                        pain=f"Tendência detectada no Radar: {p['status']}",
+                        niche=p['nicho'],
+                        marketplace=st.session_state.get('mkt_global', 'Mercado Livre'),
+                        trend_term=p['nome'],
+                        source="radar",
+                    )
+                    st.success(f"'{p['nome']}' importado para a campanha. Associe o link oficial antes de gerar mídia ou publicar.")
                     st.rerun()
             with c2:
                 st.markdown(f"### {p['calor']}")

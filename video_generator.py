@@ -1,58 +1,57 @@
-import os
-try:
-    from moviepy.editor import ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips
-except ImportError:
-    from moviepy import ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips
-import random
+"""Compatibilidade do gerador legado com o pipeline único de mídia."""
+
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+from typing import Iterable
+
+from generate_creatives import ProductData, make_video_b
+
+
+def _first_local_image(image_urls: Iterable[str]) -> Path | None:
+    for value in image_urls:
+        path = Path(str(value))
+        if path.is_file():
+            return path
+    return None
+
 
 def criar_reels_elite(image_urls, audio_path=None, output_path="reels_final.mp4"):
-    """
-    Gera um Reels de alta retenção com múltiplos cortes (cenas) e trilha sonora.
-    """
-    try:
-        width, height = 1080, 1920
-        clips = []
-        
-        # 1. Lógica de Cortes (Cenas de 1.5 a 2 segundos cada para alta retenção)
-        for i, url in enumerate(image_urls):
-            # No mundo real, aqui baixaríamos a imagem. Aqui simulamos o clip.
-            # Criamos um efeito de zoom diferente para cada cena (Cortes nível agência)
-            duracao_cena = 1.5 if i == 0 else 2.0 # Gancho inicial mais rápido
-            
-            # Simulamos o clip de imagem (usando a imagem sincronizada)
-            clip = ImageClip(url).with_duration(duracao_cena)
-            
-            # Alternar efeitos de zoom para cada corte
-            if i % 2 == 0:
-                clip = clip.resized(lambda t: 1 + 0.08 * t).with_position('center') # Zoom In
-            else:
-                clip = clip.resized(lambda t: 1.2 - 0.05 * t).with_position('center') # Zoom Out
-                
-            clips.append(clip)
-            
-        # 2. Montagem Final (Cortes Secos para ritmo)
-        video_final = concatenate_videoclips(clips, method="compose")
-        
-        # 3. Integração de Áudio (Músicas em Alta)
-        if audio_path and os.path.exists(audio_path):
-            audio = AudioFileClip(audio_path).with_duration(video_final.duration)
-            video_final = video_final.with_audio(audio)
-            
-        # 4. Exportação Profissional
-        video_final.write_videofile(output_path, fps=30, codec='libx264', audio=True if audio_path else False)
-        return output_path
-        
-    except Exception as e:
-        print(f"Erro no Estúdio de Elite: {e}")
+    """Gera um Vídeo B vertical a partir da primeira imagem local válida."""
+    source = _first_local_image(image_urls)
+    if source is None:
+        print("Erro no Estúdio de Elite: nenhuma imagem local válida foi fornecida.")
         return None
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    product = ProductData(
+        official_affiliate_url="",
+        resolved_url="",
+        title="Produto selecionado",
+        image_url=None,
+        marketplace="Mercado Livre",
+    )
+    generated = make_video_b(product, source, output.parent, Path(audio_path) if audio_path else None)
+    if generated.resolve() != output.resolve():
+        shutil.copy2(generated, output)
+    return str(output)
+
+
+def criar_reels_afiliado(image_path, copy_reels=None, output_path="reels_final.mp4"):
+    """Alias mantido para o teste legado e integrações antigas."""
+    return criar_reels_elite([image_path], output_path=output_path)
+
 
 def obter_musica_tendencia(estilo="viral"):
-    """
-    Simula a seleção de uma música que está em alta no dia.
-    """
-    trilhas = {
-        "viral": "lofi_beats_trending.mp3",
-        "agressivo": "fast_phonk_high_retention.mp3",
-        "estético": "minimalist_luxury_vibe.mp3"
+    """Retorna um caminho configurável; não inventa uma música que não exista."""
+    candidates = {
+        "viral": "viral.mp3",
+        "agressivo": "agressivo.mp3",
+        "estético": "estetico.mp3",
     }
-    return trilhas.get(estilo, "default_trend.mp3")
+    path = Path(candidates.get(estilo, "default.mp3"))
+    return str(path) if path.exists() else None
+
+
+__all__ = ["criar_reels_elite", "criar_reels_afiliado", "obter_musica_tendencia"]

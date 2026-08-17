@@ -1,4 +1,5 @@
 import streamlit as st
+import campaign_state
 
 def gerar_link_afiliado_dinamico(url_original, marketplace, tracking_id=None):
     """
@@ -13,7 +14,13 @@ def gerar_link_afiliado_dinamico(url_original, marketplace, tracking_id=None):
             tracking_id = st.session_state.get('amazon_tracking_id', st.secrets.get("AMAZON_TRACKING_ID", "nexus-20"))
 
     if marketplace == "Mercado Livre":
-        if "mercadolivre.com.br" in url_original:
+        # Links emitidos pelo Portal do Afiliado são a fonte de verdade.
+        # Nunca acrescentar UTM ou reconstruir matt_word/matt_tool.
+        if any(marker in str(url_original) for marker in ("meli.la/", "matt_word=", "matt_tool=")):
+            return str(url_original)
+        if "mercadolivre.com.br" in str(url_original) and "?" in str(url_original):
+            return str(url_original)
+        if "mercadolivre.com.br" in str(url_original):
             return f"{url_original}?utm_source=nexus_bot&utm_medium=afiliado&utm_campaign={tracking_id}"
         search = url_original.replace(" ", "%20")
         return f"https://lista.mercadolivre.com.br/{search}#D[A:{search},L:undefined,utm_source=nexus_bot,utm_campaign={tracking_id}]"
@@ -30,7 +37,26 @@ def gerar_link_afiliado_dinamico(url_original, marketplace, tracking_id=None):
 
 def exibir_config_ml():
     st.markdown("### 🤝 Central de Afiliados & Vitrines")
-    
+    st.info("Cole aqui o link oficial criado no portal de afiliados. O Nexus preserva o URL recebido e usa-o para buscar a imagem real e produzir os criativos.")
+    campanha = campaign_state.get_campaign()
+    link_oficial = st.text_input(
+        "Link oficial do produto ou da Vitrine",
+        value=campanha.get("official_affiliate_url", ""),
+        placeholder="https://meli.la/...",
+        key="official_affiliate_input",
+    )
+    if st.button("🔗 VINCULAR LINK À CAMPANHA", type="primary", use_container_width=True):
+        if not link_oficial.startswith(("http://", "https://")):
+            st.error("Cole uma URL HTTP(S) válida criada no portal oficial.")
+        else:
+            campaign_state.set_campaign(
+                official_affiliate_url=link_oficial.strip(),
+                affiliate_url=link_oficial.strip(),
+                marketplace=st.session_state.get("mkt_global", "Mercado Livre"),
+                source="affiliate_portal",
+            )
+            st.success("Link oficial vinculado à campanha ativa. O Estúdio já pode gerar a mídia.")
+
     mkt_config = st.selectbox("Configurar Marketplace:", ["Mercado Livre", "Shopee", "Amazon"])
     
     with st.expander(f"⚙️ CONFIGURAR CONTA: {mkt_config.upper()}", expanded=True):

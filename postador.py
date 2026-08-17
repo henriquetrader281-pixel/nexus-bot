@@ -1,16 +1,20 @@
 import os
 from pathlib import Path
 import streamlit as st
+import campaign_state
 
 
 def exibir_postador(miny=None, motor_ia=None):
     st.markdown("### 🛰️ Central de Disparo Nexus: Meta Suite")
     
-    # 🔗 Recupera os dados do Agente, Arsenal e Estúdio
-    # Tenta pegar a copy final, se não houver, tenta a copy ativa do agente
-    copy_final = st.session_state.get('copy_final_pronta', st.session_state.get('copy_ativa', ''))
-    link_blindado = st.session_state.get('link_final_afiliado', st.session_state.get('sel_link', ''))
-    video_gerado = st.session_state.get('video_path_local', st.session_state.get('nexus_video_demo', None))
+    # Todos os dados vêm da mesma campanha usada pelo Agente, Arsenal e Estúdio.
+    campaign = campaign_state.get_campaign()
+    copy_final = campaign.get('copy_final') or campaign.get('copy') or ''
+    link_blindado = campaign.get('affiliate_url') or campaign.get('official_affiliate_url') or ''
+    video_gerado = campaign.get('video_path')
+    image_path = campaign.get('image_path')
+    image_url = campaign.get('image_url')
+    product_name = campaign.get('product_name', 'Oferta Nexus')
 
     if not copy_final:
         st.warning("⚠️ O Arsenal e o Agente estão vazios! Execute o Agente de 1-Clique ou gere uma copy no Arsenal antes de postar.")
@@ -29,12 +33,12 @@ def exibir_postador(miny=None, motor_ia=None):
     # --- PRÉVIA COMPARATIVA OBRIGATÓRIA ---
     from creative_preview import exibir_previa_comparativa
     exibir_previa_comparativa({
-        "product_name": st.session_state.get("sel_nome", "Oferta Nexus"),
+        "product_name": product_name,
         "official_affiliate_url": link_blindado,
-        "image_path": st.session_state.get("image_path_local"),
+        "image_path": image_path,
         "video_path": video_gerado,
-        "image_url": st.session_state.get("img_real_url"),
-        "video_url": st.session_state.get("nexus_video_demo"),
+        "image_url": image_url,
+        "video_url": campaign.get("video_source_url"),
         "image_description": texto_completo,
         "video_description": "Roteiro curto: gancho, demonstração do produto e CTA.",
         "cta": "Ver oferta oficial",
@@ -69,29 +73,33 @@ def exibir_postador(miny=None, motor_ia=None):
         if st.button(f"🚀 PUBLICAR AGORA NO {rede.upper()}", use_container_width=True, type="primary"):
             with st.spinner(f"Comunicando com API do {rede}..."):
                 # Simulação de URL pública para vídeo (Em produção seria S3 ou link do Estúdio)
-                video_url_publica = st.session_state.get('nexus_video_demo', 'https://assets.mixkit.co/videos/preview/mixkit-hands-typing-on-a-computer-keyboard-42998-large.mp4')
+                video_url_publica = campaign.get('video_public_url')
                 
                 if "Pinterest" in rede:
                     import pinterest_engine
                     token = st.secrets.get("PINTEREST_ACCESS_TOKEN")
                     board = st.secrets.get("PINTEREST_BOARD_ID")
-                    if token and board:
-                        res = pinterest_engine.postar_pinterest(token, board, st.session_state.get('sel_nome', 'Oferta'), texto_completo, link_blindado, st.session_state.get('img_real_url', 'https://via.placeholder.com/1080x1920'))
+                    if not link_blindado:
+                        st.error("Associe o link oficial do afiliado à campanha antes de publicar.")
+                    elif not image_url:
+                        st.error("Gere a Imagem A ou associe a imagem pública real do produto antes de publicar.")
+                    elif token and board:
+                        res = pinterest_engine.postar_pinterest(token, board, product_name, texto_completo, link_blindado, image_url)
                         if res.get('success'):
                             try:
                                 import metrics_store
                                 campaign_id = st.session_state.get('metrics_campaign_id')
                                 if not campaign_id:
-                                    campaign_id = metrics_store.create_campaign("Mercado Livre", link_blindado, st.session_state.get('sel_nome', 'Oferta'))
+                                    campaign_id = metrics_store.create_campaign(campaign.get('marketplace', 'Mercado Livre'), link_blindado, product_name)
                                 creative_id = st.session_state.get('metrics_creative_id')
                                 if not creative_id:
                                     creative_id = metrics_store.create_creative(
                                         campaign_id,
                                         "image_a",
-                                        st.session_state.get('sel_nome', 'Oferta'),
+                                        product_name,
                                         texto_completo,
                                         "Ver oferta oficial",
-                                        asset_url=st.session_state.get('img_real_url'),
+                                        asset_url=image_url,
                                         width=1000,
                                         height=1500,
                                         status="ready",
@@ -112,16 +120,22 @@ def exibir_postador(miny=None, motor_ia=None):
                     else: st.warning("⚠️ Configure PINTEREST_ACCESS_TOKEN nos Secrets.")
                 
                 elif "Instagram" in rede:
-                    import instagram_engine
-                    res = instagram_engine.postar_instagram_reels(video_url_publica, texto_completo)
-                    if res.get('success'): st.success(f"📸 {res['data']}")
-                    else: st.error(f"Erro Instagram: {res.get('error')}")
+                    if not video_url_publica or not str(video_url_publica).startswith(("http://", "https://")):
+                        st.error("O Instagram exige um URL público do Vídeo B. O ficheiro local precisa ser publicado num storage HTTPS antes do envio.")
+                    else:
+                        import instagram_engine
+                        res = instagram_engine.postar_instagram_reels(video_url_publica, texto_completo)
+                        if res.get('success'): st.success(f"📸 {res['data']}")
+                        else: st.error(f"Erro Instagram: {res.get('error')}")
                 
                 elif "TikTok" in rede:
-                    import tiktok_engine
-                    res = tiktok_engine.postar_tiktok_video(video_url_publica, st.session_state.get('sel_nome', 'Oferta Nexus'))
-                    if res.get('success'): st.success("🎵 VÍDEO ENVIADO PARA O TIKTOK!")
-                    else: st.error(f"Erro TikTok: {res.get('error')}")
+                    if not video_url_publica or not str(video_url_publica).startswith(("http://", "https://")):
+                        st.error("O TikTok exige um URL público do Vídeo B. O ficheiro local precisa ser publicado num storage HTTPS antes do envio.")
+                    else:
+                        import tiktok_engine
+                        res = tiktok_engine.postar_tiktok_video(video_url_publica, product_name)
+                        if res.get('success'): st.success("🎵 VÍDEO ENVIADO PARA O TIKTOK!")
+                        else: st.error(f"Erro TikTok: {res.get('error')}")
 
     st.divider()
     

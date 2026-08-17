@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import random
 from openai import OpenAI
+import campaign_state
 
 def gerar_keywords_estratosfericas(produto, dor, api_key, base_url):
     prompt = f"""
@@ -27,8 +28,9 @@ def exibir_aba_leads():
     st.header("🎯 Sniper de Leads Estratosférico (SEO & Intent)")
     st.markdown("---")
     
-    produto_foco = st.session_state.get('sel_nome', None)
-    dor_foco = st.session_state.get('sel_dor', "necessidade do mercado")
+    campaign = campaign_state.get_campaign()
+    produto_foco = campaign.get('product_name')
+    dor_foco = campaign.get('pain', "necessidade do mercado")
     
     if not produto_foco:
         st.warning("⚠️ Nenhum produto selecionado! Vá à aba 'AUTÔNOMO' e selecione um produto primeiro.")
@@ -46,7 +48,8 @@ def exibir_aba_leads():
             with st.spinner("Engenharia de SEO Nexus em ação..."):
                 keywords = gerar_keywords_estratosfericas(produto_foco, dor_foco, api_key, base_url)
                 st.session_state.leads_keywords = keywords
-                st.success("Keywords de elite geradas!")
+                campaign_state.set_campaign(keywords=keywords, source=campaign.get('source') or 'sniper_keywords')
+                st.success("Keywords de elite geradas e anexadas à campanha!")
 
     if "leads_keywords" in st.session_state:
         st.markdown("#### 🚀 Fontes de Tráfego de Alta Conversão:")
@@ -59,12 +62,13 @@ def exibir_aba_leads():
                     {"fonte": "Reddit /r/brasildicas", "user": "u/comprador_decidido", "texto": f"Estou entre o modelo X e o {produto_foco}. Alguém que tenha o {produto_foco} pode confirmar se resolve a {dor_foco}?", "intencao": "ALTA 🔥"},
                     {"fonte": "Quora Brasil", "user": "Maria Souza", "texto": f"Como acabar com {dor_foco} gastando pouco? Ouvi falar do {produto_foco}, funciona?", "intencao": "ALTA 🔥"}
                 ]
-                st.success("Oportunidades estratosféricas localizadas!")
+                campaign_state.set_campaign(leads=st.session_state.leads_encontrados, source=campaign.get('source') or 'sniper')
+                st.success("Oportunidades estratosféricas localizadas e anexadas à campanha!")
 
     if "leads_encontrados" in st.session_state:
         st.divider()
         st.markdown("### 💎 Oportunidades de Ouro Detectadas")
-        for lead in st.session_state.leads_encontrados:
+        for index, lead in enumerate(st.session_state.leads_encontrados):
             with st.container(border=True):
                 col_f, col_t, col_i = st.columns([1, 3, 1])
                 with col_f:
@@ -73,5 +77,5 @@ def exibir_aba_leads():
                     st.write(f"💬 *{lead['texto']}*")
                 with col_i:
                     st.markdown(f"**Status:** `{lead['intencao']}`")
-                    if st.button("🔗 Pescar Lead", key=f"fish_{lead['user']}_{random.random()}"):
+                    if st.button("🔗 Pescar Lead", key=f"fish_{index}"):
                         st.toast("Lead capturado! Enviando para o funil de resposta...")

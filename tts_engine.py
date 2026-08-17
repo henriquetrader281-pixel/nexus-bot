@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import os
 import random
+import campaign_state
 
 def gerar_narração_ia(texto_roteiro, estilo="Profissional"):
     """
@@ -81,8 +82,9 @@ def exibir_painel_voz():
             resultado = gerar_narração_ia(roteiro)
             
             if resultado.get("success"):
+                campaign_state.set_campaign(audio_path=resultado['audio_path'])
                 st.audio(resultado['audio_path'])
-                st.success("✅ Áudio Profissional Gerado!")
+                st.success("✅ Áudio gerado e anexado à campanha!")
                 if "aviso" in resultado: st.info(resultado['aviso'])
             else:
                 st.error(f"Erro: {resultado.get('error')}")

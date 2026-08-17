@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import campaign_state
 
 def exibir_seo_engine():
     st.header("🔍 SEO & Keyword Intelligence (Estilo Ubersuggest)")
@@ -9,8 +10,9 @@ def exibir_seo_engine():
     
     with col1:
         # Tenta pegar o produto do agente se existir
-        sugestao = st.session_state.get('sel_nome', 'organizador de cozinha')
-        keyword_input = st.text_input("Insira uma Palavra-Chave ou Nicho (ex: organizador de cozinha):", value=sugestao)
+        campaign = campaign_state.get_campaign()
+        sugestao = campaign.get('product_name', 'organizador de cozinha')
+        keyword_input = st.text_input("Insira uma Palavra-Chave ou Nicho (ex: organizador de cozinha):", value=sugestao, key="seo_keyword_input")
         
         if st.button("📊 ANALISAR MÉTRICAS DE SEO (UDS)", type="primary", use_container_width=True):
             with st.spinner("Anilhando dados de tráfego orgânico e concorrência..."):
@@ -21,7 +23,12 @@ def exibir_seo_engine():
                     "cpc": f"R$ {random.uniform(1.20, 4.50):.2f}",
                     "oportunidade": "ALTA 🚀"
                 }
-                st.success("Análise concluída!")
+                campaign_state.set_campaign(seo=st.session_state.seo_dados, keywords=[
+                    f"melhor {keyword_input}",
+                    f"{keyword_input} vale a pena",
+                    f"onde comprar {keyword_input} barato",
+                ], source=campaign.get('source') or 'seo')
+                st.success("Análise concluída e anexada à campanha!")
 
     with col2:
         st.info("💡 **Dica de Ouro (Neil Patel Method):** Palavras-chave com Dificuldade de SEO abaixo de 40 e Volume acima de 20k/mês são minas de ouro para artigos de review e Pins no Pinterest.")
@@ -45,5 +52,10 @@ def exibir_seo_engine():
         }, use_container_width=True)
         
         if st.button("🚀 ENVIAR PARA O SNIPER DE LEADS", use_container_width=True):
-            st.session_state.sel_nome = dados['kw']
-            st.success("Palavra-chave enviada com sucesso para o funil de afiliados!")
+            campaign_state.set_campaign(
+                product_name=dados['kw'],
+                pain=campaign_state.get_campaign().get('pain') or f"Busca por {dados['kw']}",
+                keywords=[f"melhor {dados['kw']}", f"onde comprar {dados['kw']} barato"],
+                source="seo",
+            )
+            st.success("Palavra-chave enviada e sincronizada com o funil de afiliados!")

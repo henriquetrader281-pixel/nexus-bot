@@ -1,5 +1,5 @@
-from video_generator import criar_reels_afiliado
 import json
+from video_generator import criar_reels_afiliado
 
 with open("nexus_manifest.json", "r") as f:
     dados = json.load(f)

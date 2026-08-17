@@ -192,10 +192,13 @@ def _subclip(audio, end: float):
 
 def make_video_b(product: ProductData, source: Path, output_dir: Path, audio_path: Optional[Path] = None) -> Path:
     size = (1080, 1920)
+    product_name = " ".join(product.title.replace(" - Mercado Livre", "").split()[:6]) or "Produto selecionado"
+    marketplace = product.marketplace or "Mercado Livre"
+    price_line = f"Preço encontrado: {product.price}." if product.price else f"Veja preço e disponibilidade no {marketplace}."
     scenes = [
-        ("Ficou sem bateria?", "O problema acontece quando você mais precisa."),
-        ("10.000 mAh + carga rápida", "Mais autonomia para trabalho, viagens e emergências."),
-        ("Confira a oferta oficial", "Veja preço e disponibilidade no Mercado Livre."),
+        (f"Você ainda sofre com isso?", f"Conheça uma solução prática: {product_name}."),
+        (product_name, "Produto real, demonstração clara e uso no dia a dia."),
+        ("Confira a oferta oficial", price_line),
     ]
     frame_paths = []
     for index, (headline, subline) in enumerate(scenes, start=1):
@@ -208,7 +211,10 @@ def make_video_b(product: ProductData, source: Path, output_dir: Path, audio_pat
         for line in wrap_text_by_width(draw, headline, headline_font, 950, max_lines=2):
             draw.text((60, y), line, font=headline_font, fill="white", stroke_width=2, stroke_fill="#0b1020")
             y += 88
-        draw.text((60, y + 18), subline, font=subline_font, fill="#dbeafe", stroke_width=1, stroke_fill="#0b1020")
+        sub_y = y + 18
+        for sub_line in wrap_text_by_width(draw, subline, subline_font, 950, max_lines=2):
+            draw.text((60, sub_y), sub_line, font=subline_font, fill="#dbeafe", stroke_width=1, stroke_fill="#0b1020")
+            sub_y += 52
         if index == 3:
             draw.rounded_rectangle((60, 1660, 570, 1750), radius=20, fill="#72f1a8")
             draw.text((94, 1687), "VER OFERTA OFICIAL", font=load_font(34, bold=True), fill="#06130b")

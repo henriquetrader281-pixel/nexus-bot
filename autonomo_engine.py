@@ -5,6 +5,7 @@ import streamlit as st
 from real_marketplace_engine import obter_produto_real_validado
 import update
 import pinterest_engine
+import campaign_state
 
 def executar_ciclo_mestre_um_clique(provedor="openai"):
     """
@@ -20,35 +21,56 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     # PASSO 1: Mineração e Validação de Stock (Anti-Erro)
     progresso.progress(15, text="🧠 [1/6] Minerando produto real e validando stock...")
     time.sleep(1)
-    dados = obter_produto_real_validado(provedor)
-    
-    # Validação de stock
-    from stock_validator import validar_link_e_stock
-    val_stock = validar_link_e_stock(dados['link_ml'])
-    if not val_stock['valido']:
-        # Se esgotado, força outro
+    campaign = campaign_state.get_campaign()
+    selected_url = campaign.get("official_affiliate_url")
+    if campaign.get("product_name") and selected_url:
+        dados = {
+            "produto": campaign["product_name"],
+            "dificuldade": campaign.get("pain", "Necessidade identificada no mercado"),
+            "link_ml": selected_url,
+            "imagem": campaign.get("image_url"),
+            "copy": campaign.get("copy") or f"Descubra como {campaign['product_name']} pode resolver este problema.",
+            "marketplace": campaign.get("marketplace", "Mercado Livre"),
+            "nicho": campaign.get("niche"),
+            "video_demo": campaign.get("video_source_url"),
+        }
+    else:
         dados = obter_produto_real_validado(provedor)
-        
+
+    # Validação de stock apenas quando há URL real disponível.
+    from stock_validator import validar_link_e_stock
+    if dados.get("link_ml"):
+        val_stock = validar_link_e_stock(dados["link_ml"])
+        if not val_stock["valido"] and not campaign.get("product_name"):
+            dados = obter_produto_real_validado(provedor)
+
+    dados["copy"] = dados.get("copy") or f"Conheça {dados['produto']} e veja a oferta oficial."
+    campaign_state.set_from_product(dados, source=campaign.get("source") or "autonomo")
     st.session_state.nexus_dados_reais = dados
-    st.session_state.sel_nome = dados['produto']
-    st.session_state.sel_dor = dados['dificuldade']
-    st.session_state.sel_link = dados['link_ml']
-    st.session_state.nexus_media_url = dados['imagem']
-    st.session_state.nexus_media_ready = True
-    
-    # Sincronização com Arsenal, Estúdio e Central de Disparo
-    st.session_state.copy_ativa = dados['copy']
-    st.session_state.copy_final_pronta = dados['copy']
-    st.session_state.res_arsenal = [dados['copy']] # Para a aba Arsenal não aparecer vazia
-    
+    st.session_state.res_arsenal = [dados["copy"]]
+
     import ml_afiliados_engine
-    mkt_atual = st.session_state.get('mkt_global', 'Mercado Livre')
-    link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(dados['link_ml'], mkt_atual)
-    st.session_state.link_final_afiliado = link_rastreado
-    
-    # Sincronização específica para o Estúdio (Prompt 4K)
-    st.session_state.micao_nexus = [dados['copy'], f"Cinematic 4k video of {dados['produto']}, hyper-realistic product showcase."]
-    
+    mkt_atual = dados.get("marketplace") or st.session_state.get("mkt_global", "Mercado Livre")
+    link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(dados["link_ml"], mkt_atual)
+    campaign_state.set_campaign(copy=dados["copy"], copy_final=dados["copy"], affiliate_url=link_rastreado)
+
+    # Prompt do Estúdio ligado à mesma campanha.
+    campaign_state.set_campaign(prompt=f"Cinematic 4k product video of {dados['produto']}, accurate product reference, vertical 9:16.")
+
+    # Produção real da Imagem A e do Vídeo B usando a imagem do produto.
+    try:
+        from media_pipeline import generate_campaign_media
+        manifest = generate_campaign_media(campaign_state.get_campaign())
+        campaign_state.set_campaign(
+            image_path=manifest["image_a"],
+            video_path=manifest["video_b"],
+            image_url=manifest["product"].get("image_url"),
+            media_manifest=manifest,
+        )
+        st.success("Imagem A e Vídeo B gerados no ciclo de 1 clique.")
+    except Exception as media_error:
+        st.warning(f"A campanha foi sincronizada, mas a mídia precisa de correção: {media_error}")
+
     # PASSO 2: Registro
     progresso.progress(40, text="📊 [2/5] Registrando oportunidade no Dashboard de Ganhos...")
     update.registrar_mineracao(dados['produto'], dados['link_ml'], 99)
@@ -63,9 +85,8 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     video_fonte = Path("reels_final.mp4")
     if video_fonte.exists():
         aplicar_camada_visual_elite(str(video_fonte), dados['produto'])
-    st.session_state.nexus_video_demo = dados.get('video_demo')
-    st.session_state.video_path_local = "reels_final.mp4" # Referência para download
-    st.session_state.video_renderizado = True
+    campaign_state.set_campaign(video_source_url=dados.get("video_demo"))
+    st.session_state.video_renderizado = False
     
     # PASSO 4: Disparo Full Auto (ManyChat + Pinterest API)
     progresso.progress(80, text="🚀 [4/5] Executando Disparo Full Auto (ManyChat + Redes Sociais)...")
