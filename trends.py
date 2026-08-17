@@ -2,6 +2,7 @@ import streamlit as st
 from pytrends.request import TrendReq
 import pandas as pd
 import time
+import campaign_state
 
 def exibir_trends():
     st.header("📈 Google Trends Brasil: Inteligência em Tempo Real")
@@ -18,34 +19,36 @@ def exibir_trends():
                     df = pytrends.trending_searches(pn='brazil')
                     if df is not None and not df.empty:
                         trends_list = df[0].tolist()[:10]
-                        st.session_state.real_trends = trends_list
+                        campaign_state.set_campaign(trends=trends_list, source="google_trends")
                         st.success("✅ Tendências capturadas com sucesso!")
                     else:
                         raise Exception("Google retornou lista vazia.")
                 except Exception as e:
                     st.error(f"⚠️ Limite de requisições ou erro de conexão: {str(e)}")
                     st.info("Usando Radar de Contingência (Termos quentes validados):")
-                    st.session_state.real_trends = [
+                    fallback_trends = [
                         "Organizador de Cozinha Inteligente", 
                         "Luminária LED Monitor Anti-Reflexo", 
                         "Mini Pistola de Massagem Profissional",
                         "Mop Giratório Slim 2026",
                         "Fone Bluetooth Cancelamento Ruído"
                     ]
+                    st.session_state.real_trends = fallback_trends
+                    campaign_state.set_campaign(trends=fallback_trends, source="google_trends_fallback")
 
         if "real_trends" in st.session_state:
             termo_escolhido = st.selectbox("Selecione o alvo para o funil:", st.session_state.real_trends)
             
             if st.button("🚀 INJETAR NO MOTOR NEXUS", use_container_width=True):
                 nome_limpo = termo_escolhido.title()
-                st.session_state.sel_nome = nome_limpo
-                st.session_state.sel_dor = f"Tendência em alta detectada: {termo_escolhido}"
-                
-                import ml_afiliados_engine
-                mkt = st.session_state.get('mkt_global', 'Mercado Livre')
-                st.session_state.sel_link = ml_afiliados_engine.gerar_link_afiliado_dinamico(nome_limpo, mkt)
-                
-                st.success(f"'{nome_limpo}' injetado! Vá ao Agente ou Arsenal.")
+                campaign_state.set_campaign(
+                    product_name=nome_limpo,
+                    pain=f"Tendência em alta detectada: {termo_escolhido}",
+                    marketplace=st.session_state.get('mkt_global', 'Mercado Livre'),
+                    trend_term=termo_escolhido,
+                    source="google_trends",
+                )
+                st.success(f"'{nome_limpo}' injetado na campanha. Agora associe o link oficial do produto no Scanner ou no Agente.")
                 time.sleep(1)
                 st.rerun()
 
