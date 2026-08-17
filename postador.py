@@ -1,4 +1,7 @@
+import os
+from pathlib import Path
 import streamlit as st
+
 
 def exibir_postador(miny=None, motor_ia=None):
     st.markdown("### 🛰️ Central de Disparo Nexus: Meta Suite")
@@ -21,7 +24,21 @@ def exibir_postador(miny=None, motor_ia=None):
         # Monta o texto final que será copiado
         texto_completo = f"{copy_final}\n\n🎁 Comente {palavra_gatilho} para receber o link com desconto oficial!"
         
-        st.text_area("Prévia (Confira o link blindado):", value=texto_completo, height=180)
+        st.text_area("Prévia (Confira o link oficial):", value=texto_completo, height=180)
+
+    # --- PRÉVIA COMPARATIVA OBRIGATÓRIA ---
+    from creative_preview import exibir_previa_comparativa
+    exibir_previa_comparativa({
+        "product_name": st.session_state.get("sel_nome", "Oferta Nexus"),
+        "official_affiliate_url": link_blindado,
+        "image_path": st.session_state.get("image_path_local"),
+        "video_path": video_gerado,
+        "image_url": st.session_state.get("img_real_url"),
+        "video_url": st.session_state.get("nexus_video_demo"),
+        "image_description": texto_completo,
+        "video_description": "Roteiro curto: gancho, demonstração do produto e CTA.",
+        "cta": "Ver oferta oficial",
+    })
 
     # --- FLUXO DE DISPARO ---
     st.markdown("#### ⚡ Passo a Passo para Postagem")
@@ -30,13 +47,13 @@ def exibir_postador(miny=None, motor_ia=None):
     
     with c1:
         st.info("1️⃣ **Baixe o Vídeo**")
-        if video_gerado:
+        if video_gerado and Path(str(video_gerado)).is_file():
             try:
-                with open("reels_final.mp4", "rb") as f:
+                with open(str(video_gerado), "rb") as f:
                     st.download_button(
                         label="📥 BAIXAR REELS PRONTO",
                         data=f,
-                        file_name="nexus_reels.mp4",
+                        file_name=Path(str(video_gerado)).name,
                         mime="video/mp4",
                         use_container_width=True
                     )
@@ -60,7 +77,37 @@ def exibir_postador(miny=None, motor_ia=None):
                     board = st.secrets.get("PINTEREST_BOARD_ID")
                     if token and board:
                         res = pinterest_engine.postar_pinterest(token, board, st.session_state.get('sel_nome', 'Oferta'), texto_completo, link_blindado, st.session_state.get('img_real_url', 'https://via.placeholder.com/1080x1920'))
-                        if res.get('success'): st.success("🔥 PIN PUBLICADO!")
+                        if res.get('success'):
+                            try:
+                                import metrics_store
+                                campaign_id = st.session_state.get('metrics_campaign_id')
+                                if not campaign_id:
+                                    campaign_id = metrics_store.create_campaign("Mercado Livre", link_blindado, st.session_state.get('sel_nome', 'Oferta'))
+                                creative_id = st.session_state.get('metrics_creative_id')
+                                if not creative_id:
+                                    creative_id = metrics_store.create_creative(
+                                        campaign_id,
+                                        "image_a",
+                                        st.session_state.get('sel_nome', 'Oferta'),
+                                        texto_completo,
+                                        "Ver oferta oficial",
+                                        asset_url=st.session_state.get('img_real_url'),
+                                        width=1000,
+                                        height=1500,
+                                        status="ready",
+                                    )
+                                pin_data = res.get('data') or {}
+                                publication_id = metrics_store.record_publication(
+                                    creative_id,
+                                    "pinterest",
+                                    external_post_id=str(pin_data.get('id')) if pin_data.get('id') else None,
+                                    external_url=res.get('url'),
+                                    status="published",
+                                )
+                                st.session_state.metrics_publication_id = publication_id
+                            except Exception as metrics_error:
+                                st.warning(f"Pin publicado, mas o registo analítico falhou: {metrics_error}")
+                            st.success("🔥 PIN PUBLICADO E REGISTADO NAS MÉTRICAS!")
                         else: st.error(f"Erro Pinterest: {res.get('error')}")
                     else: st.warning("⚠️ Configure PINTEREST_ACCESS_TOKEN nos Secrets.")
                 

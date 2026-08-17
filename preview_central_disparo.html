@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus — Prévia de Publicação</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #141c31; --panel-2: #1b2742;
+      --text: #f6f8ff; --muted: #aeb9d3; --accent: #67e8f9;
+      --green: #72f1a8; --border: rgba(255,255,255,.12);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: radial-gradient(circle at top, #1b2d4f, var(--bg) 55%); font: 15px/1.45 Inter, system-ui, sans-serif; }
+    .wrap { max-width: 1220px; margin: auto; padding: 32px 20px 48px; }
+    header { display:flex; justify-content:space-between; gap:20px; align-items:end; margin-bottom:24px; }
+    h1, h2, h3, p { margin: 0; } h1 { font-size: clamp(25px, 4vw, 38px); } h2 { font-size: 18px; }
+    .muted { color: var(--muted); } .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+    .product { background: var(--panel); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 20px; }
+    .product-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .field { background: rgba(255,255,255,.05); border-radius: 10px; padding: 10px; min-width: 0; }
+    .label { display:block; color:var(--muted); font-size: 11px; text-transform:uppercase; margin-bottom:4px; }
+    .field a { color: var(--accent); word-break: break-all; }
+    .compare { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:20px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; overflow:hidden; }
+    .card.selected { border-color: var(--green); box-shadow: 0 0 0 2px rgba(114,241,168,.15); }
+    .card-head { display:flex; justify-content:space-between; align-items:center; padding:16px 18px 12px; }
+    .badge { border:1px solid var(--border); border-radius:99px; padding:4px 8px; color:var(--muted); font-size:12px; }
+    .badge.good { color:var(--green); border-color: rgba(114,241,168,.45); }
+    .asset { position:relative; aspect-ratio: 2 / 3; background:#080d18; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .asset img, .asset video { width:100%; height:100%; object-fit:cover; display:block; }
+    .asset video { background:#000; }
+    .overlay { position:absolute; inset:auto 14px 16px; padding:10px 12px; color:white; background:rgba(5,10,20,.72); border-radius:10px; text-align:center; font-weight:800; backdrop-filter:blur(6px); }
+    .card-body { padding:16px 18px 20px; display:grid; gap:12px; }
+    .copy { color:#e4e9f7; min-height: 64px; }
+    .cta { display:inline-flex; justify-content:center; align-items:center; width:100%; border:0; border-radius:10px; padding:12px 14px; background:var(--accent); color:#07111e; font-weight:800; text-decoration:none; cursor:pointer; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; color:var(--muted); font-size:12px; }
+    .footer { margin-top:20px; display:flex; justify-content:space-between; gap:12px; align-items:center; padding:16px 18px; background:var(--panel-2); border:1px solid var(--border); border-radius:16px; }
+    .publish { background:var(--green); color:#06130b; border:0; border-radius:10px; padding:12px 18px; font-weight:900; cursor:pointer; }
+    @media (max-width: 780px) { header, .footer { align-items:stretch; flex-direction:column; } .compare { grid-template-columns:1fr; } .product-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div><div class="eyebrow">Central de Disparo · modo revisão</div><h1>Prévia antes de publicar</h1><p class="muted">Compare retenção, clareza e destino do link antes de autorizar o disparo.</p></div>
+      <span class="badge good">Link validado · revisão manual necessária</span>
+    </header>
+
+    <section class="product" aria-labelledby="produto-title">
+      <h2 id="produto-title">Power Bank 10.000 mAh Turbo</h2>
+      <div class="product-grid">
+        <div class="field"><span class="label">Marketplace</span>Mercado Livre</div>
+        <div class="field"><span class="label">Formato do teste</span>Imagem A vs. Vídeo B</div>
+        <div class="field"><span class="label">Destino oficial</span><a href="https://meli.la/11v5uxd" target="_blank" rel="noopener">https://meli.la/11v5uxd</a></div>
+        <div class="field"><span class="label">CTA</span>Ver oferta oficial</div>
+      </div>
+    </section>
+
+    <section class="compare" aria-label="Comparação de criativos">
+      <article class="card" id="image-a">
+        <div class="card-head"><div><div class="eyebrow">Variante A</div><h2>Imagem estática</h2></div><span class="badge">Controle</span></div>
+        <div class="asset"><img src="assets/creative_image_a.jpg" alt="Imagem do Power Bank 10.000 mAh"><div class="overlay">Carga rápida para o dia todo</div></div>
+        <div class="card-body"><div class="meta"><span>1000 × 1500</span><span>2:3</span><span>Link de saída</span></div><p class="copy">Power Bank 10.000 mAh para viagens, trabalho e emergências. Veja a oferta oficial no Mercado Livre.</p><a class="cta" href="https://meli.la/11v5uxd" target="_blank" rel="noopener">Ver oferta oficial</a></div>
+      </article>
+
+      <article class="card selected" id="video-b">
+        <div class="card-head"><div><div class="eyebrow">Variante B</div><h2>Vídeo curto</h2></div><span class="badge good">Teste de retenção</span></div>
+        <div class="asset"><video controls preload="metadata" poster="assets/creative_video_b_poster.jpg"><source src="assets/creative_video_b.mp4" type="video/mp4">O navegador não suporta vídeo.</video><div class="overlay">Nunca fique sem bateria · Ver oferta</div></div>
+        <div class="card-body"><div class="meta"><span>1080 × 1920</span><span>9:16</span><span>10 s</span></div><p class="copy">Gancho: ficou sem bateria? Demonstração: 10.000 mAh e carga rápida. CTA: confira a oferta oficial.</p><a class="cta" href="https://meli.la/11v5uxd" target="_blank" rel="noopener">Ver oferta oficial</a></div>
+      </article>
+    </section>
+
+    <footer class="footer"><div><strong>Publicação bloqueada até revisão.</strong><p class="muted">O botão deve publicar somente após confirmar imagem, vídeo e link oficial.</p></div><button class="publish" type="button" onclick="alert('Prévia: publicação ainda não executada.')">Autorizar publicação</button></footer>
+  </main>
+</body>
+</html>

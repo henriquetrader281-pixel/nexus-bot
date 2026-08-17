@@ -1,6 +1,19 @@
-import sys
 import os
+import sys
 from unittest.mock import MagicMock
+
+
+class SessionState(dict):
+    """Estado mínimo compatível com st.session_state no modo headless."""
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError as exc:
+            raise AttributeError(name) from exc
+
+    def __setattr__(self, name, value):
+        self[name] = value
 
 # 1. MOCK DO STREAMLIT (Essencial para rodar no GitHub Actions sem erro)
 mock_st = MagicMock()
@@ -14,7 +27,7 @@ mock_st.secrets = {
     "MANYCHAT_WEBHOOK_URL": os.environ.get("MANYCHAT_WEBHOOK_URL"),
     "ELEVENLABS_API_KEY": os.environ.get("ELEVENLABS_API_KEY")
 }
-mock_st.session_state = {}
+mock_st.session_state = SessionState()
 sys.modules['streamlit'] = mock_st
 
 # 2. IMPORTA OS MOTORES DO NEXUS
@@ -28,8 +41,10 @@ def executar_plantao_nexus():
         # O provedor padrão é gemini para maior precisão na gringa
         resultado = autonomo_engine.executar_ciclo_mestre_um_clique(provedor="gemini")
         
-        print(f"✅ [WORKER] Sucesso! Produto '{resultado['produto']}' publicado e supervisionado pelo Hermes.")
-        print(f"🔗 [WORKER] Link de Venda: {resultado['link_ml']}")
+        produto = resultado.get("produto", "produto não identificado")
+        link_ml = resultado.get("link_ml", "link não disponível")
+        print(f"✅ [WORKER] Ciclo concluído para '{produto}'. Supervisão Hermes executada.")
+        print(f"🔗 [WORKER] Link de Venda: {link_ml}")
         
     except Exception as e:
         print(f"❌ [WORKER] Falha no plantão: {str(e)}")

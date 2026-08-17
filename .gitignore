@@ -7,3 +7,6 @@ temp_frames/
 video/
 dataset_nexus.csv
 nexus_master_data.csv
+generated_creatives/
+*.sqlite3
+test_worker_import.py

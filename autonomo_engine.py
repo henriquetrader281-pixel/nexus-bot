@@ -1,6 +1,7 @@
-import streamlit as st
 import os
 import time
+from pathlib import Path
+import streamlit as st
 from real_marketplace_engine import obter_produto_real_validado
 import update
 import pinterest_engine
@@ -55,10 +56,13 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     # PASSO 3: Camada Visual e Vídeo Hype
     progresso.progress(50, text=f"🎥 [3/6] Coletando vídeo original da {dados.get('marketplace', 'Mercado Livre')}...")
     time.sleep(1)
-    
+
     from visual_layer_engine import aplicar_camada_visual_elite
-    # Simula renderização com selo Envio Full
-    res_visual = aplicar_camada_visual_elite("reels_final.mp4", dados['produto'])
+    # Só aplica a camada visual se existir uma fonte local; o ciclo não deve cair
+    # por falta de um arquivo opcional de vídeo.
+    video_fonte = Path("reels_final.mp4")
+    if video_fonte.exists():
+        aplicar_camada_visual_elite(str(video_fonte), dados['produto'])
     st.session_state.nexus_video_demo = dados.get('video_demo')
     st.session_state.video_path_local = "reels_final.mp4" # Referência para download
     st.session_state.video_renderizado = True
@@ -73,6 +77,27 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     from manychat_engine import disparar_webhook_manychat
     res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], copy_otimizada)
     
+    # Prepara o registo analítico antes do disparo, mantendo o URL oficial intacto.
+    import metrics_store
+    campaign_id = metrics_store.create_campaign(
+        dados.get("marketplace", "Mercado Livre"),
+        dados["link_ml"],
+        dados["produto"],
+    )
+    creative_id = metrics_store.create_creative(
+        campaign_id,
+        "image_a",
+        dados["produto"],
+        dados["copy"],
+        "Ver oferta oficial",
+        asset_url=dados.get("imagem"),
+        width=1000,
+        height=1500,
+        status="ready",
+    )
+    st.session_state.metrics_campaign_id = campaign_id
+    st.session_state.metrics_creative_id = creative_id
+
     # Tentativa de Postagem Automática no Pinterest se token existir
     token_pin = st.secrets.get("PINTEREST_ACCESS_TOKEN")
     board_pin = st.secrets.get("PINTEREST_BOARD_ID")
@@ -81,7 +106,16 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
         import pinterest_engine
         res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], dados['link_ml'], dados['imagem'])
         if res_pin.get('success'):
-            status_pinterest = " | Pin publicado automaticamente no Pinterest!"
+            pin_data = res_pin.get("data") or {}
+            publication_id = metrics_store.record_publication(
+                creative_id,
+                "pinterest",
+                external_post_id=str(pin_data.get("id")) if pin_data.get("id") else None,
+                external_url=res_pin.get("url"),
+                status="published",
+            )
+            st.session_state.metrics_publication_id = publication_id
+            status_pinterest = " | Pin publicado automaticamente no Pinterest e registado nas métricas!"
         else:
             status_pinterest = f" | Erro Pinterest: {res_pin.get('error')}"
 
