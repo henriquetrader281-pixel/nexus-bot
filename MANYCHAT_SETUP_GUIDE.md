@@ -34,7 +34,9 @@ Não coloque token, senha ou credencial do ManyChat nessa variável.
 
 ### 3. Validar sem disparar cliente real
 
-O Nexus inclui `validate_social_credentials.py`. O comando abaixo verifica formato e credenciais do Pinterest, mas não envia nada ao ManyChat:
+Depois de guardar o Secret e reiniciar o Streamlit, abra **Central de Disparo → Testar Make/ManyChat → ENVIAR TESTE TÉCNICO AO WEBHOOK**. O botão envia somente o evento técnico com `test_mode=true`. No Make, configure um filtro para parar esse evento antes da etapa de DM.
+
+Também é possível executar o teste no terminal. O comando abaixo verifica formato e credenciais do Pinterest, mas não envia nada ao ManyChat:
 
 ```bash
 python validate_social_credentials.py
@@ -46,11 +48,11 @@ Para enviar um evento técnico controlado ao endpoint, use explicitamente:
 python validate_social_credentials.py --send-manychat-test
 ```
 
-O payload de teste possui `test_mode=true`, produto fictício e gatilho `NEXUS_TEST`; ele não deve ser usado para acionar uma DM comercial. No Make, configure uma rota/filtro que ignore eventos com `test_mode=true`.
+O payload de teste possui `test_mode=true`, produto fictício e gatilho `NEXUS_TEST`; ele não deve ser usado para acionar uma DM comercial. No Make, coloque um filtro imediatamente depois do Custom Webhook: **continuar apenas quando `test_mode` for igual a `false`**. Assim, o teste aparece no histórico sem chegar à ação comercial do ManyChat.
 
 ### 4. Verificar a entrega
 
-O HTTP `2xx` confirma apenas que o endpoint aceitou a requisição. Depois, verifique no histórico do Make e no fluxo do ManyChat se a automação recebeu os campos corretamente. O Nexus não pode confirmar sozinho que uma DM foi entregue ao usuário final sem uma confirmação adicional do provedor.
+No Make, clique em **Run once** antes de executar o teste no Nexus. Depois do envio, abra o histórico de execução e confirme que os campos `produto`, `link_afiliado`, `copy`, `trigger` e `test_mode` aparecem no bundle recebido. O HTTP `2xx` confirma apenas que o endpoint aceitou a requisição. Depois, verifique no histórico do Make e no fluxo do ManyChat se a automação recebeu os campos corretamente. O Nexus não pode confirmar sozinho que uma DM foi entregue ao usuário final sem uma confirmação adicional do provedor.
 
 ## Checklist
 

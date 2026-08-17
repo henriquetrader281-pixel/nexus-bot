@@ -30,6 +30,26 @@ def exibir_postador(miny=None, motor_ia=None):
         
         st.text_area("Prévia (Confira o link oficial):", value=texto_completo, height=180)
 
+    with st.expander("🔗 Testar Make/ManyChat", expanded=False):
+        st.caption("O teste envia apenas test_mode=true com o produto NEXUS_TESTE_CREDENCIAIS. Configure o Make para filtrar esse evento e não enviar DM real.")
+        if st.button("🧪 ENVIAR TESTE TÉCNICO AO WEBHOOK", key="manychat_test_webhook"):
+            import manychat_engine
+            result = manychat_engine.testar_webhook_manychat()
+            if result.get("success"):
+                st.success(f"Webhook aceitou o teste técnico (HTTP {result.get('status_code')}). Confira o histórico no Make.")
+            else:
+                st.error(f"Falha no webhook: {result.get('error')}")
+        if st.button("📨 ENVIAR OFERTA ATIVA AO MANYCHAT", key="manychat_send_offer"):
+            if not link_blindado:
+                st.error("Associe o link oficial antes de enviar a oferta.")
+            else:
+                import manychat_engine
+                result = manychat_engine.disparar_webhook_manychat(product_name, link_blindado, texto_completo)
+                if result.get("success"):
+                    st.success("Oferta enviada ao webhook. O Make pode agora encaminhá-la ao ManyChat.")
+                else:
+                    st.error(f"Falha no envio ManyChat: {result.get('error')}")
+
     # --- PRÉVIA COMPARATIVA OBRIGATÓRIA ---
     from creative_preview import exibir_previa_comparativa
     exibir_previa_comparativa({

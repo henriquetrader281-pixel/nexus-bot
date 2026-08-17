@@ -100,6 +100,8 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     
     # Prepara o registo analítico antes do disparo, mantendo o URL oficial intacto.
     import metrics_store
+    media_campaign = campaign_state.get_campaign()
+    asset_image_url = media_campaign.get("image_url") or dados.get("imagem")
     campaign_id = metrics_store.create_campaign(
         dados.get("marketplace", "Mercado Livre"),
         dados["link_ml"],
@@ -111,7 +113,7 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
         dados["produto"],
         dados["copy"],
         "Ver oferta oficial",
-        asset_url=dados.get("imagem"),
+        asset_url=asset_image_url,
         width=1000,
         height=1500,
         status="ready",
@@ -119,13 +121,21 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.session_state.metrics_campaign_id = campaign_id
     st.session_state.metrics_creative_id = creative_id
 
-    # Tentativa de Postagem Automática no Pinterest se token existir
-    token_pin = st.secrets.get("PINTEREST_ACCESS_TOKEN")
-    board_pin = st.secrets.get("PINTEREST_BOARD_ID")
+    # Tentativa de postagem automática no Pinterest se os Secrets existirem.
+    def _safe_secret(name):
+        try:
+            value = st.secrets.get(name)
+        except Exception:
+            value = None
+        return value
+
+    token_pin = _safe_secret("PINTEREST_ACCESS_TOKEN")
+    board_pin = _safe_secret("PINTEREST_BOARD_ID")
+    res_pin = {"success": False, "skipped": True, "error": "Pinterest não configurado"}
     status_pinterest = ""
-    if token_pin and board_pin:
+    if token_pin and board_pin and asset_image_url:
         import pinterest_engine
-        res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], dados['link_ml'], dados['imagem'])
+        res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], dados['link_ml'], asset_image_url)
         if res_pin.get('success'):
             pin_data = res_pin.get("data") or {}
             publication_id = metrics_store.record_publication(
@@ -139,7 +149,12 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
             status_pinterest = " | Pin publicado automaticamente no Pinterest e registado nas métricas!"
         else:
             status_pinterest = f" | Erro Pinterest: {res_pin.get('error')}"
+            res_pin["skipped"] = False
+    elif not asset_image_url:
+        res_pin = {"success": False, "skipped": False, "error": "Imagem pública do produto não disponível"}
+        status_pinterest = " | Imagem pública ausente para o Pinterest"
 
+    res_ig = {"success": False, "skipped": True, "detail": "Instagram não acionado neste ciclo"}
     if res_mc['success']:
         status_post = f"Webhook ManyChat disparado com sucesso! DMs ativas{status_pinterest}."
     else:

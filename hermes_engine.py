@@ -63,8 +63,15 @@ def supervisionar_entrega(produto, link_afiliado, status_pinterest, status_insta
 
     # Lógica de Programador de Elite: Se houver erro, Hermes "corrige"
     erros = []
-    if not status_pinterest.get('success'): erros.append("Pinterest API")
-    if not status_instagram.get('success'): erros.append("Instagram API")
+    def status_ok(status):
+        return bool(status.get("success")) or bool(status.get("skipped"))
+
+    if not status_ok(status_pinterest):
+        erros.append("Pinterest API")
+    if not status_ok(status_instagram):
+        erros.append("Instagram API")
+    if not status_ok(status_manychat):
+        erros.append("ManyChat webhook")
     
     if erros:
         st.warning(f"⚠️ Hermes detectou falhas técnicas em: {', '.join(erros)}")
@@ -82,6 +89,7 @@ def supervisionar_entrega(produto, link_afiliado, status_pinterest, status_insta
         [HERMES] Analisando Produto: {produto}
         [HERMES] Status Pinterest: {status_pinterest.get('success')}
         [HERMES] Status Instagram: {status_instagram.get('success')}
+        [HERMES] Status ManyChat: {status_manychat.get('success')}
         [HERMES] Lógica Evolutiva: Injetada
         [HERMES] Veredito: Lucratividade Máxima Detectada.
         """, language="bash")
