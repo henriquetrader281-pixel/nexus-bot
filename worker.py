@@ -20,11 +20,17 @@ mock_st = MagicMock()
 # Simula os segredos do GitHub como se fossem st.secrets
 mock_st.secrets = {
     "ML_TRACKING_ID": os.environ.get("ML_TRACKING_ID"),
+    "SHOPEE_TRACKING_ID": os.environ.get("SHOPEE_TRACKING_ID"),
+    "AMAZON_TRACKING_ID": os.environ.get("AMAZON_TRACKING_ID"),
     "GROQ_API_KEY": os.environ.get("GROQ_API_KEY"),
+    "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
     "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY"),
     "PINTEREST_ACCESS_TOKEN": os.environ.get("PINTEREST_ACCESS_TOKEN"),
     "PINTEREST_BOARD_ID": os.environ.get("PINTEREST_BOARD_ID"),
     "MANYCHAT_WEBHOOK_URL": os.environ.get("MANYCHAT_WEBHOOK_URL"),
+    "INSTAGRAM_ACCESS_TOKEN": os.environ.get("INSTAGRAM_ACCESS_TOKEN"),
+    "INSTAGRAM_BUSINESS_ACCOUNT_ID": os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID"),
+    "TIKTOK_ACCESS_TOKEN": os.environ.get("TIKTOK_ACCESS_TOKEN"),
     "ELEVENLABS_API_KEY": os.environ.get("ELEVENLABS_API_KEY")
 }
 mock_st.session_state = SessionState()
