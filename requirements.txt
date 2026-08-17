@@ -16,3 +16,4 @@ python-dotenv
 pytrends
 gTTS
 beautifulsoup4
+urllib3<2
