@@ -82,10 +82,14 @@ def _secret(name: str) -> str | None:
 
 
 def buscar_produtos_mercado_livre(query: str, limit: int = 8) -> list[dict[str, Any]]:
+    headers = {"User-Agent": "NexusBot-SimpleMode/1.0", "Accept": "application/json"}
+    access_token = _secret("ML_ACCESS_TOKEN") or _secret("ML_API_ACCESS_TOKEN")
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
     response = requests.get(
         SEARCH_URL,
         params={"q": query, "limit": limit},
-        headers={"User-Agent": "NexusBot-SimpleMode/1.0"},
+        headers=headers,
         timeout=15,
     )
     response.raise_for_status()

@@ -40,18 +40,18 @@ def _load_selected_queue() -> None:
         st.rerun()
 
 
-def _mine_one_product() -> None:
+def _mine_one_product(query: str = "") -> None:
     try:
         from real_marketplace_engine import obter_produto_real_validado
 
-        product = obter_produto_real_validado("gemini")
+        product = obter_produto_real_validado("gemini", query=query.strip() or None)
         campaign_state.set_from_product(product, source="main_auto_miner")
         st.success(f"Produto minerado: {product.get('produto') or product.get('title')}")
         st.rerun()
     except Exception as exc:
         st.error("A mineração foi bloqueada com segurança: o Mercado Livre não devolveu um produto com imagem pública.")
         st.code(str(exc), language="text")
-        st.info("Cole um link oficial ou use uma imagem pública/manual para continuar.")
+        st.info("Na mesma tela, informe o produto e uma imagem pública ou faça upload da imagem real para continuar sem a API.")
 
 
 def _generate_package(campaign: dict[str, Any]) -> tuple[dict[str, Any], str]:
@@ -217,7 +217,7 @@ def exibir_esteira_principal() -> None:
         with auto_col:
             st.markdown("**Ou**")
             if st.button("⛏️ MINERAR AUTOMÁTICO", key="main_auto_mine", use_container_width=True):
-                _mine_one_product()
+                _mine_one_product(query)
 
         results = st.session_state.get("main_search_results", [])
         if results:
