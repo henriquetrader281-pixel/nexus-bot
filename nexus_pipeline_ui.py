@@ -231,6 +231,11 @@ def exibir_esteira_principal() -> None:
     except Exception as exc:
         st.warning(f"A fila ainda não pôde ser carregada: {exc}")
 
+    pending_query = st.session_state.pop("main_pending_query", None)
+    if pending_query:
+        # A chave do widget só é alterada antes de o text_input ser criado.
+        st.session_state["main_search_query"] = str(pending_query)
+
     campaign = campaign_state.get_campaign()
     progress = 0.0
     if campaign.get("product_name"):
@@ -262,7 +267,7 @@ def exibir_esteira_principal() -> None:
             if trend_values:
                 trend_term = st.selectbox("Escolha um termo em alta", trend_values, key="main_trend_select")
                 if st.button("🔎 USAR TERMO EM ALTA", key="main_use_trend"):
-                    st.session_state.main_search_query = trend_term
+                    st.session_state.main_pending_query = trend_term
                     st.rerun()
             if st.button("🔎 BUSCAR PRODUTOS", type="primary", key="main_search_button"):
                 if not query.strip():
