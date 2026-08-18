@@ -17,8 +17,8 @@ st_autorefresh(interval=3000, key="terminal-refresh")
 TZ = pytz.timezone("America/Sao_Paulo")
 ASSETS = {
     "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "base": 159.31, "scale": 0.075},
-    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "base": 21450.0, "scale": 40.0},
-    "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "base": 2435.0, "scale": 10.0},
+    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "base": 29490.96, "scale": 55.0},
+    "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "base": 4351.90, "scale": 35.0},
 }
 TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1day"}
 TIME_FREQ = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
@@ -131,10 +131,8 @@ def make_data(asset: str, timeframe: str) -> pd.DataFrame:
     now = dt.datetime.now(TZ).replace(second=0, microsecond=0)
     bucket = int(dt.datetime.now().timestamp() // 3)
     rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47}[asset] + bucket)
-    close = [config["base"]]
-    for _ in range(59):
-        close.append(close[-1] + rng.normal(0, config["scale"]))
-    close = np.array(close)
+    close = config["base"] + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
+    close = close - close[-1] + config["base"]
     open_ = close - rng.normal(0, config["scale"] * 0.34, 60)
     high = np.maximum(open_, close) + rng.uniform(config["scale"] * .15, config["scale"] * .7, 60)
     low = np.minimum(open_, close) - rng.uniform(config["scale"] * .15, config["scale"] * .7, 60)
@@ -174,6 +172,22 @@ def historical_pocs(data: pd.DataFrame) -> dict[str, float]:
     return {name: profile_levels(session_slice(data, name))[0] for name in ["Tóquio", "Londres", "Nova Iorque"]} | {"Pacífico": profile_levels(data.iloc[: max(1, len(data)//4)])[0]}
 
 
+def pivot_levels(data: pd.DataFrame) -> dict[str, float]:
+    """Calcula pivôs clássicos usando a última barra concluída."""
+    source = data.iloc[-2] if len(data) > 1 else data.iloc[-1]
+    high, low, close = float(source.high), float(source.low), float(source.close)
+    pivot = (high + low + close) / 3
+    return {
+        "R3": high + 2 * (pivot - low),
+        "R2": pivot + (high - low),
+        "R1": 2 * pivot - low,
+        "P": pivot,
+        "S1": 2 * pivot - high,
+        "S2": pivot - (high - low),
+        "S3": low - 2 * (high - pivot),
+    }
+
+
 for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "api_key": "", "sound_alerts": False, "news_filter": "Todas", "bottom_view": "Linha", "backtest_result": None}.items():
     if key not in st.session_state:
         st.session_state[key] = value
@@ -195,6 +209,7 @@ typical = (df.high + df.low + df.close) / 3
 vwap = float(np.average(typical, weights=df.volume))
 poc, vah, val = profile_levels(profile_data)
 session_levels = historical_pocs(df)
+pivots = pivot_levels(df)
 swing_high, swing_low = float(df.high.max()), float(df.low.min())
 recent = df.tail(12)
 buy = int(np.clip(50 + int((recent.close > recent.open).sum()) * 3 - 18, 18, 82))
@@ -213,6 +228,11 @@ valid_backtest = backtest.dropna(subset=["next_return"])
 win_rate = float(valid_backtest.win.mean()*100) if len(valid_backtest) else 0.0
 mean_pnl = float(valid_backtest.next_return.where(valid_backtest.direction == "COMPRA", -valid_backtest.next_return).mean()) if len(valid_backtest) else 0.0
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
+is_real_feed = feed_mode == "real"
+feed_state_label = "FEED REAL" if is_real_feed else "FALLBACK"
+spot_title = f"Cotação Spot Atual ({timeframe})" if is_real_feed else f"Referência de Mercado ({timeframe})"
+spot_badge = '<span class="badge-green">Ao vivo</span>' if is_real_feed else '<span class="badge-amber">Fallback</span>'
+refresh_note = "Atualização automática a cada 3 segundos com feed real." if is_real_feed else "Atualização automática a cada 3 segundos com fallback identificado."
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -227,7 +247,7 @@ with header_actions:
                 st.session_state.asset = key
                 st.rerun()
     with action_cols[3]:
-        st.markdown(f'<div class="feed-badge">↻ AUTO-REFRESH 3S · {clock}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="feed-badge">↻ {feed_state_label} · {clock}</div>', unsafe_allow_html=True)
 
 controls_left, controls_right = st.columns([1, 1], gap="medium")
 with controls_left:
@@ -258,7 +278,7 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
 spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
-    st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">Cotação Spot Atual ({timeframe})</div><span class="badge-green">Ao vivo</span></div><div class="spot-symbol">{desk_name}</div><div class="spot-value">{price_format(last, is_usdjpy)} <span class="unit">{config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(vwap, is_usdjpy)}</strong></span><span>Spread: <strong>{"0.012" if is_usdjpy else "0.50"}</strong></span></div><div class="rule"></div><div class="small-row"><span>Horário (Brasília)</span><strong>{clock}</strong></div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{spot_title}</div>{spot_badge}</div><div class="spot-symbol">{desk_name}</div><div class="spot-value">{price_format(last, is_usdjpy)} <span class="unit">{config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(vwap, is_usdjpy)}</strong></span><span>Spread: <strong>{"0.012" if is_usdjpy else "0.50"}</strong></span></div><div class="rule"></div><div class="small-row"><span>Horário (Brasília)</span><strong>{clock}</strong></div></div>''', unsafe_allow_html=True)
 with pressure_col:
     bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if bearish else '<span class="badge-green">Viés Comprador Dominante</span>'
     st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({timeframe})</div><div class="card-note">MA9: <b>{ma9:.1f}</b> &nbsp;|&nbsp; MA21: <b>{ma21:.1f}</b> &nbsp;|&nbsp; MA200: <b>{ma200:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{buy}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{buy}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{sell}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{sell}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{volume_ratio:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{volume_status}</strong></span></div></div>''', unsafe_allow_html=True)
@@ -283,7 +303,52 @@ with chart_col:
         st.plotly_chart(main_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
 with alert_col:
     signal_badge = '<span class="badge-red">VENDA</span>' if bearish else '<span class="badge-green">COMPRA</span>'
-    st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">◉ Alerta Operacional ({asset_label})</div>{signal_badge}</div><div class="rule"></div><div class="card-note">{"Sinal de baixa: volume atual acima das médias MA9 e MA21 com pressão vendedora." if bearish else "Sinal de alta: volume atual acima das médias MA9 e MA21 com pressão compradora."}</div><div class="rule"></div><div class="small-row"><span>VAH (Resistência)</span><strong style="color:#fb7185">{price_format(vah, is_usdjpy)}</strong></div><div class="small-row"><span>POC (Control)</span><strong style="color:#f7b718">{price_format(poc, is_usdjpy)}</strong></div><div class="small-row"><span>VAL (Suporte)</span><strong style="color:#2ee59d">{price_format(val, is_usdjpy)}</strong></div><div class="small-row"><span>Confiança do Sinal</span><strong style="color:#2ee59d">{confidence}%</strong></div><div class="rule"></div><div class="card-note" style="text-align:center;font-style:italic">Atualização automática em tempo real.</div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">◉ Alerta Operacional ({asset_label})</div>{signal_badge}</div><div class="rule"></div><div class="card-note">{"Sinal de baixa: volume atual acima das médias MA9 e MA21 com pressão vendedora." if bearish else "Sinal de alta: volume atual acima das médias MA9 e MA21 com pressão compradora."}</div><div class="rule"></div><div class="small-row"><span>VAH (Resistência)</span><strong style="color:#fb7185">{price_format(vah, is_usdjpy)}</strong></div><div class="small-row"><span>POC (Control)</span><strong style="color:#f7b718">{price_format(poc, is_usdjpy)}</strong></div><div class="small-row"><span>VAL (Suporte)</span><strong style="color:#2ee59d">{price_format(val, is_usdjpy)}</strong></div><div class="small-row"><span>Confiança do Sinal</span><strong style="color:#2ee59d">{confidence}%</strong></div><div class="rule"></div><div class="card-note" style="text-align:center;font-style:italic">{refresh_note}</div></div>''', unsafe_allow_html=True)
+
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+# Janela operacional: pivôs clássicos derivados da última vela concluída.
+pivot_names = [("R3", "#fb7185"), ("R2", "#f58a71"), ("R1", "#f7b718"), ("P", "#eaf2ff"), ("S1", "#45d6c5"), ("S2", "#49a9e8"), ("S3", "#7d8cff")]
+nearest_pivot = min(pivots, key=lambda name: abs(last - pivots[name]))
+if last >= pivots["R2"]:
+    marking_region = "Extensão acima de R2"
+elif last >= pivots["R1"]:
+    marking_region = "Zona de resistência R1–R2"
+elif last >= pivots["P"]:
+    marking_region = "Zona compradora P–R1"
+elif last >= pivots["S1"]:
+    marking_region = "Zona vendedora S1–P"
+else:
+    marking_region = "Pressão abaixo de S1"
+
+with st.container(border=True):
+    pivot_head, pivot_status = st.columns([2.3, 1], vertical_alignment="center")
+    with pivot_head:
+        st.markdown(f'<div class="card-title">◇ Regiões de Marcação — Pivot Points ({asset_label})</div><div class="card-note">Pivôs clássicos calculados a partir da última vela concluída de <b>{timeframe}</b>; usar como zonas de contexto, não como ordem automática.</div>', unsafe_allow_html=True)
+    with pivot_status:
+        status_color = "#2ee59d" if last >= pivots["P"] else "#fb7185"
+        st.markdown(f'<div class="ui-card" style="padding:9px 11px"><div class="eyebrow">Região ativa</div><div class="card-title" style="color:{status_color};font-size:12px">{marking_region}</div><div class="card-note">Mais próximo: <b>{nearest_pivot}</b> · {price_format(pivots[nearest_pivot], is_usdjpy)}</div></div>', unsafe_allow_html=True)
+
+    pivot_levels_col, pivot_chart_col = st.columns([1.28, 1], gap="medium")
+    with pivot_levels_col:
+        top_row = st.columns(4, gap="small")
+        for col, label in zip(top_row, ["R3", "R2", "R1", "P"]):
+            with col:
+                st.metric(label, price_format(pivots[label], is_usdjpy))
+        bottom_row = st.columns(3, gap="small")
+        for col, label in zip(bottom_row, ["S1", "S2", "S3"]):
+            with col:
+                st.metric(label, price_format(pivots[label], is_usdjpy))
+    with pivot_chart_col:
+        pivot_fig = go.Figure()
+        for label, color in pivot_names:
+            pivot_fig.add_hline(y=pivots[label], line_color=color, line_dash="solid" if label == "P" else "dot", line_width=1.3 if label == "P" else 1, annotation_text=f"{label}  {price_format(pivots[label], is_usdjpy)}", annotation_font_color=color, annotation_position="right")
+        pivot_fig.add_trace(go.Scatter(x=[0.2, 0.8], y=[last, last], name="Preço atual", mode="lines+markers", line={"color": "#f7b718", "width": 2.4}, marker={"size": 7, "color": "#f7b718"}))
+        pivot_range = max(pivots["R3"] - pivots["S3"], 0.001)
+        pivot_fig.update_layout(height=235, margin={"l": 5, "r": 84, "t": 5, "b": 5}, paper_bgcolor="#101d31", plot_bgcolor="#101d31", font={"color": "#dbe8f7", "size": 9}, showlegend=False)
+        pivot_fig.update_xaxes(visible=False, range=[0, 1])
+        pivot_fig.update_yaxes(gridcolor="rgba(255,255,255,.06)", zeroline=False, range=[pivots["S3"] - pivot_range*.08, pivots["R3"] + pivot_range*.08])
+        st.plotly_chart(pivot_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
