@@ -7,6 +7,7 @@ para as restantes abas. Não publica nem cria um link de afiliado novo.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -43,12 +44,12 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
     if source_url.startswith(("http://", "https://")):
         try:
             product = fetch_product_data(source_url)
-            product.official_affiliate_url = official_url or source_url
-            # A seleção do usuário é a fonte de verdade do texto; a página oficial
-            # é a fonte de verdade da imagem e dos metadados disponíveis.
+            product.official_affiliate_url = official_url or ""
+            # Quando a seleção veio da API de pesquisa, a thumbnail pertence ao
+            # mesmo resultado e deve prevalecer sobre OG images genéricas do anúncio.
             product.title = product_name or product.title
             product.marketplace = marketplace
-            if image_url and not product.image_url:
+            if image_url:
                 product.image_url = image_url
             return product
         except Exception:
@@ -57,7 +58,7 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
                 raise
 
     return ProductData(
-        official_affiliate_url=official_url or source_url or "https://example.invalid/sem-link",
+        official_affiliate_url=official_url or "",
         resolved_url=source_url,
         title=product_name,
         image_url=image_url,
@@ -92,6 +93,7 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
     image_path = make_image_a(product, source, output_dir)
     caption_lines = campaign.get("hooks") or campaign.get("keywords") or []
     video_path = make_video_b(product, source, output_dir, audio, caption_lines=caption_lines)
+    source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
 
     manifest = {
         "source_image_path": str(source),
@@ -100,7 +102,14 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
             "marketplace": product.marketplace,
             "official_affiliate_url": product.official_affiliate_url,
             "image_url": product.image_url,
+            "source_image_url": campaign.get("source_image_url") or campaign.get("image_url") or product.image_url,
+            "image_verified": campaign.get("image_verified"),
+            "image_source": campaign.get("image_source"),
+            "product_source_url": campaign.get("product_source_url") or campaign.get("official_affiliate_url"),
         },
+        "source_image_path": str(source),
+        "source_image_sha256": source_digest,
+        "caption_lines": caption_lines,
         "image_a": str(image_path),
         "video_b": str(video_path),
         "audio": str(audio) if audio else None,

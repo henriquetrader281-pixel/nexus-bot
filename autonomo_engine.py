@@ -7,7 +7,7 @@ import update
 import pinterest_engine
 import campaign_state
 
-def executar_ciclo_mestre_um_clique(provedor="openai"):
+def executar_ciclo_mestre_um_clique(provedor="openai", publicar=True):
     """
     EXECUÇÃO TOTALMENTE AUTÓNOMA:
     1. Mineração de Produto Real
@@ -23,36 +23,80 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     time.sleep(1)
     campaign = campaign_state.get_campaign()
     selected_url = campaign.get("official_affiliate_url")
-    if campaign.get("product_name") and selected_url:
+    source_url = campaign.get("product_source_url") or selected_url
+    if campaign.get("product_name") and (selected_url or source_url or campaign.get("image_url")):
         dados = {
             "produto": campaign["product_name"],
             "dificuldade": campaign.get("pain", "Necessidade identificada no mercado"),
-            "link_ml": selected_url,
+            "link_ml": selected_url or source_url,
+            "product_source_url": source_url,
+            "official_affiliate_url": selected_url,
             "imagem": campaign.get("image_url"),
-            "copy": campaign.get("copy") or f"Descubra como {campaign['product_name']} pode resolver este problema.",
+            "copy": campaign.get("copy"),
             "marketplace": campaign.get("marketplace", "Mercado Livre"),
             "nicho": campaign.get("niche"),
             "video_demo": campaign.get("video_source_url"),
+            "image_verified": campaign.get("image_verified"),
+            "image_source": campaign.get("image_source"),
         }
     else:
         dados = obter_produto_real_validado(provedor)
 
-    # Validação de stock apenas quando há URL real disponível.
+    # Validação de stock apenas quando há URL de origem real disponível.
     from stock_validator import validar_link_e_stock
     if dados.get("link_ml"):
         val_stock = validar_link_e_stock(dados["link_ml"])
         if not val_stock["valido"] and not campaign.get("product_name"):
             dados = obter_produto_real_validado(provedor)
 
-    dados["copy"] = dados.get("copy") or f"Conheça {dados['produto']} e veja a oferta oficial."
-    campaign_state.set_from_product(dados, source=campaign.get("source") or "autonomo")
+    # O autónomo reutiliza o mesmo motor editorial do Modo Simples: palavras-chave,
+    # intenção, hooks, CTA/legenda e copy AIDA antes de criar os ativos.
+    from simple_mode import analisar_palavras_chave, gerar_copy
+    trend_values = campaign.get("trends") or st.session_state.get("real_trends", [])
+    analysis = analisar_palavras_chave(
+        dados["produto"],
+        dados.get("dificuldade", "Necessidade identificada no mercado"),
+        ", ".join(dados.get("keywords", []) or []),
+        trend_values,
+    )
+    campaign_state.set_from_product(dados, source=campaign.get("source") or dados.get("source") or "autonomo")
+    editorial_campaign = campaign_state.get_campaign()
+    copy_text, copy_warning = gerar_copy(editorial_campaign, analysis)
+    campaign_state.set_campaign(
+        copy=copy_text,
+        copy_final=copy_text,
+        hooks=analysis["hooks"],
+        keywords=analysis["keywords"],
+        caption=analysis["caption"],
+        cta_variations=analysis["cta_variations"],
+        intent=analysis["intent"],
+        intent_label=analysis["intent_label"],
+    )
+    if copy_warning:
+        st.info(copy_warning)
+    dados["copy"] = copy_text
+    dados["hooks"] = analysis["hooks"]
+    dados["keywords"] = analysis["keywords"]
     st.session_state.nexus_dados_reais = dados
-    st.session_state.res_arsenal = [dados["copy"]]
+    st.session_state.res_arsenal = [copy_text]
 
+    # Só um URL emitido pelo Portal do Afiliado pode ser usado para publicar.
     import ml_afiliados_engine
     mkt_atual = dados.get("marketplace") or st.session_state.get("mkt_global", "Mercado Livre")
-    link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(dados["link_ml"], mkt_atual)
-    campaign_state.set_campaign(copy=dados["copy"], copy_final=dados["copy"], affiliate_url=link_rastreado)
+    official_url = campaign_state.get_campaign().get("official_affiliate_url")
+    link_rastreado = ml_afiliados_engine.gerar_link_afiliado_dinamico(official_url, mkt_atual) if official_url else ""
+    campaign_state.set_campaign(affiliate_url=link_rastreado or None)
+
+    # A narração também faz parte do ciclo. Em falha, a legenda permanece no vídeo.
+    try:
+        import tts_engine
+        voice = tts_engine.gerar_narração_ia(copy_text)
+    except Exception as voice_error:
+        voice = {"success": False, "error": str(voice_error)}
+    if voice.get("success"):
+        campaign_state.set_campaign(audio_path=voice.get("audio_path"))
+    else:
+        st.warning(f"Áudio não disponível; o vídeo seguirá com legenda: {voice.get('error', 'fornecedor indisponível')}.")
 
     # Prompt do Estúdio ligado à mesma campanha.
     campaign_state.set_campaign(prompt=f"Cinematic 4k product video of {dados['produto']}, accurate product reference, vertical 9:16.")
@@ -90,23 +134,33 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     st.session_state.video_renderizado = False
     
     # PASSO 4: Disparo Full Auto (ManyChat + Pinterest API)
-    progresso.progress(80, text="🚀 [4/5] Executando Disparo Full Auto (ManyChat + Redes Sociais)...")
-    # Aplica otimização evolutiva na copy
+    progresso.progress(80, text="🚀 [4/5] Preparando o disparo Full Auto (sem publicar no teste)..." if not publicar else "🚀 [4/5] Executando Disparo Full Auto (ManyChat + Redes Sociais)...")
     from self_optimizer import obter_instrucao_estrategica
     instrucao_ia = obter_instrucao_estrategica()
     copy_otimizada = dados['copy'] + f"\n\n(Auto-Otimizado: {instrucao_ia})"
-    
-    from manychat_engine import disparar_webhook_manychat
-    res_mc = disparar_webhook_manychat(dados['produto'], dados['link_ml'], copy_otimizada)
+
+    # Um teste nunca toca em canais externos. Em produção, a publicação só passa
+    # quando existe um link oficial emitido pelo Portal do Afiliado.
+    if publicar and link_rastreado:
+        from manychat_engine import disparar_webhook_manychat
+        res_mc = disparar_webhook_manychat(dados['produto'], link_rastreado, copy_otimizada)
+    else:
+        res_mc = {
+            "success": False,
+            "skipped": True,
+            "error": "Teste local: ManyChat não acionado" if not publicar else "Link oficial de afiliado não configurado",
+        }
     
     # Prepara o registo analítico antes do disparo, mantendo o URL oficial intacto.
     import metrics_store
     media_campaign = campaign_state.get_campaign()
     asset_image_url = media_campaign.get("image_url") or dados.get("imagem")
+    metrics_link = link_rastreado or dados.get("link_ml") or "https://example.invalid/produto-sem-link"
     campaign_id = metrics_store.create_campaign(
         dados.get("marketplace", "Mercado Livre"),
-        dados["link_ml"],
+        metrics_link,
         dados["produto"],
+        product_external_id=str(dados.get("product_external_id")) if dados.get("product_external_id") else None,
     )
     creative_id = metrics_store.create_creative(
         campaign_id,
@@ -134,9 +188,9 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     board_pin = _safe_secret("PINTEREST_BOARD_ID")
     res_pin = {"success": False, "skipped": True, "error": "Pinterest não configurado"}
     status_pinterest = ""
-    if token_pin and board_pin and asset_image_url:
+    if publicar and token_pin and board_pin and asset_image_url and link_rastreado:
         import pinterest_engine
-        res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], dados['link_ml'], asset_image_url)
+        res_pin = pinterest_engine.postar_pinterest(token_pin, board_pin, dados['produto'], dados['copy'], link_rastreado, asset_image_url)
         if res_pin.get('success'):
             pin_data = res_pin.get("data") or {}
             publication_id = metrics_store.record_publication(
@@ -151,6 +205,12 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
         else:
             status_pinterest = f" | Erro Pinterest: {res_pin.get('error')}"
             res_pin["skipped"] = False
+    elif not publicar:
+        res_pin = {"success": False, "skipped": True, "error": "Teste local: Pinterest não acionado"}
+        status_pinterest = " | Teste sem publicação externa"
+    elif not link_rastreado:
+        res_pin = {"success": False, "skipped": True, "error": "Link oficial de afiliado não configurado"}
+        status_pinterest = " | Publicação bloqueada: falta link oficial"
     elif not asset_image_url:
         res_pin = {"success": False, "skipped": False, "error": "Imagem pública do produto não disponível"}
         status_pinterest = " | Imagem pública ausente para o Pinterest"

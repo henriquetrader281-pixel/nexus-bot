@@ -14,7 +14,10 @@ analysis = simple_mode.analisar_palavras_chave(
     "cozinha prática, organização, desejo",
 )
 assert analysis["keywords"]
-assert len(analysis["hooks"]) == 3
+assert len(analysis["hooks"]) >= 8
+assert analysis["intent"]
+assert analysis["intent_label"]
+assert analysis["caption"]
 copy, warning = simple_mode.gerar_copy(
     {"product_name": "Organizador Rotativo 360", "pain": "perder tempo procurando temperos"},
     analysis,

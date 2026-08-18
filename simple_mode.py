@@ -16,7 +16,61 @@ SEARCH_URL = "https://api.mercadolibre.com/sites/MLB/search"
 STOPWORDS = {
     "a", "o", "as", "os", "de", "do", "da", "dos", "das", "para", "por", "com",
     "sem", "uma", "um", "e", "em", "no", "na", "nos", "nas", "que", "se", "mais",
+    "como", "esse", "essa", "isso", "este", "esta", "você", "voce", "ainda", "sobre",
+    "muito", "muita", "pelo", "pela", "pelos", "pelas", "seu", "sua", "seus", "suas",
 }
+
+# Biblioteca editorial. As fórmulas variam por ângulo sem inventar atributos do anúncio.
+HOOK_PATTERNS = {
+    "dor": [
+        "Você ainda perde tempo com {pain}?",
+        "Se {pain} faz parte da sua rotina, este detalhe merece atenção.",
+        "O problema não é falta de esforço: é continuar a lidar com {pain} do mesmo jeito.",
+        "Quanto custa, por semana, continuar a conviver com {pain}?",
+    ],
+    "curiosidade": [
+        "O que quase ninguém percebe sobre {focus} é que uma pequena mudança pode aliviar a rotina.",
+        "Antes de comprar qualquer solução para {pain}, veja o que este produto resolve de verdade.",
+        "A diferença está num detalhe simples: {product} foi encontrado para atacar {focus}.",
+        "Parece apenas mais um produto, até você ver como ele entra na rotina.",
+    ],
+    "contraste": [
+        "Improvisar parece barato, até somar o tempo perdido com {pain}.",
+        "Menos gambiarra, mais praticidade: conheça uma alternativa para {focus}.",
+        "Não é sobre ter mais coisas; é sobre tornar {focus} mais fácil de resolver.",
+        "Do jeito antigo ou com uma solução pensada para a rotina?",
+    ],
+    "prova_pratica": [
+        "A proposta é objetiva: reduzir a fricção de {pain} no dia a dia.",
+        "Se você procura {focus}, comece conferindo uso, medidas e disponibilidade antes de decidir.",
+        "O benefício que importa aqui é simples: mais organização e menos esforço na tarefa.",
+        "Veja o produto em contexto e avalie se ele cabe na sua rotina.",
+    ],
+    "urgencia_etica": [
+        "Se essa necessidade já apareceu hoje, vale comparar a oferta enquanto ela está disponível.",
+        "Não deixe uma dor recorrente virar mais uma tarefa adiada: confira a solução oficial.",
+        "A melhor hora para testar uma rotina mais prática é quando o problema ainda está fresco.",
+    ],
+    "identificacao": [
+        "Quem vive a rotina de {pain} vai reconhecer este cenário na hora.",
+        "Para quem quer resolver {focus} sem complicar, esta é uma opção para analisar.",
+        "Se você já pesquisou formas de melhorar {focus}, guarde esta alternativa.",
+    ],
+}
+
+INTENT_PATTERNS = {
+    "dor_imediata": {"terms": ("dor", "cansaço", "cansaco", "atrapalha", "difícil", "dificil", "perde tempo"), "label": "problema imediato"},
+    "economia_tempo": {"terms": ("tempo", "rápido", "rapido", "praticidade", "organização", "organizacao"), "label": "economia de tempo"},
+    "comparacao": {"terms": ("preço", "preco", "barato", "oferta", "desconto", "comparar", "custo"), "label": "comparação de oferta"},
+    "desejo": {"terms": ("quero", "melhorar", "conforto", "beleza", "setup", "presente", "viral"), "label": "desejo aspiracional"},
+}
+
+CTA_VARIATIONS = [
+    "Comente QUERO e abra a oferta oficial para conferir preço e disponibilidade.",
+    "Salve para comparar depois e veja os detalhes no link oficial.",
+    "Acesse a oferta oficial, confira as especificações e decida com calma.",
+    "Se fizer sentido para a sua rotina, toque no link e veja a disponibilidade atual.",
+]
 
 
 def _secret(name: str) -> str | None:
@@ -49,21 +103,42 @@ def buscar_produtos_mercado_livre(query: str, limit: int = 8) -> list[dict[str, 
 
 
 def analisar_palavras_chave(product: str, pain: str, raw_keywords: str = "", trends: list[str] | None = None) -> dict[str, Any]:
-    source = " ".join([product, pain, raw_keywords, " ".join(trends or [])]).lower()
+    product_clean = " ".join((product or "produto selecionado").split())
+    pain_clean = " ".join((pain or "uma dificuldade recorrente na rotina").split())
+    trend_terms = [str(item).strip() for item in (trends or []) if str(item).strip()]
+    source = " ".join([product_clean, pain_clean, raw_keywords or "", " ".join(trend_terms)]).lower()
     words = re.findall(r"[a-záàâãéêíóôõúç0-9]{4,}", source, flags=re.IGNORECASE)
     keywords: list[str] = []
     for word in words:
         if word not in STOPWORDS and word not in keywords:
             keywords.append(word)
-    keywords = keywords[:12] or ["solução prática", "oferta oficial", "produto útil"]
+    explicit = [item.strip().lower() for item in re.split(r"[,;|]", raw_keywords or "") if item.strip()]
+    keywords = list(dict.fromkeys(explicit + keywords))[:18] or ["solução prática", "oferta oficial", "produto útil"]
     focus = keywords[0]
-    pain_clean = pain.strip() or "perder tempo com este problema"
-    hooks = [
-        f"Você ainda perde tempo com {pain_clean.lower()}?",
-        f"O que quase ninguém procura sobre {focus}: uma solução simples para o dia a dia.",
-        f"Pare de improvisar: veja como {product.strip() or 'este produto'} pode facilitar a rotina.",
-    ]
-    return {"keywords": keywords, "hooks": hooks, "focus": focus}
+    intent_scores = {
+        key: sum(1 for term in meta["terms"] if term in source)
+        for key, meta in INTENT_PATTERNS.items()
+    }
+    intent_key = max(intent_scores, key=intent_scores.get) if any(intent_scores.values()) else "dor_imediata"
+    context = {"product": product_clean, "pain": pain_clean.lower(), "focus": focus}
+    hook_candidates: list[str] = []
+    for patterns in HOOK_PATTERNS.values():
+        hook_candidates.extend(pattern.format(**context) for pattern in patterns)
+    rotation = sum(ord(char) for char in (product_clean + pain_clean)) % len(hook_candidates)
+    hooks = [hook_candidates[(rotation + index) % len(hook_candidates)] for index in range(min(8, len(hook_candidates)))]
+    cta_rotation = rotation % len(CTA_VARIATIONS)
+    ctas = CTA_VARIATIONS[cta_rotation:] + CTA_VARIATIONS[:cta_rotation]
+    return {
+        "keywords": keywords,
+        "hooks": hooks,
+        "focus": focus,
+        "intent": intent_key,
+        "intent_label": INTENT_PATTERNS[intent_key]["label"],
+        "intent_scores": intent_scores,
+        "hook_families": list(HOOK_PATTERNS),
+        "cta_variations": ctas,
+        "caption": f"{hooks[0]} {ctas[0]}",
+    }
 
 
 def _fallback_copy(product: str, pain: str, analysis: dict[str, Any], official_url: str = "") -> str:
@@ -89,6 +164,7 @@ Ganchos candidatos: {' | '.join(analysis['hooks'])}
 
 Use AIDA, linguagem natural, sem promessas falsas, sem inventar preço, desconto, avaliações ou características não confirmadas.
 Entregue: um gancho de 1 frase, desenvolvimento curto, benefício verificável e CTA para comentar QUERO ou abrir a oferta oficial.
+Use a intenção de compra "{analysis['intent_label']}" e escolha um dos ganchos sem repetir literalmente todos os candidatos.
 Não inclua markdown, títulos técnicos ou explicações sobre a tarefa."""
     api_key = _secret("GROQ_API_KEY")
     if api_key:
@@ -224,7 +300,7 @@ def exibir_modo_simples() -> None:
                 analysis = analisar_palavras_chave(product, pain, keywords_input, campaign.get("trends"))
                 campaign = _apply_input(product, pain, official_url, image_url, analysis)
                 if analyse_button:
-                    st.success("Palavras-chave analisadas e ganchos preparados para a copy e o vídeo.")
+                    st.success(f"{len(analysis['hooks'])} ganchos e {len(analysis['keywords'])} palavras-chave preparados · intenção: {analysis['intent_label']}.")
 
     campaign = campaign_state.get_campaign()
     if not campaign.get("product_name"):
@@ -236,14 +312,14 @@ def exibir_modo_simples() -> None:
         st.caption(f"Dor: {campaign.get('pain', 'não definida')} · Marketplace: {campaign.get('marketplace', 'Mercado Livre')}")
         hooks = campaign.get("hooks") or analisar_palavras_chave(campaign["product_name"], campaign.get("pain", ""), ", ".join(campaign.get("keywords", []) or []))["hooks"]
         st.markdown("**Ganchos encontrados:**")
-        for hook in hooks[:3]:
+        for hook in hooks[:8]:
             st.write(f"• {hook}")
         if st.button("✨ GERAR CAMPANHA COMPLETA", type="primary", use_container_width=True, key="simple_generate_all"):
             with st.spinner("Gerando copy, áudio, Imagem A e Vídeo B..."):
                 try:
                     analysis = analisar_palavras_chave(campaign["product_name"], campaign.get("pain", ""), ", ".join(campaign.get("keywords", []) or []), campaign.get("trends"))
                     copy_text, copy_warning = gerar_copy(campaign, analysis)
-                    campaign = campaign_state.set_campaign(copy=copy_text, copy_final=copy_text, hooks=analysis["hooks"], keywords=analysis["keywords"])
+                    campaign = campaign_state.set_campaign(copy=copy_text, copy_final=copy_text, hooks=analysis["hooks"], keywords=analysis["keywords"], caption=analysis["caption"], cta_variations=analysis["cta_variations"], intent=analysis["intent"], intent_label=analysis["intent_label"])
                     if copy_warning:
                         st.info(copy_warning)
                     try:

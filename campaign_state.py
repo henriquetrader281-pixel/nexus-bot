@@ -141,18 +141,27 @@ def _sync_legacy(data: dict[str, Any]) -> None:
 
 
 def set_from_product(product: dict[str, Any], *, source: str = "miner") -> dict[str, Any]:
-    """Converte o formato dos motores de mineração para o contrato de campanha."""
+    """Converte a descoberta para o contrato de campanha sem chamar permalink de afiliado."""
+    official_url = product.get("official_affiliate_url") or product.get("affiliate_url")
+    source_url = product.get("product_source_url") or product.get("permalink") or product.get("link_ml") or product.get("link")
     return set_campaign(
         product_name=product.get("produto") or product.get("product_name") or product.get("title"),
         pain=product.get("dificuldade") or product.get("dor") or product.get("pain"),
-        official_affiliate_url=product.get("link_ml") or product.get("official_affiliate_url") or product.get("link"),
-        affiliate_url=product.get("link_ml") or product.get("official_affiliate_url") or product.get("link"),
+        official_affiliate_url=official_url,
+        affiliate_url=official_url,
+        product_source_url=source_url,
         copy=product.get("copy"),
         image_url=product.get("imagem") or product.get("image_url"),
+        source_image_url=product.get("imagem") or product.get("image_url"),
+        image_verified=product.get("image_verified"),
+        image_source=product.get("image_source"),
+        product_external_id=product.get("product_external_id") or product.get("id"),
+        price=product.get("price"),
+        query=product.get("query"),
         video_source_url=product.get("video_demo") or product.get("video_source_url"),
         marketplace=product.get("marketplace") or st.session_state.get("mkt_global", "Mercado Livre"),
         niche=product.get("nicho") or product.get("niche"),
-        source=source,
+        source=product.get("source") or source,
     )
 
 
