@@ -46,6 +46,8 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
             # é a fonte de verdade da imagem e dos metadados disponíveis.
             product.title = product_name or product.title
             product.marketplace = marketplace
+            if image_url and not product.image_url:
+                product.image_url = image_url
             return product
         except Exception:
             if not image_url:
@@ -70,7 +72,7 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
 
     product = _build_product(campaign)
     if not product.image_url:
-        raise RuntimeError("O link não forneceu uma imagem pública do produto.")
+        raise RuntimeError("O link não forneceu uma imagem pública do produto. Cole uma URL JPG/PNG pública no campo 'URL pública da imagem do produto' em Afiliados.")
 
     output_dir = Path(output_root) / _safe_slug(product.title)
     output_dir.mkdir(parents=True, exist_ok=True)

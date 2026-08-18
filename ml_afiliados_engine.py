@@ -54,6 +54,12 @@ def exibir_config_ml():
         placeholder="https://meli.la/...",
         key="official_affiliate_input",
     )
+    image_url_hint = st.text_input(
+        "URL pública da imagem do produto (opcional)",
+        value=campanha.get("image_url", ""),
+        placeholder="https://http2.mlstatic.com/...jpg",
+        key="campaign_image_url_input",
+    )
     if st.button("🔗 VINCULAR LINK À CAMPANHA", type="primary", use_container_width=True):
         if not link_oficial.startswith(("http://", "https://")):
             st.error("Cole uma URL HTTP(S) válida criada no portal oficial.")
@@ -61,6 +67,7 @@ def exibir_config_ml():
             campaign_state.set_campaign(
                 official_affiliate_url=link_oficial.strip(),
                 affiliate_url=link_oficial.strip(),
+                image_url=image_url_hint.strip() or None,
                 marketplace=st.session_state.get("mkt_global", "Mercado Livre"),
                 source="affiliate_portal",
             )
@@ -107,6 +114,7 @@ def exibir_config_ml():
                 campaign_state.set_campaign(
                     official_affiliate_url=link_oficial.strip(),
                     affiliate_url=link_oficial.strip(),
+                    image_url=image_url_hint.strip() or None,
                     marketplace=mkt_config,
                     source="affiliate_settings",
                 )

@@ -72,8 +72,50 @@ def fetch_product_data(official_url: str) -> ProductData:
 
     title = meta("og:title", "twitter:title") or (soup.title.get_text(" ", strip=True) if soup.title else "Produto Mercado Livre")
     image_url = meta("og:image", "twitter:image")
-    if image_url:
-        image_url = urljoin(response.url, image_url)
+
+    def normalise_image(value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        candidate = urljoin(response.url, str(value).strip())
+        if not candidate.startswith(("http://", "https://")):
+            return None
+        if candidate.lower().endswith(".svg"):
+            return None
+        return candidate
+
+    image_url = normalise_image(image_url)
+    if not image_url:
+        image_link = soup.find("link", attrs={"rel": lambda rel: rel and "image_src" in rel})
+        image_url = normalise_image(image_link.get("href") if image_link else None)
+
+    if not image_url:
+        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+            try:
+                data = json.loads(script.get_text(strip=True))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            candidates = data if isinstance(data, list) else [data]
+            for item in candidates:
+                if isinstance(item, dict):
+                    value = item.get("image")
+                    if isinstance(value, list):
+                        value = value[0] if value else None
+                    if isinstance(value, dict):
+                        value = value.get("url")
+                    image_url = normalise_image(value)
+                    if image_url:
+                        break
+            if image_url:
+                break
+
+    if not image_url:
+        for image_tag in soup.find_all("img"):
+            value = image_tag.get("src") or image_tag.get("data-src") or image_tag.get("data-lazy-src")
+            candidate = normalise_image(value)
+            if candidate and not any(term in candidate.lower() for term in ("logo", "icon", "avatar")):
+                image_url = candidate
+                break
+
     price = meta("product:price:amount", "og:price:amount")
     return ProductData(
         official_affiliate_url=official_url,
