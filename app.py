@@ -19,6 +19,7 @@ import descoberta_hub
 import inteligencia_hub
 import ml_afiliados_engine
 import postador
+import simple_mode
 import scheduler_engine
 import seo_engine
 import update
@@ -76,7 +77,8 @@ with st.sidebar:
 
 
 tabs = st.tabs([
-    "🚀 AGENTE (1-CLIQUE)",
+    "🚀 MODO SIMPLES",
+    "🧠 AVANÇADO",
     "📊 BACKTEST",
     "🎯 INTELIGÊNCIA & LEADS",
     "⏰ AGENDADOR",
@@ -89,33 +91,36 @@ tabs = st.tabs([
 ])
 
 with tabs[0]:
-    autonomo_engine.exibir_aba_autonomo()
+    simple_mode.exibir_modo_simples()
 
 with tabs[1]:
-    backtest_engine.exibir_painel_backtest()
+    autonomo_engine.exibir_aba_autonomo()
 
 with tabs[2]:
-    inteligencia_hub.exibir_inteligencia_leads()
+    backtest_engine.exibir_painel_backtest()
 
 with tabs[3]:
-    scheduler_engine.exibir_agendador()
+    inteligencia_hub.exibir_inteligencia_leads()
 
 with tabs[4]:
-    seo_engine.exibir_seo_engine()
+    scheduler_engine.exibir_agendador()
 
 with tabs[5]:
-    descoberta_hub.exibir_descoberta()
+    seo_engine.exibir_seo_engine()
 
 with tabs[6]:
-    creator_hub.exibir_creator_hub()
+    descoberta_hub.exibir_descoberta()
 
 with tabs[7]:
-    postador.exibir_postador()
+    creator_hub.exibir_creator_hub()
 
 with tabs[8]:
-    ml_afiliados_engine.exibir_config_ml()
+    postador.exibir_postador()
 
 with tabs[9]:
+    ml_afiliados_engine.exibir_config_ml()
+
+with tabs[10]:
     update.exibir_dashboard()
     st.divider()
     import self_optimizer

@@ -1,18 +1,11 @@
-import sys
-import types
+import tempfile
+from pathlib import Path
 
-
-class SessionState(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-
-
-fake_streamlit = types.ModuleType("streamlit")
-fake_streamlit.session_state = SessionState()
-sys.modules["streamlit"] = fake_streamlit
+from PIL import Image
 
 import media_pipeline
 from generate_creatives import ProductData
+
 
 media_pipeline.fetch_product_data = lambda url: ProductData(
     official_affiliate_url=url,
@@ -26,4 +19,19 @@ product = media_pipeline._build_product({
     "image_url": "https://cdn.example.test/produto.jpg",
 })
 assert product.image_url == "https://cdn.example.test/produto.jpg"
+
+with tempfile.TemporaryDirectory() as temp_dir:
+    root = Path(temp_dir)
+    manual = root / "manual.png"
+    Image.new("RGB", (120, 120), "#22c55e").save(manual)
+    output = root / "output"
+    media_pipeline.make_image_a = lambda product, source, folder: folder / "image_a.jpg"
+    media_pipeline.make_video_b = lambda product, source, folder, audio, caption_lines=None: folder / "video_b.mp4"
+    result = media_pipeline.generate_campaign_media({
+        "product_name": "Produto manual",
+        "image_path": str(manual),
+    }, output_root=output)
+    assert result["image_a"].endswith("image_a.jpg")
+    assert result["video_b"].endswith("video_b.mp4")
+
 print("MEDIA_FALLBACK_TEST_OK")

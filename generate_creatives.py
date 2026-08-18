@@ -232,15 +232,19 @@ def _subclip(audio, end: float):
     return method(0, end)
 
 
-def make_video_b(product: ProductData, source: Path, output_dir: Path, audio_path: Optional[Path] = None) -> Path:
+def make_video_b(product: ProductData, source: Path, output_dir: Path, audio_path: Optional[Path] = None, caption_lines: Optional[list[str]] = None) -> Path:
     size = (1080, 1920)
     product_name = " ".join(product.title.replace(" - Mercado Livre", "").split()[:6]) or "Produto selecionado"
     marketplace = product.marketplace or "Mercado Livre"
     price_line = f"Preço encontrado: {product.price}." if product.price else f"Veja preço e disponibilidade no {marketplace}."
+    captions = [str(item).strip() for item in (caption_lines or []) if str(item).strip()]
+    hook_caption = captions[0] if captions else "Você ainda sofre com isso?"
+    benefit_caption = captions[1] if len(captions) > 1 else f"Conheça uma solução prática: {product_name}."
+    cta_caption = captions[2] if len(captions) > 2 else price_line
     scenes = [
-        (f"Você ainda sofre com isso?", f"Conheça uma solução prática: {product_name}."),
-        (product_name, "Produto real, demonstração clara e uso no dia a dia."),
-        ("Confira a oferta oficial", price_line),
+        (hook_caption, f"Pare o scroll: {product_name}."),
+        (product_name, benefit_caption),
+        ("Confira a oferta oficial", cta_caption),
     ]
     frame_paths = []
     for index, (headline, subline) in enumerate(scenes, start=1):

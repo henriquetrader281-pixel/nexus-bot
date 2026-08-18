@@ -35,13 +35,15 @@ def _marketplace_from_url(url: str | None) -> str:
 
 def _build_product(campaign: dict[str, Any]) -> ProductData:
     official_url = str(campaign.get("official_affiliate_url") or "").strip()
+    source_url = str(campaign.get("product_source_url") or official_url).strip()
     product_name = str(campaign.get("product_name") or "Produto selecionado").strip()
     image_url = campaign.get("image_url")
-    marketplace = campaign.get("marketplace") or _marketplace_from_url(official_url)
+    marketplace = campaign.get("marketplace") or _marketplace_from_url(source_url)
 
-    if official_url.startswith(("http://", "https://")):
+    if source_url.startswith(("http://", "https://")):
         try:
-            product = fetch_product_data(official_url)
+            product = fetch_product_data(source_url)
+            product.official_affiliate_url = official_url or source_url
             # A seleção do usuário é a fonte de verdade do texto; a página oficial
             # é a fonte de verdade da imagem e dos metadados disponíveis.
             product.title = product_name or product.title
@@ -50,12 +52,13 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
                 product.image_url = image_url
             return product
         except Exception:
-            if not image_url:
+            manual_image = campaign.get("image_path")
+            if not image_url and not (manual_image and Path(str(manual_image)).is_file()):
                 raise
 
     return ProductData(
-        official_affiliate_url=official_url or "https://example.invalid/sem-link",
-        resolved_url=official_url,
+        official_affiliate_url=official_url or source_url or "https://example.invalid/sem-link",
+        resolved_url=source_url,
         title=product_name,
         image_url=image_url,
         price=campaign.get("price"),
@@ -67,20 +70,26 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
     """Gera os dois formatos e retorna caminhos locais mais o manifesto."""
     if not campaign.get("product_name"):
         raise ValueError("Nenhum produto selecionado para gerar mídia.")
-    if not campaign.get("image_url") and not campaign.get("official_affiliate_url"):
-        raise ValueError("A campanha precisa de um link oficial ou de uma imagem pública do produto.")
+    if not campaign.get("image_url") and not campaign.get("image_path") and not campaign.get("official_affiliate_url") and not campaign.get("product_source_url"):
+        raise ValueError("A campanha precisa de um link oficial, de um produto encontrado ou de uma imagem pública.")
 
     product = _build_product(campaign)
-    if not product.image_url:
-        raise RuntimeError("O link não forneceu uma imagem pública do produto. Cole uma URL JPG/PNG pública no campo 'URL pública da imagem do produto' em Afiliados.")
+    manual_image = campaign.get("image_path")
+    manual_image_path = Path(str(manual_image)) if manual_image else None
+    if not product.image_url and not (manual_image_path and manual_image_path.is_file()):
+        raise RuntimeError("O link não forneceu uma imagem pública do produto. Cole uma URL JPG/PNG pública ou suba uma imagem no Modo Simples.")
 
     output_dir = Path(output_root) / _safe_slug(product.title)
     output_dir.mkdir(parents=True, exist_ok=True)
-    source = download_image(product, output_dir)
+    if manual_image_path and manual_image_path.is_file():
+        source = manual_image_path
+    else:
+        source = download_image(product, output_dir)
     audio_path = campaign.get("audio_path")
     audio = Path(audio_path) if audio_path and Path(audio_path).exists() else None
     image_path = make_image_a(product, source, output_dir)
-    video_path = make_video_b(product, source, output_dir, audio)
+    caption_lines = campaign.get("hooks") or campaign.get("keywords") or []
+    video_path = make_video_b(product, source, output_dir, audio, caption_lines=caption_lines)
 
     manifest = {
         "product": {
