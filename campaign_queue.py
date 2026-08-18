@@ -83,6 +83,18 @@ def get_prepared_campaign(campaign_id: int) -> dict[str, Any] | None:
     return _decode(dict(row)) if row else None
 
 
+def update_prepared_campaign_link(campaign_id: int, official_affiliate_url: str) -> bool:
+    if not str(official_affiliate_url).strip().startswith(("http://", "https://")):
+        raise ValueError("official_affiliate_url precisa ser HTTP(S)")
+    metrics_store.init_db()
+    with metrics_store.connect() as connection:
+        cursor = connection.execute(
+            "UPDATE prepared_campaigns SET official_affiliate_url = ?, updated_at = datetime('now') WHERE id = ?",
+            (str(official_affiliate_url).strip(), int(campaign_id)),
+        )
+    return cursor.rowcount > 0
+
+
 def mark_prepared_campaign(campaign_id: int, status: str) -> bool:
     if status not in {"ready", "needs_review", "published", "failed"}:
         raise ValueError("status de campanha inválido")
@@ -124,5 +136,6 @@ __all__ = [
     "list_prepared_campaigns",
     "get_prepared_campaign",
     "mark_prepared_campaign",
+    "update_prepared_campaign_link",
     "campaign_from_queue_row",
 ]

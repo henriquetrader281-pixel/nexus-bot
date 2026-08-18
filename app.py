@@ -20,6 +20,7 @@ import inteligencia_hub
 import ml_afiliados_engine
 import postador
 import simple_mode
+import nexus_pipeline_ui
 import scheduler_engine
 import seo_engine
 import update
@@ -77,51 +78,31 @@ with st.sidebar:
 
 
 tabs = st.tabs([
-    "🚀 MODO SIMPLES",
+    "🚀 ESTEIRA PRINCIPAL",
     "🧠 AVANÇADO",
-    "📊 BACKTEST",
-    "🎯 INTELIGÊNCIA & LEADS",
-    "⏰ AGENDADOR",
-    "🔍 SEO",
-    "🔎 DESCOBERTA",
-    "🎬 STUDIO & COPY",
-    "🚀 CENTRAL DE DISPARO",
-    "🤝 AFILIADOS",
-    "📊 DASHBOARD",
 ])
 
 with tabs[0]:
-    simple_mode.exibir_modo_simples()
+    nexus_pipeline_ui.exibir_esteira_principal()
 
 with tabs[1]:
+    st.header("🧠 Ferramentas avançadas")
+    st.caption("A operação normal não precisa destas áreas. Use-as apenas para diagnóstico, SEO, backtest, agendamento e configurações específicas.")
     autonomo_engine.exibir_aba_autonomo()
-
-with tabs[2]:
-    backtest_engine.exibir_painel_backtest()
-
-with tabs[3]:
-    inteligencia_hub.exibir_inteligencia_leads()
-
-with tabs[4]:
-    scheduler_engine.exibir_agendador()
-
-with tabs[5]:
-    seo_engine.exibir_seo_engine()
-
-with tabs[6]:
-    descoberta_hub.exibir_descoberta()
-
-with tabs[7]:
-    creator_hub.exibir_creator_hub()
-
-with tabs[8]:
-    postador.exibir_postador()
-
-with tabs[9]:
-    ml_afiliados_engine.exibir_config_ml()
-
-with tabs[10]:
-    update.exibir_dashboard()
-    st.divider()
-    import self_optimizer
-    self_optimizer.exibir_painel_evolutivo()
+    with st.expander("📊 Backtest e inteligência", expanded=False):
+        backtest_engine.exibir_painel_backtest()
+        inteligencia_hub.exibir_inteligencia_leads()
+    with st.expander("⏰ Agendamento e descoberta", expanded=False):
+        scheduler_engine.exibir_agendador()
+        descoberta_hub.exibir_descoberta()
+    with st.expander("🔍 SEO e Studio", expanded=False):
+        seo_engine.exibir_seo_engine()
+        creator_hub.exibir_creator_hub()
+    with st.expander("🚀 Central de Disparo manual", expanded=False):
+        postador.exibir_postador()
+    with st.expander("🤝 Afiliados e Dashboard", expanded=False):
+        ml_afiliados_engine.exibir_config_ml()
+        update.exibir_dashboard()
+        st.divider()
+        import self_optimizer
+        self_optimizer.exibir_painel_evolutivo()

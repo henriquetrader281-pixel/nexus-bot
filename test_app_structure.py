@@ -12,6 +12,6 @@ if app.exception:
     raise RuntimeError(str(app.exception))
 
 labels = [tab.label for tab in app.tabs]
-expected = {"🚀 MODO SIMPLES", "🧠 AVANÇADO", "🔎 DESCOBERTA", "🎬 STUDIO & COPY", "🚀 CENTRAL DE DISPARO"}
+expected = {"🚀 ESTEIRA PRINCIPAL", "🧠 AVANÇADO"}
 assert expected.issubset(set(labels)), labels
 print("APP_STRUCTURE_TEST_OK")
