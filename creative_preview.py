@@ -19,14 +19,14 @@ def _card(title: str, variant: str, asset_path: str | None, asset_url: str | Non
     st.markdown(f"**{variant} · {title}**  \n`{badge}`")
     if asset_path and os.path.exists(asset_path):
         if is_video:
-            st.video(asset_path)
+            st.video(asset_path, width="stretch")
         else:
-            st.image(asset_path, use_container_width=True)
+            st.image(asset_path, width="stretch")
     elif asset_url and _is_valid_url(asset_url):
         if is_video:
             st.video(asset_url)
         else:
-            st.image(asset_url, use_container_width=True)
+            st.image(asset_url, width="stretch")
     else:
         st.warning("Criativo ainda não disponível para pré-visualização.")
     st.caption(description)
