@@ -25,6 +25,44 @@ def _safe_file(path_value: Any) -> Path | None:
     return path if path.is_file() else None
 
 
+PAIN_RULES = (
+    (("power bank", "carregador", "bateria", "cabo"), "ficar sem bateria quando precisa do celular e perder tempo procurando uma tomada"),
+    (("organizador", "cozinha", "armário", "gaveta"), "perder tempo com desorganização e não encontrar o que precisa"),
+    (("luminária", "monitor", "led", "luz"), "cansar a visão e trabalhar com iluminação desconfortável"),
+    (("massage", "massagem", "muscular", "relaxante"), "terminar o dia com tensão muscular e dificuldade para relaxar"),
+    (("fone", "headphone", "bluetooth", "ruído"), "ter distrações e dificuldade para ouvir com clareza na rotina"),
+    (("beleza", "cosmético", "maquiagem", "cabelo"), "gastar tempo na rotina de cuidados sem praticidade"),
+)
+
+
+def inferir_dor_produto(product_name: str, trend_term: str = "") -> str:
+    text = f"{product_name} {trend_term}".lower()
+    for terms, pain in PAIN_RULES:
+        if any(term in text for term in terms):
+            return pain
+    return f"ter uma necessidade recorrente relacionada a {trend_term or product_name.lower()} e não encontrar uma solução prática"
+
+
+def _keywords_for_product(product_name: str, trend_term: str = "") -> list[str]:
+    values = [trend_term.strip().lower()] if trend_term.strip() else []
+    values.extend(word.lower() for word in product_name.split() if len(word) >= 4)
+    return list(dict.fromkeys(value for value in values if value))[:12]
+
+
+def _apply_mined_product(product: dict[str, Any], trend_term: str, trend_source: str) -> None:
+    campaign_state.set_from_product(product, source="main_auto_miner")
+    name = product.get("produto") or product.get("title") or "Produto selecionado"
+    campaign_state.set_campaign(
+        pain=inferir_dor_produto(name, trend_term),
+        trend_term=trend_term,
+        trend_source=trend_source,
+        trends=st.session_state.get("real_trends", []),
+        keywords=_keywords_for_product(name, trend_term),
+        image_verified=product.get("image_verified", True),
+        image_source=product.get("image_source") or "thumbnail do mesmo anúncio",
+    )
+
+
 def _load_selected_queue() -> None:
     rows = campaign_queue.list_prepared_campaigns(limit=100)
     if not rows:
@@ -43,10 +81,14 @@ def _load_selected_queue() -> None:
 def _mine_one_product(query: str = "") -> None:
     try:
         from real_marketplace_engine import obter_produto_real_validado
+        from trends import obter_tendencias_reais
 
-        product = obter_produto_real_validado("gemini", query=query.strip() or None)
-        campaign_state.set_from_product(product, source="main_auto_miner")
+        trend_values, trend_source = obter_tendencias_reais(limit=10)
+        trend_term = query.strip() or (trend_values[0] if trend_values else "produtos úteis")
+        product = obter_produto_real_validado("gemini", query=trend_term)
+        _apply_mined_product(product, trend_term, trend_source)
         st.success(f"Produto minerado: {product.get('produto') or product.get('title')}")
+        st.info(f"Tendência usada: **{trend_term}** · fonte: {trend_source}")
         st.rerun()
     except Exception as exc:
         st.error("A mineração foi bloqueada com segurança: o Mercado Livre não devolveu um produto com imagem pública.")
@@ -206,6 +248,22 @@ def exibir_esteira_principal() -> None:
         search_col, auto_col = st.columns([3, 1])
         with search_col:
             query = st.text_input("Pesquisar no Mercado Livre", placeholder="ex.: power bank, organizador de cozinha, luminária", key="main_search_query")
+            if st.button("📈 BUSCAR PRODUTOS EM ALTA", key="main_trend_button"):
+                try:
+                    from trends import obter_tendencias_reais
+
+                    values, source = obter_tendencias_reais(limit=10)
+                    st.session_state.main_trend_values = values
+                    st.session_state.main_trend_source = source
+                    st.success(f"{len(values)} tendências carregadas de {source}.")
+                except Exception as exc:
+                    st.error(f"Não foi possível carregar tendências: {exc}")
+            trend_values = st.session_state.get("main_trend_values", [])
+            if trend_values:
+                trend_term = st.selectbox("Escolha um termo em alta", trend_values, key="main_trend_select")
+                if st.button("🔎 USAR TERMO EM ALTA", key="main_use_trend"):
+                    st.session_state.main_search_query = trend_term
+                    st.rerun()
             if st.button("🔎 BUSCAR PRODUTOS", type="primary", key="main_search_button"):
                 if not query.strip():
                     st.warning("Digite um produto ou problema para pesquisar.")
@@ -225,13 +283,20 @@ def exibir_esteira_principal() -> None:
             selected_index = st.selectbox("Resultado encontrado", range(len(labels)), format_func=lambda index: labels[index], key="main_result_select")
             selected = results[selected_index]
             if st.button("✅ USAR ESTE PRODUTO", key="main_use_product"):
+                trend_term = st.session_state.get("main_search_query", query).strip()
                 campaign_state.set_campaign(
                     product_name=selected["title"],
-                    pain=f"Encontrar uma solução melhor para {selected['title'].lower()}",
+                    pain=inferir_dor_produto(selected["title"], trend_term),
                     product_source_url=selected.get("permalink"),
                     image_url=selected.get("image_url"),
+                    source_image_url=selected.get("image_url"),
+                    image_verified=bool(selected.get("image_url")),
+                    image_source="thumbnail do resultado selecionado",
                     price=selected.get("price"),
                     marketplace="Mercado Livre",
+                    trend_term=trend_term,
+                    trends=st.session_state.get("main_trend_values", []),
+                    keywords=_keywords_for_product(selected["title"], trend_term),
                     source="main_search",
                 )
                 st.rerun()
@@ -257,6 +322,8 @@ def exibir_esteira_principal() -> None:
     with st.container(border=True):
         st.markdown("### 2. Copy, hooks e legenda")
         analysis = analisar_palavras_chave(campaign["product_name"], campaign.get("pain", ""), ", ".join(campaign.get("keywords", []) or []), campaign.get("trends"))
+        st.write("**Tendência usada:**", campaign.get("trend_term") or "a definir")
+        st.write("**Dor/desejo detectado:**", campaign.get("pain") or inferir_dor_produto(campaign["product_name"], campaign.get("trend_term", "")))
         st.write("**Intenção:**", campaign.get("intent_label") or analysis["intent_label"])
         st.write("**Hooks selecionados:**", " · ".join(analysis["hooks"][:4]))
         if st.button("✨ GERAR PACOTE COMPLETO", type="primary", key="main_generate_package", use_container_width=True):

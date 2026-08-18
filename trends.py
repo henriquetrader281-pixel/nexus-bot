@@ -92,6 +92,14 @@ def _obter_trends() -> tuple[list[str], str]:
     return FALLBACK_TRENDS, "Radar de Contingência — sem dados em tempo real"
 
 
+def obter_tendencias_reais(limit: int = 25) -> tuple[list[str], str]:
+    """Busca e guarda tendências para o fluxo principal e devolve valores e fonte."""
+    values, source = _obter_trends()
+    values = values[:max(1, int(limit))]
+    _save_trends(values, source)
+    return values, source
+
+
 def exibir_trends():
     st.header("📈 Google Trends Brasil: Inteligência em Tempo Real")
     st.markdown("Extraindo sinais recentes de procura para alimentar palavras-chave e ganchos da campanha.")
@@ -99,8 +107,7 @@ def exibir_trends():
     with col1:
         if st.button("🔍 VARRER TENDÊNCIAS AGORA", use_container_width=True, type="primary"):
             with st.spinner("Consultando Google Trending Now Brasil..."):
-                trends, source = _obter_trends()
-                _save_trends(trends, source)
+                trends, source = obter_tendencias_reais()
                 if source.startswith("Google Trending Now"):
                     st.success(f"✅ {len(trends)} tendências atuais capturadas pelo RSS oficial.")
                 elif source.startswith("pytrends"):
