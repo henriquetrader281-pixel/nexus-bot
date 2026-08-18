@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 import time
+import unicodedata
 import xml.etree.ElementTree as ET
 
 import pandas as pd
@@ -19,6 +21,50 @@ FALLBACK_TRENDS = [
     "fone bluetooth cancelamento de ruído",
 ]
 RSS_NAMESPACE = "{https://trends.google.com/trending/rss}"
+
+# Termos que indicam procura comercial; são usados apenas para filtrar o feed
+# geral antes de consultar anúncios. A aprovação final depende de um produto
+# real com permalink e imagem devolvidos pelo Mercado Livre.
+PRODUCT_MARKERS = {
+    "celular", "iphone", "samsung", "xiaomi", "notebook", "computador", "monitor", "smart", "tv",
+    "fone", "headphone", "bluetooth", "camera", "câmera", "relogio", "relógio", "smartwatch", "maquiagem",
+    "perfume", "tenis", "tênis", "bolsa", "cadeira", "mesa", "organizador", "cozinha", "luminaria", "luminária",
+    "lampada", "lâmpada", "power", "carregador", "bateria", "massagem", "fitness", "bike", "bicicleta",
+    "console", "playstation", "xbox", "casa", "jardim", "ferramenta", "aspirador", "liquidificador", "cafeteira",
+    "panela", "airfryer", "brinquedo", "bebe", "bebê", "moda", "desconto", "oferta", "cupom", "preco", "preço",
+    "comprar", "promoção", "promocao",
+}
+NON_PRODUCT_MARKERS = {
+    "presidente", "presidência", "presidencia", "eleição", "eleicao", "política", "politica", "deputado", "senador",
+    "governo", "apac", "tempo", "previsão", "previsao", "clima", "chuva", "chuvas", "furacão", "furacao",
+    "jogo", "futebol", "campeonato", "copa", "placar", "morte", "morreu", "notícia", "noticia", "novela",
+    "bbb", "gloria", "glória", "malcom", "zeze", "zé", "famoso", "famosa", "celebridade", "guerra",
+}
+
+
+def _fold_text(value: str) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    return "".join(char for char in text if not unicodedata.combining(char)).lower()
+
+
+def is_commercial_trend(value: str) -> bool:
+    """Retorna verdadeiro apenas para sinais com indício de intenção de produto."""
+    folded = _fold_text(value)
+    if len(folded) < 4 or any(marker in folded for marker in NON_PRODUCT_MARKERS):
+        return False
+    tokens = set(re.findall(r"[a-z0-9]{3,}", folded))
+    return bool(tokens.intersection({_fold_text(marker) for marker in PRODUCT_MARKERS}))
+
+
+def filtrar_tendencias_comerciais(values: list[str], limit: int = 12) -> list[str]:
+    filtered: list[str] = []
+    for value in values:
+        clean = str(value).strip()
+        if clean and is_commercial_trend(clean) and clean not in filtered:
+            filtered.append(clean)
+        if len(filtered) >= max(1, int(limit)):
+            break
+    return filtered
 
 
 def fetch_google_trends_rss(limit: int = 25) -> list[str]:
@@ -93,11 +139,22 @@ def _obter_trends() -> tuple[list[str], str]:
 
 
 def obter_tendencias_reais(limit: int = 25) -> tuple[list[str], str]:
-    """Busca e guarda tendências para o fluxo principal e devolve valores e fonte."""
+    """Busca e guarda tendências gerais para o radar avançado."""
     values, source = _obter_trends()
     values = values[:max(1, int(limit))]
     _save_trends(values, source)
     return values, source
+
+
+def obter_tendencias_comerciais(limit: int = 12) -> tuple[list[str], str]:
+    """Filtra o feed geral para sinais que podem virar consultas de produto."""
+    values, source = obter_tendencias_reais(limit=25)
+    commercial = filtrar_tendencias_comerciais(values, limit=limit)
+    if not commercial:
+        commercial = filtrar_tendencias_comerciais(FALLBACK_TRENDS, limit=limit)
+        source = f"{source} · fallback comercial"
+    _save_trends(commercial, f"{source} · filtro comercial")
+    return commercial, f"{source} · filtro comercial"
 
 
 def exibir_trends():

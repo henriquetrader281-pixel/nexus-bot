@@ -49,6 +49,33 @@ def _keywords_for_product(product_name: str, trend_term: str = "") -> list[str]:
     return list(dict.fromkeys(value for value in values if value))[:12]
 
 
+def _buscar_produtos_para_tendencias(terms: list[str], per_term: int = 3) -> list[dict[str, Any]]:
+    from real_marketplace_engine import buscar_produtos_mercado_livre as search_api
+    from real_marketplace_engine import buscar_produtos_mercado_livre_web as search_web
+
+    products: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for term in terms[:5]:
+        candidates: list[dict[str, Any]] = []
+        try:
+            candidates = search_api(term, limit=per_term)
+        except Exception:
+            candidates = []
+        if not candidates:
+            try:
+                candidates = search_web(term, limit=per_term)
+            except Exception:
+                candidates = []
+        for candidate in candidates:
+            permalink = str(candidate.get("permalink") or "").strip()
+            image_url = str(candidate.get("image_url") or "").strip()
+            if not permalink or not image_url or permalink in seen:
+                continue
+            seen.add(permalink)
+            products.append({**candidate, "trend_term": term})
+    return products
+
+
 def _apply_mined_product(product: dict[str, Any], trend_term: str, trend_source: str) -> None:
     campaign_state.set_from_product(product, source="main_auto_miner")
     name = product.get("produto") or product.get("title") or "Produto selecionado"
@@ -81,9 +108,9 @@ def _load_selected_queue() -> None:
 def _mine_one_product(query: str = "") -> None:
     try:
         from real_marketplace_engine import obter_produto_real_validado
-        from trends import obter_tendencias_reais
+        from trends import obter_tendencias_comerciais
 
-        trend_values, trend_source = obter_tendencias_reais(limit=10)
+        trend_values, trend_source = obter_tendencias_comerciais(limit=10)
         trend_term = query.strip() or (trend_values[0] if trend_values else "produtos úteis")
         product = obter_produto_real_validado("gemini", query=trend_term)
         _apply_mined_product(product, trend_term, trend_source)
@@ -255,20 +282,43 @@ def exibir_esteira_principal() -> None:
             query = st.text_input("Pesquisar no Mercado Livre", placeholder="ex.: power bank, organizador de cozinha, luminária", key="main_search_query")
             if st.button("📈 BUSCAR PRODUTOS EM ALTA", key="main_trend_button"):
                 try:
-                    from trends import obter_tendencias_reais
+                    from trends import obter_tendencias_comerciais
 
-                    values, source = obter_tendencias_reais(limit=10)
+                    values, source = obter_tendencias_comerciais(limit=10)
                     st.session_state.main_trend_values = values
                     st.session_state.main_trend_source = source
-                    st.success(f"{len(values)} tendências carregadas de {source}.")
+                    st.session_state.main_hot_products = _buscar_produtos_para_tendencias(values)
+                    st.success(f"{len(st.session_state.main_hot_products)} produtos encontrados a partir dos sinais comerciais de {source}.")
                 except Exception as exc:
                     st.error(f"Não foi possível carregar tendências: {exc}")
-            trend_values = st.session_state.get("main_trend_values", [])
-            if trend_values:
-                trend_term = st.selectbox("Escolha um termo em alta", trend_values, key="main_trend_select")
-                if st.button("🔎 USAR TERMO EM ALTA", key="main_use_trend"):
-                    st.session_state.main_pending_query = trend_term
+            hot_products = st.session_state.get("main_hot_products", [])
+            if hot_products:
+                hot_labels = [
+                    f"{item.get('title', 'Produto')} · sinal: {item.get('trend_term', '')}"
+                    for item in hot_products
+                ]
+                hot_index = st.selectbox("Escolha um produto em alta", range(len(hot_labels)), format_func=lambda index: hot_labels[index], key="main_hot_product_select")
+                hot_selected = hot_products[hot_index]
+                if st.button("✅ USAR PRODUTO EM ALTA", key="main_use_trend"):
+                    trend_term = hot_selected.get("trend_term", "")
+                    campaign_state.set_campaign(
+                        product_name=hot_selected.get("title"),
+                        pain=inferir_dor_produto(hot_selected.get("title", ""), trend_term),
+                        product_source_url=hot_selected.get("permalink"),
+                        image_url=hot_selected.get("image_url"),
+                        source_image_url=hot_selected.get("image_url"),
+                        image_verified=True,
+                        image_source="thumbnail do produto encontrado para sinal comercial",
+                        price=hot_selected.get("price"),
+                        marketplace="Mercado Livre",
+                        trend_term=trend_term,
+                        trends=st.session_state.get("main_trend_values", []),
+                        keywords=_keywords_for_product(hot_selected.get("title", ""), trend_term),
+                        source="main_hot_product",
+                    )
                     st.rerun()
+            elif st.session_state.get("main_trend_values"):
+                st.warning("Os sinais comerciais foram carregados, mas nenhum anúncio com imagem pública foi devolvido. Configure o token do Mercado Livre ou use a busca manual.")
             if st.button("🔎 BUSCAR PRODUTOS", type="primary", key="main_search_button"):
                 if not query.strip():
                     st.warning("Digite um produto ou problema para pesquisar.")
