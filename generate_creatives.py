@@ -239,31 +239,38 @@ def make_video_b(product: ProductData, source: Path, output_dir: Path, audio_pat
     price_line = f"Preço encontrado: {product.price}." if product.price else f"Veja preço e disponibilidade no {marketplace}."
     captions = [str(item).strip() for item in (caption_lines or []) if str(item).strip()]
     hook_caption = captions[0] if captions else "Você ainda sofre com isso?"
-    benefit_caption = captions[1] if len(captions) > 1 else f"Conheça uma solução prática: {product_name}."
+    benefit_caption = captions[1] if len(captions) > 1 else f"Conheça uma solução prática para a rotina."
     cta_caption = captions[2] if len(captions) > 2 else price_line
     scenes = [
-        (hook_caption, f"Pare o scroll: {product_name}."),
+        (hook_caption, product_name),
         (product_name, benefit_caption),
-        ("Confira a oferta oficial", cta_caption),
+        ("Oferta oficial", cta_caption),
     ]
     frame_paths = []
     for index, (headline, subline) in enumerate(scenes, start=1):
         frame = fit_product(source, size)
-        draw_gradient(frame, 980)
+        draw_gradient(frame, 930)
         draw = ImageDraw.Draw(frame)
-        headline_font = load_font(74, bold=True)
-        subline_font = load_font(40)
-        y = 1110
-        for line in wrap_text_by_width(draw, headline, headline_font, 950, max_lines=2):
-            draw.text((60, y), line, font=headline_font, fill="white", stroke_width=2, stroke_fill="#0b1020")
-            y += 88
-        sub_y = y + 18
-        for sub_line in wrap_text_by_width(draw, subline, subline_font, 950, max_lines=2):
-            draw.text((60, sub_y), sub_line, font=subline_font, fill="#dbeafe", stroke_width=1, stroke_fill="#0b1020")
-            sub_y += 52
-        if index == 3:
-            draw.rounded_rectangle((60, 1660, 570, 1750), radius=20, fill="#72f1a8")
-            draw.text((94, 1687), "VER OFERTA OFICIAL", font=load_font(34, bold=True), fill="#06130b")
+        headline_font = load_font(68, bold=True)
+        subline_font = load_font(36)
+        panel = (30, 980, 1050, 1840)
+        draw.rounded_rectangle(panel, radius=28, fill="#07111e")
+        headline_lines = wrap_text_by_width(draw, headline, headline_font, 900, max_lines=2)
+        y = 1060
+        for line in headline_lines:
+            draw.text((70, y), line, font=headline_font, fill="white", stroke_width=2, stroke_fill="#07111e")
+            y += 82
+        sub_y = y + 26
+        sub_lines = wrap_text_by_width(draw, subline, subline_font, 900, max_lines=3)
+        for sub_line in sub_lines:
+            draw.text((70, sub_y), sub_line, font=subline_font, fill="#dbeafe", stroke_width=1, stroke_fill="#07111e")
+            sub_y += 50
+        cta_text = "VER OFERTA OFICIAL"
+        cta_font = load_font(30, bold=True)
+        cta_width = draw.textbbox((0, 0), cta_text, font=cta_font)[2] + 76
+        cta_y = 1710
+        draw.rounded_rectangle((70, cta_y, 70 + cta_width, cta_y + 78), radius=20, fill="#72f1a8")
+        draw.text((108, cta_y + 23), cta_text, font=cta_font, fill="#06130b")
         frame_path = output_dir / f"video_frame_{index}.jpg"
         frame.save(frame_path, quality=92)
         frame_paths.append(frame_path)

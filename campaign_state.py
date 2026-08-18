@@ -44,6 +44,7 @@ def _legacy_campaign() -> dict[str, Any]:
         "copy": state.get("copy_final_pronta") or state.get("copy_ativa"),
         "image_url": state.get("img_real_url") or state.get("nexus_media_url"),
         "image_path": state.get("image_path_local"),
+        "source_image_path": state.get("source_image_path_local"),
         "video_path": state.get("video_path_local"),
         "video_source_url": state.get("nexus_video_demo"),
         "audio_path": state.get("audio_path_local"),
@@ -116,6 +117,7 @@ def _sync_legacy(data: dict[str, Any]) -> None:
         "copy_final": "copy_final_pronta",
         "image_url": "img_real_url",
         "image_path": "image_path_local",
+        "source_image_path": "source_image_path_local",
         "video_path": "video_path_local",
         "video_source_url": "nexus_video_demo",
         "audio_path": "audio_path_local",
@@ -160,7 +162,7 @@ def clear_campaign() -> None:
         st.session_state.pop(key, None)
     for key in (
         "sel_nome", "sel_dor", "sel_link", "link_final_afiliado", "copy_ativa",
-        "copy_final_pronta", "img_real_url", "image_path_local", "video_path_local",
+        "copy_final_pronta", "img_real_url", "image_path_local", "source_image_path_local", "video_path_local",
         "nexus_video_demo", "audio_path_local", "prompt_4k", "roteiro_nexus",
         "nexus_media_url", "nexus_media_ready", "campaign_source", "media_manifest",
         "leads_keywords", "leads_encontrados", "seo_dados", "scan_results",

@@ -62,6 +62,7 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
         from media_pipeline import generate_campaign_media
         manifest = generate_campaign_media(campaign_state.get_campaign())
         campaign_state.set_campaign(
+            source_image_path=manifest.get("source_image_path"),
             image_path=manifest["image_a"],
             video_path=manifest["video_b"],
             image_url=manifest["product"].get("image_url"),

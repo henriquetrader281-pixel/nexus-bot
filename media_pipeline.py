@@ -70,19 +70,21 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
     """Gera os dois formatos e retorna caminhos locais mais o manifesto."""
     if not campaign.get("product_name"):
         raise ValueError("Nenhum produto selecionado para gerar mídia.")
-    if not campaign.get("image_url") and not campaign.get("image_path") and not campaign.get("official_affiliate_url") and not campaign.get("product_source_url"):
+    source_candidate = campaign.get("source_image_path") or campaign.get("image_path")
+    source_candidate_path = Path(str(source_candidate)) if source_candidate else None
+    if source_candidate_path and source_candidate_path.name == "creative_image_a.jpg" and not campaign.get("source_image_path"):
+        source_candidate_path = None
+    if not campaign.get("image_url") and not (source_candidate_path and source_candidate_path.is_file()) and not campaign.get("official_affiliate_url") and not campaign.get("product_source_url"):
         raise ValueError("A campanha precisa de um link oficial, de um produto encontrado ou de uma imagem pública.")
 
     product = _build_product(campaign)
-    manual_image = campaign.get("image_path")
-    manual_image_path = Path(str(manual_image)) if manual_image else None
-    if not product.image_url and not (manual_image_path and manual_image_path.is_file()):
+    if not product.image_url and not (source_candidate_path and source_candidate_path.is_file()):
         raise RuntimeError("O link não forneceu uma imagem pública do produto. Cole uma URL JPG/PNG pública ou suba uma imagem no Modo Simples.")
 
     output_dir = Path(output_root) / _safe_slug(product.title)
     output_dir.mkdir(parents=True, exist_ok=True)
-    if manual_image_path and manual_image_path.is_file():
-        source = manual_image_path
+    if source_candidate_path and source_candidate_path.is_file():
+        source = source_candidate_path
     else:
         source = download_image(product, output_dir)
     audio_path = campaign.get("audio_path")
@@ -92,6 +94,7 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
     video_path = make_video_b(product, source, output_dir, audio, caption_lines=caption_lines)
 
     manifest = {
+        "source_image_path": str(source),
         "product": {
             "name": product.title,
             "marketplace": product.marketplace,

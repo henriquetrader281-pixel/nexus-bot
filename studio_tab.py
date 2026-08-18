@@ -91,6 +91,7 @@ def exibir_estudio(miny=None, motor_ia=None):
                 campaign = campaign_state.get_campaign()
                 manifest = generate_campaign_media(campaign)
                 campaign = campaign_state.set_campaign(
+                    source_image_path=manifest.get("source_image_path"),
                     image_path=manifest["image_a"],
                     video_path=manifest["video_b"],
                     image_url=manifest["product"].get("image_url"),

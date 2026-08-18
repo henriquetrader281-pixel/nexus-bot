@@ -208,7 +208,7 @@ def exibir_modo_simples() -> None:
         if upload is not None and product:
             saved_upload = _save_upload(upload, product)
             if saved_upload:
-                campaign = campaign_state.set_campaign(image_path=saved_upload, product_name=product, source="modo_simples_upload")
+                campaign = campaign_state.set_campaign(source_image_path=saved_upload, product_name=product, source="modo_simples_upload")
                 st.success("Imagem manual guardada como fallback para o criativo.")
 
         keywords_input = st.text_input("Palavras-chave, tendência ou gancho desejado", value=", ".join(campaign.get("keywords", []) or []), key="simple_keywords_input")
