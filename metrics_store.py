@@ -6,8 +6,26 @@ from pathlib import Path
 from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.getenv("NEXUS_METRICS_DB", str(BASE_DIR / "nexus_metrics.sqlite3")))
 SCHEMA_PATH = BASE_DIR / "metrics_schema.sql"
+
+
+def _resolve_db_path() -> Path:
+    configured = os.getenv("NEXUS_METRICS_DB")
+    if configured:
+        return Path(configured)
+    for directory in (BASE_DIR / ".nexus_media", Path("/tmp")):
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            probe = directory / ".nexus_write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return directory / "nexus_metrics.sqlite3"
+        except OSError:
+            continue
+    return Path("/tmp/nexus_metrics.sqlite3")
+
+
+DB_PATH = _resolve_db_path()
 
 
 def connect() -> sqlite3.Connection:

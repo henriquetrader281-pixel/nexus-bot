@@ -20,6 +20,8 @@ mock_st = MagicMock()
 # Simula os segredos do GitHub como se fossem st.secrets
 mock_st.secrets = {
     "ML_TRACKING_ID": os.environ.get("ML_TRACKING_ID"),
+    "ML_ACCESS_TOKEN": os.environ.get("ML_ACCESS_TOKEN"),
+    "ML_API_ACCESS_TOKEN": os.environ.get("ML_API_ACCESS_TOKEN"),
     "SHOPEE_TRACKING_ID": os.environ.get("SHOPEE_TRACKING_ID"),
     "AMAZON_TRACKING_ID": os.environ.get("AMAZON_TRACKING_ID"),
     "GROQ_API_KEY": os.environ.get("GROQ_API_KEY"),
@@ -45,12 +47,14 @@ def executar_plantao_nexus():
     try:
         # Executa o ciclo mestre de 1-clique em modo silencioso
         # O provedor padrão é gemini para maior precisão na gringa
-        resultado = autonomo_engine.executar_ciclo_mestre_um_clique(provedor="gemini")
-        
+        resultado = autonomo_engine.executar_ciclo_mestre_um_clique(provedor="gemini", publicar=False)
+
+        if resultado.get("status") == "blocked":
+            print(f"⚠️ [WORKER] Mineração bloqueada: {resultado.get('reason', 'motivo não informado')}")
+            return
         produto = resultado.get("produto", "produto não identificado")
-        link_ml = resultado.get("link_ml", "link não disponível")
-        print(f"✅ [WORKER] Ciclo concluído para '{produto}'. Supervisão Hermes executada.")
-        print(f"🔗 [WORKER] Link de Venda: {link_ml}")
+        queue_id = resultado.get("queue_id", "fila não identificada")
+        print(f"✅ [WORKER] Pacote #{queue_id} preparado para '{produto}'. Publicação manual pendente.")
         
     except Exception as e:
         print(f"❌ [WORKER] Falha no plantão: {str(e)}")

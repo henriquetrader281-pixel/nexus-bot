@@ -2,11 +2,37 @@ import os
 from pathlib import Path
 import streamlit as st
 import campaign_state
+import campaign_queue
 
 
 def exibir_postador(miny=None, motor_ia=None):
-    st.markdown("### 🛰️ Central de Disparo Nexus: Meta Suite")
-    
+    st.markdown("### 🛰️ Central de Disparo Nexus: revisão e publicação manual")
+
+    # A esteira autónoma apenas prepara pacotes. Esta lista é a ponte para a
+    # revisão humana e para o disparo manual posterior.
+    try:
+        queued = campaign_queue.list_prepared_campaigns(limit=100)
+    except Exception as queue_error:
+        queued = []
+        st.warning(f"A fila de campanhas ainda não está disponível: {queue_error}")
+    if queued:
+        st.markdown("#### 📦 Pacotes preparados para revisão")
+        labels = [f"#{row['id']} · {row['product_name']} · {row.get('status', 'ready')} · {row.get('created_at', '')}" for row in queued]
+        selected_label = st.selectbox("Escolha o pacote que deseja revisar", labels, key="prepared_campaign_selector")
+        selected_row = queued[labels.index(selected_label)]
+        if st.button("📂 CARREGAR PACOTE NA CENTRAL", type="primary", use_container_width=True):
+            campaign_state.set_campaign(**campaign_queue.campaign_from_queue_row(selected_row))
+            st.success(f"Pacote #{selected_row['id']} carregado. Confira a prévia antes de associar o link e publicar.")
+            st.rerun()
+        if selected_row.get("status") == "needs_review":
+            st.warning("Este pacote precisa de revisão. Confirme imagem, vídeo e áudio antes de o marcar como pronto.")
+            if st.button("✅ CONFIRMAR REVISÃO E MARCAR COMO PRONTO", use_container_width=True):
+                campaign_queue.mark_prepared_campaign(selected_row["id"], "ready")
+                st.success("Pacote marcado como pronto para publicação manual.")
+                st.rerun()
+    else:
+        st.info("Ainda não há pacotes preparados. Execute a mineração automática para criar o primeiro.")
+
     # Todos os dados vêm da mesma campanha usada pelo Agente, Arsenal e Estúdio.
     campaign = campaign_state.get_campaign()
     copy_final = campaign.get('copy_final') or campaign.get('copy') or ''
@@ -23,7 +49,24 @@ def exibir_postador(miny=None, motor_ia=None):
     # --- ÁREA DE CONFERÊNCIA ---
     with st.container(border=True):
         st.markdown("#### 📝 Legenda Pronta para o Post")
-        
+
+        manual_link = st.text_input(
+            "Link oficial do Portal de Afiliados (associar manualmente):",
+            value=link_blindado,
+            key=f"manual_affiliate_link_{campaign.get('queue_id', 'active')}",
+            help="Cole o link oficial recebido no Portal. O Nexus não fabrica parâmetros de rastreio.",
+        )
+        if st.button("🔗 ASSOCIAR LINK À CAMPANHA", use_container_width=True):
+            if not manual_link.strip().startswith(("http://", "https://")):
+                st.error("Cole um URL HTTP(S) válido emitido pelo Portal de Afiliados.")
+            else:
+                campaign_state.set_campaign(
+                    official_affiliate_url=manual_link.strip(),
+                    affiliate_url=manual_link.strip(),
+                )
+                st.success("Link oficial associado manualmente à campanha.")
+                st.rerun()
+
         palavra_gatilho = st.text_input("Gatilho ManyChat:", value="QUERO")
         # Monta o texto final que será copiado
         texto_completo = f"{copy_final}\n\n🎁 Comente {palavra_gatilho} para receber o link com desconto oficial!"
@@ -103,6 +146,8 @@ def exibir_postador(miny=None, motor_ia=None):
                         st.error("Associe o link oficial do afiliado à campanha antes de publicar.")
                     elif not image_url:
                         st.error("Gere a Imagem A ou associe a imagem pública real do produto antes de publicar.")
+                    elif campaign.get("queue_status") == "needs_review":
+                        st.error("Revise e marque o pacote como pronto antes de publicar.")
                     elif token and board:
                         res = pinterest_engine.postar_pinterest(token, board, product_name, texto_completo, link_blindado, image_url)
                         if res.get('success'):
@@ -133,6 +178,11 @@ def exibir_postador(miny=None, motor_ia=None):
                                     status="published",
                                 )
                                 st.session_state.metrics_publication_id = publication_id
+                                if campaign.get("queue_id"):
+                                    try:
+                                        campaign_queue.mark_prepared_campaign(campaign["queue_id"], "published")
+                                    except Exception as queue_error:
+                                        st.warning(f"Pin publicado, mas o estado da fila não foi atualizado: {queue_error}")
                             except Exception as metrics_error:
                                 st.warning(f"Pin publicado, mas o registo analítico falhou: {metrics_error}")
                             st.success("🔥 PIN PUBLICADO E REGISTADO NAS MÉTRICAS!")

@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import types
+import wave
 from pathlib import Path
 
 from PIL import Image
@@ -42,6 +43,7 @@ import tts_engine
 import update
 import real_marketplace_engine
 import generate_creatives
+import campaign_queue
 from generate_creatives import ProductData
 
 MINED_IMAGE_URL = "https://http2.mlstatic.com/nexus-test-power-bank.jpg"
@@ -83,7 +85,15 @@ stock_validator.validar_link_e_stock = lambda _url: {"valido": True, "status": "
 update.registrar_mineracao = lambda *_args, **_kwargs: None
 self_optimizer.obter_instrucao_estrategica = lambda: "manter clareza e benefício verificável"
 self_optimizer.avaliar_e_otimizar = lambda *_args, **_kwargs: "sem mutação: teste de integração"
-tts_engine.gerar_narração_ia = lambda _text: {"success": False, "error": "voz isolada no teste; legenda deve permanecer ativa"}
+shutil.rmtree(".nexus_media", ignore_errors=True)
+test_audio_path = Path(".nexus_media/test_narration.wav")
+test_audio_path.parent.mkdir(parents=True, exist_ok=True)
+with wave.open(str(test_audio_path), "wb") as wav_file:
+    wav_file.setnchannels(1)
+    wav_file.setsampwidth(2)
+    wav_file.setframerate(44100)
+    wav_file.writeframes(b"\x00\x00" * 44100)
+tts_engine.gerar_narração_ia = lambda _text: {"success": True, "audio_path": str(test_audio_path)}
 hermes_engine.hermes_elite_programmer = lambda *_args, **_kwargs: {"success": True, "status": "teste"}
 hermes_engine.supervisionar_entrega = lambda *_args, **_kwargs: {"success": True, "status": "teste"}
 
@@ -91,16 +101,19 @@ hermes_engine.supervisionar_entrega = lambda *_args, **_kwargs: {"success": True
 import autonomo_engine
 autonomo_engine.time.sleep = lambda _seconds: None
 
-shutil.rmtree(".nexus_media", ignore_errors=True)
 result = executar_ciclo_mestre_um_clique(provedor="test", publicar=False)
 campaign = campaign_state.get_campaign()
 
 assert result["produto"]
+assert result["queue_status"] == "ready"
+assert result["publication"] == "manual_only"
+assert campaign.get("queue_status") == "ready"
 assert campaign.get("copy_final")
 assert len(campaign.get("hooks", [])) >= 8
 assert campaign.get("caption")
 assert campaign.get("keywords")
 assert campaign.get("intent_label")
+assert campaign.get("audio_path") == str(test_audio_path)
 assert campaign.get("image_url") == MINED_IMAGE_URL
 assert campaign.get("source_image_url") == MINED_IMAGE_URL
 assert campaign.get("product_source_url") == MINED_PRODUCT["permalink"]
@@ -124,6 +137,13 @@ assert manifest["product"]["source_image_url"] == MINED_IMAGE_URL
 assert manifest["product"]["product_source_url"] == MINED_PRODUCT["permalink"]
 assert len(manifest["caption_lines"]) >= 8
 assert manifest["publication"] == "not_executed"
+queue_row = campaign_queue.get_prepared_campaign(result["queue_id"])
+assert queue_row is not None
+assert queue_row["status"] == "ready"
+assert queue_row["product_name"] == campaign["product_name"]
+assert queue_row["official_affiliate_url"] is None
+assert queue_row["video_path"] == campaign["video_path"]
+assert queue_row["audio_path"] == campaign["audio_path"]
 
 print("AUTONOMOUS_DRY_RUN_OK")
 print(f"PRODUCT={campaign['product_name']}")

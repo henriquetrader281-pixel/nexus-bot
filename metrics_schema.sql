@@ -55,7 +55,30 @@ CREATE TABLE IF NOT EXISTS creative_metrics (
     CHECK (conversions <= clicks OR clicks = 0)
 );
 
+CREATE TABLE IF NOT EXISTS prepared_campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_name TEXT NOT NULL,
+    marketplace TEXT NOT NULL DEFAULT 'Mercado Livre',
+    product_external_id TEXT,
+    source_product_url TEXT,
+    official_affiliate_url TEXT,
+    image_url TEXT,
+    source_image_path TEXT,
+    image_path TEXT,
+    video_path TEXT,
+    audio_path TEXT,
+    copy_final TEXT,
+    caption TEXT,
+    hooks_json TEXT NOT NULL DEFAULT '[]',
+    keywords_json TEXT NOT NULL DEFAULT '[]',
+    manifest_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'needs_review', 'published', 'failed')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_campaigns_created_at ON campaigns(created_at);
+CREATE INDEX IF NOT EXISTS idx_prepared_campaigns_status ON prepared_campaigns(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_creatives_variant ON creatives(variant);
 CREATE INDEX IF NOT EXISTS idx_publications_channel_status ON publications(channel, status);
 CREATE INDEX IF NOT EXISTS idx_metrics_publication_time ON creative_metrics(publication_id, measured_at);

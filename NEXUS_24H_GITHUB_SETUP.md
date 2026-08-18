@@ -37,9 +37,12 @@ jobs:
       - name: Executar ciclo autónomo
         env:
           ML_TRACKING_ID: ${{ secrets.ML_TRACKING_ID }}
+          ML_ACCESS_TOKEN: ${{ secrets.ML_ACCESS_TOKEN }}
+          ML_API_ACCESS_TOKEN: ${{ secrets.ML_API_ACCESS_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # A preparação não publica; estes Secrets ficam para a Central manual.
           PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
           PINTEREST_BOARD_ID: ${{ secrets.PINTEREST_BOARD_ID }}
           MANYCHAT_WEBHOOK_URL: ${{ secrets.MANYCHAT_WEBHOOK_URL }}
@@ -60,12 +63,13 @@ No repositório, abra **Settings → Secrets and variables → Actions → New r
 
 | Secret | Obrigatório para | Valor esperado |
 |---|---|---|
-| `ML_TRACKING_ID` | Identificação do afiliado Mercado Livre | O identificador confirmado no Portal do Afiliado |
+| `ML_TRACKING_ID` | Identificação futura do afiliado | O identificador confirmado no Portal do Afiliado |
+| `ML_ACCESS_TOKEN` ou `ML_API_ACCESS_TOKEN` | Pesquisa autenticada quando o endpoint devolver 403 | Token OAuth do Mercado Livre, opcional conforme o ambiente |
 | `GEMINI_API_KEY` | Mineração e análise com Gemini | Chave da API Gemini |
 | `GROQ_API_KEY` | Geração rápida de copy | Chave da API Groq |
-| `PINTEREST_ACCESS_TOKEN` | Publicação de Pins | Token da API Pinterest |
-| `PINTEREST_BOARD_ID` | Destino dos Pins | ID numérico/string do board autorizado |
-| `MANYCHAT_WEBHOOK_URL` | Entrega do link por DM | URL HTTPS do webhook/fluxo ManyChat ou Make |
+| `PINTEREST_ACCESS_TOKEN` | Publicação manual de Pins | Token da API Pinterest, não usado pelo worker de preparação |
+| `PINTEREST_BOARD_ID` | Destino dos Pins manuais | ID numérico/string do board autorizado |
+| `MANYCHAT_WEBHOOK_URL` | Envio manual de oferta por DM | URL HTTPS do webhook/fluxo ManyChat ou Make |
 | `ELEVENLABS_API_KEY` | Voz profissional | Opcional; sem ele o fallback configurado é utilizado |
 | `OPENAI_API_KEY` | Motores que dependam de OpenAI | Opcional conforme o provedor escolhido |
 | `INSTAGRAM_ACCESS_TOKEN` | Reels via Graph API | Opcional até a conta Business estar validada |
@@ -92,7 +96,7 @@ O validador não envia uma DM por padrão. A opção `--send-manychat-test` deve
 
 ## 5. O que o workflow executa
 
-Cada execução chama `worker.py`, que prepara o estado headless, executa o ciclo mestre, minera um produto, gera a copy, aciona o webhook ManyChat, tenta publicar no Pinterest quando os dois Secrets do Pinterest existem, chama a supervisão Hermes e regista a publicação real no SQLite de métricas. A Imagem A e o Vídeo B também podem ser gerados localmente com `generate_creatives.py`; a publicação automática continua condicionada à existência de um token e de um destino público válido para cada rede.
+Cada execução chama `worker.py`, minera um produto, gera copy, hooks, legenda, áudio, Imagem A e Vídeo B e grava o pacote na tabela `prepared_campaigns` com status `ready` ou `needs_review`. O worker não chama Pinterest, Instagram, TikTok, ManyChat nem cria links. A revisão, associação do link oficial e publicação são executadas depois na Central de Disparo.
 
 > O workflow não confirma vendas automaticamente. CTR, cliques e conversões só se tornam dados reais quando as APIs ou exports das plataformas fornecerem esses eventos; o banco não inventa métricas.
 
