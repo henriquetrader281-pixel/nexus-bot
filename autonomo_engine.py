@@ -166,7 +166,7 @@ def executar_ciclo_mestre_um_clique(provedor="openai"):
     feedback_ia = avaliar_e_otimizar(dados['produto'], dados.get('prateleira', '🔥 Virais & Desejo'))
     
     progresso.progress(100, text="💰 [6/6] Funil de Vendas Otimizado e Ativo! Agente em modo autônomo.")
-    st.success(f"**SUCESSO ESTRATOSFÉRICO!**")
+    st.success("**Ciclo autónomo executado.** Consulte a auditoria Hermes abaixo antes de considerar a operação aprovada.")
     st.info(f"🧠 **Relatório de Auto-Melhoria da IA:** {feedback_ia}")
     
     # --- NOVO: AGENTE HERMES PROGRAMADOR DE ELITE ---
