@@ -204,30 +204,35 @@ def exibir_aba_autonomo():
     st.header("⛏️ Minerador Autónomo & Estúdio de Campanhas")
     st.markdown("---")
     
-    from estrats_engine import analisar_produto_estrategista
-    
     col1, col2 = st.columns([2, 1])
     
     with col2:
-        st.markdown("### ⚙️ Mineração contínua, publicação manual")
-        st.info("💡 O agente procura produtos, cria o pacote Pinterest completo e guarda tudo para sua revisão. Links e publicação ficam manuais.")
+        st.markdown("### ⚙️ Sequência única de preparação")
+        st.info("💡 Uma única sequência minera, valida, cria copy, gera áudio, Imagem A e Vídeo B e guarda o pacote. Links e publicação ficam manuais.")
         
-        # --- NOVO: INTERRUPTOR DE AUTONOMIA TOTAL ---
         st.divider()
         st.markdown("#### 🧠 Cérebro Artificial")
-        auto_mode = st.toggle("MODO AUTÓNOMO: MINERAR & PREPARAR", value=st.session_state.get('nexus_auto_mode', False), help="Quando ativo, o robô minera, gera copy, legenda, imagem, vídeo e áudio e guarda o pacote. Não publica automaticamente.")
+        auto_mode = st.toggle("MODO AUTÓNOMO: MINERAR & PREPARAR", value=st.session_state.get('nexus_auto_mode', False), help="A sequência é sempre a mesma; o interruptor apenas identifica que o worker pode repetir a preparação. Nenhuma publicação automática é feita.")
         st.session_state.nexus_auto_mode = auto_mode
-        
         if auto_mode:
-            st.warning("🤖 O agente está ativo para mineração e preparação. A publicação continua manual.")
-            if st.button("⚡ MINERAR E PREPARAR PACOTE AGORA", type="primary", use_container_width=True):
-                executar_ciclo_mestre_um_clique()
+            st.warning("🤖 Mineração automática ativa. O pacote será guardado e a publicação continuará manual.")
         else:
-            if st.button("🚀 GERAR PROTOCOLO ESTRATÉGICO (1 CLIQUE)", type="primary", use_container_width=True):
-                dados_base = obter_produto_real_validado("gemini")
-                estrat = analisar_produto_estrategista(dados_base['produto'])
-                st.session_state.nexus_estrat = {**dados_base, **estrat}
-                st.success("Protocolo Estrategista gerado com sucesso!")
+            st.info("Modo manual assistido: o mesmo fluxo sequencial será executado apenas quando clicar no botão.")
+
+        if st.button("⚡ MINERAR → COPY → ÁUDIO → IMAGEM → VÍDEO → GUARDAR", type="primary", use_container_width=True):
+            # Limpa o cartão estratégico anterior para não mostrar um produto velho
+            # enquanto a nova sequência está a ser processada.
+            st.session_state.pop("nexus_estrat", None)
+            resultado = executar_ciclo_mestre_um_clique(provedor="gemini", publicar=False)
+            if isinstance(resultado, dict) and resultado.get("status") != "blocked" and resultado.get("produto"):
+                st.session_state.nexus_estrat = {
+                    **resultado,
+                    "prateleira": resultado.get("prateleira", "Mercado Livre · Preparado"),
+                    "titulo_vitrine": resultado.get("produto"),
+                    "fast_copy": resultado.get("copy", ""),
+                    "cta": "Ver oferta oficial",
+                    "roteiro_15s": resultado.get("hooks", []),
+                }
 
     with col1:
         if "nexus_estrat" in st.session_state:
