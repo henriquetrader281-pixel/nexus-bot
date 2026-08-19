@@ -40,6 +40,7 @@ st.markdown(
     .kicker { color:#9eb1cb; font:800 9px ui-monospace,monospace; letter-spacing:.11em; text-transform:uppercase; }
     .headline { color:#fff; font:850 17px/1.12 Inter,ui-sans-serif,system-ui,sans-serif; margin-top:3px; }
     .feed-badge { padding:6px 9px; border-radius:7px; color:#f7c948; background:rgba(245,183,24,.10); border:1px solid rgba(245,183,24,.42); font:800 9px ui-monospace,monospace; white-space:nowrap; display:inline-block; }
+    .feed-detail { color:#9eb1cb; font:600 8px/1.35 ui-monospace,monospace; margin-top:4px; max-width:180px; text-align:right; }
     .control-panel, .ui-card { background:#101d31; border:1px solid rgba(155,181,218,.16); border-radius:10px; padding:13px 14px; box-shadow:0 12px 32px rgba(0,0,0,.12); }
     .control-panel { min-height:58px; padding:10px 13px; }
     .ui-card { height:100%; box-sizing:border-box; }
@@ -96,15 +97,27 @@ def price_format(value: float, is_usdjpy: bool) -> str:
     return f"{value:.3f}" if is_usdjpy else f"{value:,.2f}"
 
 
+def provider_message(response: requests.Response, label: str) -> str:
+    """Extrai uma mensagem curta do provedor sem nunca incluir a chave de API."""
+    try:
+        payload = response.json()
+        detail = payload.get("message") or payload.get("code") or payload.get("status")
+    except ValueError:
+        detail = response.text[:120]
+    detail = str(detail or "sem detalhe do provedor").replace("\n", " ").strip()
+    return f"{label} HTTP {response.status_code}: {detail[:140]}"
+
+
 @st.cache_data(ttl=10, show_spinner=False)
 def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.DataFrame, float | None, str]:
     headers = {"Authorization": f"apikey {api_key}"}
     params = {"symbol": symbol, "interval": interval, "outputsize": 60, "order": "asc", "timezone": "America/Sao_Paulo"}
     series = requests.get("https://api.twelvedata.com/time_series", params=params, headers=headers, timeout=8)
-    series.raise_for_status()
+    if not series.ok:
+        raise RuntimeError(provider_message(series, "Candles"))
     payload = series.json()
     if payload.get("status") == "error" or not payload.get("values"):
-        raise RuntimeError(payload.get("message", "TwelveData não devolveu candles."))
+        raise RuntimeError(str(payload.get("message", "TwelveData não devolveu candles."))[:160])
     data = pd.DataFrame(payload["values"]).rename(columns={"datetime": "time"})
     data["time"] = pd.to_datetime(data["time"], errors="coerce")
     for column in ["open", "high", "low", "close", "volume"]:
@@ -147,7 +160,8 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
         data, spot, volume_note = fetch_twelve_data(symbol, TWELVE_INTERVALS[timeframe], api_key)
         return data, spot, "real", f"Feed TwelveData ativo · {symbol} · {volume_note}."
     except Exception as error:
-        return make_data(asset, timeframe), None, "fallback", f"Feed TwelveData indisponível; fallback simulado identificado ({type(error).__name__})."
+        reason = str(error).replace(api_key, "[oculto]")[:170]
+        return make_data(asset, timeframe), None, "fallback", f"Feed TwelveData indisponível · {symbol} · {reason}."
 
 
 def session_slice(data: pd.DataFrame, session: str) -> pd.DataFrame:
@@ -254,6 +268,8 @@ with header_actions:
                 st.rerun()
     with action_cols[3]:
         st.markdown(f'<div class="feed-badge">↻ {feed_state_label} · {clock}</div>', unsafe_allow_html=True)
+        if not is_real_feed:
+            st.markdown(f'<div class="feed-detail">{html.escape(feed_note)}</div>', unsafe_allow_html=True)
 
 controls_left, controls_right = st.columns([1, 1], gap="medium")
 with controls_left:
