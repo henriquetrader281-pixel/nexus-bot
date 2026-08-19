@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Nexus Absolute | Media Extractor",
+  "version": "2.0.0",
+  "description": "Localiza imagens e vídeos públicos na página atual e permite descarregar ou exportar os recursos para o Nexus.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "clipboardWrite"
+  ],
+  "action": {
+    "default_title": "Nexus Media Extractor",
+    "default_popup": "popup.html"
+  }
+}
