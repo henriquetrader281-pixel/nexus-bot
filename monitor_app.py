@@ -284,7 +284,27 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
 spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
-    st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{spot_title}</div>{spot_badge}</div><div class="spot-symbol">{desk_name}</div><div class="spot-value">{price_format(last, is_usdjpy)} <span class="unit">{config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(vwap, is_usdjpy)}</strong></span><span>Spread: <strong>{"0.012" if is_usdjpy else "0.50"}</strong></span></div><div class="rule"></div><div class="small-row"><span>Horário (Brasília)</span><strong>{clock}</strong></div></div>''', unsafe_allow_html=True)
+    @st.fragment(run_every=15 if has_live_feed else None)
+    def render_spot_card():
+        """Atualiza apenas Spot/VWAP quando existe feed real, sem recriar os demais painéis."""
+        live_asset = st.session_state.asset
+        live_timeframe = st.session_state.timeframe
+        live_config = ASSETS[live_asset]
+        live_is_usdjpy = live_asset == "USDJPY"
+        live_data, live_spot, live_mode, _ = load_market_data(live_asset, live_timeframe)
+        live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
+        if live_spot is not None:
+            live_data.loc[live_data.index[-1], "close"] = live_spot
+        live_typical = (live_data.high + live_data.low + live_data.close) / 3
+        live_vwap = float(np.average(live_typical, weights=live_data.volume))
+        live_real = live_mode == "real"
+        live_title = f"Cotação Spot Atual ({live_timeframe})" if live_real else f"Referência de Mercado ({live_timeframe})"
+        live_badge = '<span class="badge-green">Ao vivo</span>' if live_real else '<span class="badge-amber">Fallback</span>'
+        live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
+        live_note = "Atualização isolada a cada 15s." if live_real else "Sem feed real: referência estável."
+        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
+
+    render_spot_card()
 with pressure_col:
     bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if bearish else '<span class="badge-green">Viés Comprador Dominante</span>'
     st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({timeframe})</div><div class="card-note">MA9: <b>{ma9:.1f}</b> &nbsp;|&nbsp; MA21: <b>{ma21:.1f}</b> &nbsp;|&nbsp; MA200: <b>{ma200:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{buy}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{buy}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{sell}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{sell}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{volume_ratio:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{volume_status}</strong></span></div></div>''', unsafe_allow_html=True)
