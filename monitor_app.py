@@ -1,5 +1,6 @@
 import datetime as dt
 import html
+import os
 
 import numpy as np
 import pandas as pd
@@ -85,6 +86,7 @@ st.markdown(
 
 
 def read_secret(name: str) -> str:
+    value = ""
     try:
         # Acesso por índice é o caminho mais compatível entre versões do Streamlit Cloud.
         value = st.secrets[name] if name in st.secrets else ""
@@ -92,6 +94,9 @@ def read_secret(name: str) -> str:
         value = ""
     except Exception:
         value = ""
+    if not value:
+        # Alguns ambientes de publicação injetam o mesmo Secret como variável de ambiente.
+        value = os.getenv(name, "")
     return str(value).strip() if value else ""
 
 
