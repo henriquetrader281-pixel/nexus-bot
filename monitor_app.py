@@ -12,7 +12,6 @@ from streamlit_autorefresh import st_autorefresh
 
 
 st.set_page_config(page_title="Terminal Institucional", page_icon="◈", layout="wide", initial_sidebar_state="collapsed")
-st_autorefresh(interval=3000, key="terminal-refresh")
 
 TZ = pytz.timezone("America/Sao_Paulo")
 ASSETS = {
@@ -194,6 +193,12 @@ for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "a
 if st.session_state.session not in SESSION_NAMES:
     st.session_state.session = "Global"
 
+# Sem feed real, manter o fallback estável evita que toda a página seja reconstruída a cada poucos segundos.
+# Com chave configurada, o refresh é mais espaçado para reduzir a perceção de piscar.
+has_live_feed = bool(read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip())
+if has_live_feed:
+    st_autorefresh(interval=15000, key="terminal-refresh")
+
 asset = st.session_state.asset
 timeframe = st.session_state.timeframe
 session = st.session_state.session
@@ -229,10 +234,11 @@ win_rate = float(valid_backtest.win.mean()*100) if len(valid_backtest) else 0.0
 mean_pnl = float(valid_backtest.next_return.where(valid_backtest.direction == "COMPRA", -valid_backtest.next_return).mean()) if len(valid_backtest) else 0.0
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
 is_real_feed = feed_mode == "real"
-feed_state_label = "FEED REAL" if is_real_feed else "FALLBACK"
+feed_state_label = "FEED REAL · 15S" if is_real_feed else "FALLBACK ESTÁVEL"
 spot_title = f"Cotação Spot Atual ({timeframe})" if is_real_feed else f"Referência de Mercado ({timeframe})"
 spot_badge = '<span class="badge-green">Ao vivo</span>' if is_real_feed else '<span class="badge-amber">Fallback</span>'
-refresh_note = "Atualização automática a cada 3 segundos com feed real." if is_real_feed else "Atualização automática a cada 3 segundos com fallback identificado."
+refresh_note = "Atualização do feed real a cada 15 segundos." if is_real_feed else "Fallback estável: sem refresh automático até configurar um feed real."
+refresh_footer = "Atualização a cada 15 segundos." if is_real_feed else "Fallback sem atualização automática."
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -453,4 +459,4 @@ with backtest_col:
             st.download_button("CSV", export, file_name=f"backtest_{asset}_{timeframe}.csv", mime="text/csv", key="csv-backtest")
         st.markdown(f'<div class="small-row" style="margin-top:8px"><span>Operação atual</span><strong style="color:{"#fb7185" if bearish else "#2ee59d"}">{signal} · EM OBSERVAÇÃO</strong><span>Entrada: <b>{price_format(last, is_usdjpy)}</b></span><span>Confiança: <b style="color:#f7b718">{confidence}%</b></span></div>', unsafe_allow_html=True)
 
-st.markdown(f'<div class="footer-note">Terminal Institucional · {asset_label} · {feed_note} Auto-refresh a cada 3 segundos.</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="footer-note">Terminal Institucional · {asset_label} · {feed_note} {refresh_footer}</div>', unsafe_allow_html=True)
