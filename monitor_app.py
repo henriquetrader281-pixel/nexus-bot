@@ -89,8 +89,8 @@ def read_secret(name: str) -> str:
     value = ""
     try:
         # Acesso por índice é o caminho mais compatível entre versões do Streamlit Cloud.
-        value = st.secrets[name] if name in st.secrets else ""
-    except (KeyError, TypeError, AttributeError):
+        value = st.secrets[name]
+    except (KeyError, TypeError, AttributeError, FileNotFoundError):
         value = ""
     except Exception:
         value = ""
