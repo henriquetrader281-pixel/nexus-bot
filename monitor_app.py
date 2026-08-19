@@ -40,7 +40,6 @@ st.markdown(
     .kicker { color:#9eb1cb; font:800 9px ui-monospace,monospace; letter-spacing:.11em; text-transform:uppercase; }
     .headline { color:#fff; font:850 17px/1.12 Inter,ui-sans-serif,system-ui,sans-serif; margin-top:3px; }
     .feed-badge { padding:6px 9px; border-radius:7px; color:#f7c948; background:rgba(245,183,24,.10); border:1px solid rgba(245,183,24,.42); font:800 9px ui-monospace,monospace; white-space:nowrap; display:inline-block; }
-    .feed-detail { color:#9eb1cb; font:600 8px/1.35 ui-monospace,monospace; margin-top:4px; max-width:180px; text-align:right; }
     .control-panel, .ui-card { background:#101d31; border:1px solid rgba(155,181,218,.16); border-radius:10px; padding:13px 14px; box-shadow:0 12px 32px rgba(0,0,0,.12); }
     .control-panel { min-height:58px; padding:10px 13px; }
     .ui-card { height:100%; box-sizing:border-box; }
@@ -87,7 +86,10 @@ st.markdown(
 
 def read_secret(name: str) -> str:
     try:
-        value = st.secrets.get(name, "")
+        # Acesso por índice é o caminho mais compatível entre versões do Streamlit Cloud.
+        value = st.secrets[name] if name in st.secrets else ""
+    except (KeyError, TypeError, AttributeError):
+        value = ""
     except Exception:
         value = ""
     return str(value).strip() if value else ""
@@ -268,8 +270,6 @@ with header_actions:
                 st.rerun()
     with action_cols[3]:
         st.markdown(f'<div class="feed-badge">↻ {feed_state_label} · {clock}</div>', unsafe_allow_html=True)
-        if not is_real_feed:
-            st.markdown(f'<div class="feed-detail">{html.escape(feed_note)}</div>', unsafe_allow_html=True)
 
 controls_left, controls_right = st.columns([1, 1], gap="medium")
 with controls_left:
@@ -470,17 +470,16 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 config_col, backtest_col = st.columns([1.18, 1], gap="medium")
 with config_col:
     with st.container(border=True):
-        st.markdown('<div class="card-title">⚙ Configurações do Terminal (API TwelveData & Alertas Sonoros)</div><div class="card-note">Use `st.secrets` para o feed real; o campo abaixo é apenas temporário nesta sessão.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">⚙ Status do Feed & Alertas Sonoros</div><div class="card-note">A credencial é gerida exclusivamente em Manage app → Settings → Secrets.</div>', unsafe_allow_html=True)
         secret_loaded = bool(read_secret("TWELVEDATA_API_KEY"))
-        api_value = "" if secret_loaded else st.text_input("Chave TwelveData (API Key)", value=st.session_state.api_key, type="password", placeholder="Cole a sua API key aqui...", key="twelve-input")
-        save_col, sound_col = st.columns([.55, 1], gap="small")
-        with save_col:
-            if st.button("Salvar", key="save-key", type="primary"):
-                st.session_state.api_key = api_value
-                st.rerun()
+        feed_status_col, sound_col = st.columns([1.25, 1], gap="small")
+        with feed_status_col:
+            feed_color = "#2ee59d" if is_real_feed else "#f7c948"
+            feed_label = "Feed TwelveData ativo" if is_real_feed else "Feed real não confirmado"
+            st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
         with sound_col:
             st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
-        st.markdown(f'<div class="card-note">{"TWELVEDATA_API_KEY está carregada com segurança." if secret_loaded else "A chave não é gravada no repositório."}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-note">{"TWELVEDATA_API_KEY foi detetada sem ser exibida." if secret_loaded else "Nenhuma credencial foi detetada pelo runtime; salve o Secret e reinicie a app."}</div>', unsafe_allow_html=True)
 with backtest_col:
     with st.container(border=True):
         st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; não representa garantia de desempenho.</div>', unsafe_allow_html=True)
