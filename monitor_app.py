@@ -148,7 +148,7 @@ def make_data(asset: str, timeframe: str) -> pd.DataFrame:
     config = ASSETS[asset]
     now = dt.datetime.now(TZ).replace(second=0, microsecond=0)
     # O fallback é renovado somente no intervalo do cartão Spot, nunca a cada renderização.
-    bucket = int(dt.datetime.now().timestamp() // 15)
+    bucket = int(dt.datetime.now().timestamp() // 3)
     rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47}[asset] + bucket)
     close = config["base"] + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
     simulated_spot = config["base"] + rng.normal(0, config["scale"] * .62)
@@ -253,11 +253,11 @@ win_rate = float(valid_backtest.win.mean()*100) if len(valid_backtest) else 0.0
 mean_pnl = float(valid_backtest.next_return.where(valid_backtest.direction == "COMPRA", -valid_backtest.next_return).mean()) if len(valid_backtest) else 0.0
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
 is_real_feed = feed_mode == "real"
-feed_state_label = "FEED REAL · 15S" if is_real_feed else "FALLBACK ESTÁVEL"
+feed_state_label = "FEED REAL · 3S" if is_real_feed else "FALLBACK ESTÁVEL"
 spot_title = f"Cotação Spot Atual ({timeframe})" if is_real_feed else f"Referência de Mercado ({timeframe})"
 spot_badge = '<span class="badge-green">Ao vivo</span>' if is_real_feed else '<span class="badge-amber">Fallback</span>'
-refresh_note = "Cotação Spot atualizada isoladamente a cada 15 segundos." if is_real_feed else "Fallback identificado; o cartão Spot é renovado a cada 15 segundos sem reconstruir os painéis."
-refresh_footer = "Cotação Spot atualizada a cada 15 segundos." if is_real_feed else "Cartão Spot em fallback com renovação isolada a cada 15 segundos."
+refresh_note = "Cotação Spot atualizada isoladamente a cada 3 segundos." if is_real_feed else "Fallback identificado; o cartão Spot é renovado a cada 3 segundos sem reconstruir os painéis."
+refresh_footer = "Cotação Spot atualizada a cada 3 segundos." if is_real_feed else "Cartão Spot em fallback com renovação isolada a cada 3 segundos."
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -303,9 +303,9 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
 spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
-    @st.fragment(run_every=15)
+    @st.fragment(run_every=3)
     def render_spot_card():
-        """Atualiza apenas o cartão Spot em ciclos de 15 segundos, sem recriar os painéis."""
+        """Atualiza apenas o cartão Spot em ciclos de 3 segundos, sem recriar os painéis."""
         live_asset = st.session_state.asset
         live_timeframe = st.session_state.timeframe
         live_config = ASSETS[live_asset]
@@ -320,7 +320,7 @@ with spot_col:
         live_title = f"Cotação Spot Atual ({live_timeframe})" if live_real else f"Referência de Mercado ({live_timeframe})"
         live_badge = '<span class="badge-green">Ao vivo</span>' if live_real else '<span class="badge-amber">Fallback</span>'
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-        live_note = "Atualização isolada a cada 15s." if live_real else "Fallback identificado; cartão renovado a cada 15s."
+        live_note = "Atualização isolada a cada 3s." if live_real else "Fallback identificado; cartão renovado a cada 3s."
         st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
 
     render_spot_card()
