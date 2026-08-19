@@ -29,8 +29,9 @@ st.markdown(
     <style>
     :root { color-scheme: dark; }
     .stApp { background:#07111f; color:#eaf2ff; }
-    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] { background:#07111f; }
-    [data-testid="stToolbar"], [data-testid="stStatusWidget"], .stDeployButton { display:none; }
+    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
+    [data-testid="stStatusWidget"], .stDeployButton { display:none; }
+    [data-testid="stMainBlockContainer"] { padding-top:6px !important; }
     footer { visibility:hidden; height:0; }
     .block-container { max-width:none !important; padding:10px 20px 46px !important; }
     [data-testid="stMainBlockContainer"] { max-width:none !important; }
