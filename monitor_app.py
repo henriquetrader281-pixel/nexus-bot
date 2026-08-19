@@ -209,6 +209,51 @@ def pivot_levels(data: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def live_operational_state() -> dict[str, object]:
+    """Calcula apenas os cartões operacionais que podem acompanhar a cotação sem rerun global."""
+    live_asset = st.session_state.asset
+    live_timeframe = st.session_state.timeframe
+    live_session = st.session_state.session
+    live_data, live_spot, live_mode, live_note = load_market_data(live_asset, live_timeframe)
+    if live_spot is not None:
+        live_data.loc[live_data.index[-1], "close"] = live_spot
+    live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
+    live_profile = session_slice(live_data, live_session)
+    live_poc, live_vah, live_val = profile_levels(live_profile)
+    live_ma9 = float(live_data.volume.rolling(9, min_periods=1).mean().iloc[-1])
+    live_ma21 = float(live_data.volume.rolling(21, min_periods=1).mean().iloc[-1])
+    live_ma200 = float(live_data.volume.rolling(200, min_periods=1).mean().iloc[-1])
+    live_recent = live_data.tail(12)
+    live_buy = int(np.clip(50 + int((live_recent.close > live_recent.open).sum()) * 3 - 18, 18, 82))
+    live_sell = 100 - live_buy
+    live_bearish = live_buy < 50
+    live_ratio = float(live_data.volume.iloc[-1] / max(live_ma9, 1))
+    live_volume_status = "Volume não fornecido" if "não fornecido" in live_note else ("Volume Acima da MA9" if live_data.volume.iloc[-1] > live_ma9 else "Volume Normal")
+    live_confidence = ("VENDA", int(np.clip(55 + abs(live_buy-live_sell)*.55, 55, 92))) if live_bearish else ("COMPRA", int(np.clip(55 + abs(live_buy-live_sell)*.55, 55, 92)))
+    return {
+        "asset": live_asset,
+        "label": ASSETS[live_asset]["label"],
+        "timeframe": live_timeframe,
+        "is_usdjpy": live_asset == "USDJPY",
+        "mode": live_mode,
+        "note": live_note,
+        "last": live_last,
+        "poc": live_poc,
+        "vah": live_vah,
+        "val": live_val,
+        "ma9": live_ma9,
+        "ma21": live_ma21,
+        "ma200": live_ma200,
+        "buy": live_buy,
+        "sell": live_sell,
+        "bearish": live_bearish,
+        "ratio": live_ratio,
+        "volume_status": live_volume_status,
+        "signal": live_confidence[0],
+        "confidence": live_confidence[1],
+    }
+
+
 for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "api_key": "", "sound_alerts": False, "news_filter": "Todas", "bottom_view": "Linha", "backtest_result": None}.items():
     if key not in st.session_state:
         st.session_state[key] = value
@@ -325,8 +370,13 @@ with spot_col:
 
     render_spot_card()
 with pressure_col:
-    bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if bearish else '<span class="badge-green">Viés Comprador Dominante</span>'
-    st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({timeframe})</div><div class="card-note">MA9: <b>{ma9:.1f}</b> &nbsp;|&nbsp; MA21: <b>{ma21:.1f}</b> &nbsp;|&nbsp; MA200: <b>{ma200:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{buy}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{buy}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{sell}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{sell}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{volume_ratio:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{volume_status}</strong></span></div></div>''', unsafe_allow_html=True)
+    @st.fragment(run_every=3)
+    def render_pressure_card():
+        state = live_operational_state()
+        bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if state["bearish"] else '<span class="badge-green">Viés Comprador Dominante</span>'
+        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note" style="text-align:right">Atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
+
+    render_pressure_card()
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
@@ -347,8 +397,14 @@ with chart_col:
         main_fig.update_xaxes(gridcolor="rgba(255,255,255,.035)", showspikes=True)
         st.plotly_chart(main_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
 with alert_col:
-    signal_badge = '<span class="badge-red">VENDA</span>' if bearish else '<span class="badge-green">COMPRA</span>'
-    st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">◉ Alerta Operacional ({asset_label})</div>{signal_badge}</div><div class="rule"></div><div class="card-note">{"Sinal de baixa: volume atual acima das médias MA9 e MA21 com pressão vendedora." if bearish else "Sinal de alta: volume atual acima das médias MA9 e MA21 com pressão compradora."}</div><div class="rule"></div><div class="small-row"><span>VAH (Resistência)</span><strong style="color:#fb7185">{price_format(vah, is_usdjpy)}</strong></div><div class="small-row"><span>POC (Control)</span><strong style="color:#f7b718">{price_format(poc, is_usdjpy)}</strong></div><div class="small-row"><span>VAL (Suporte)</span><strong style="color:#2ee59d">{price_format(val, is_usdjpy)}</strong></div><div class="small-row"><span>Confiança do Sinal</span><strong style="color:#2ee59d">{confidence}%</strong></div><div class="rule"></div><div class="card-note" style="text-align:center;font-style:italic">{refresh_note}</div></div>''', unsafe_allow_html=True)
+    @st.fragment(run_every=3)
+    def render_alert_card():
+        state = live_operational_state()
+        signal_badge = '<span class="badge-red">VENDA</span>' if state["bearish"] else '<span class="badge-green">COMPRA</span>'
+        operational_text = "Sinal de baixa: volume atual acima das médias MA9 e MA21 com pressão vendedora." if state["bearish"] else "Sinal de alta: volume atual acima das médias MA9 e MA21 com pressão compradora."
+        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">◉ Alerta Operacional ({state["label"]})</div>{signal_badge}</div><div class="rule"></div><div class="card-note">{operational_text}</div><div class="rule"></div><div class="small-row"><span>VAH (Resistência)</span><strong style="color:#fb7185">{price_format(state["vah"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>POC (Control)</span><strong style="color:#f7b718">{price_format(state["poc"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>VAL (Suporte)</span><strong style="color:#2ee59d">{price_format(state["val"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>Confiança do Sinal</span><strong style="color:#2ee59d">{state["confidence"]}%</strong></div><div class="rule"></div><div class="card-note" style="text-align:center;font-style:italic">Painel atualizado isoladamente a cada 3 segundos.</div></div>''', unsafe_allow_html=True)
+
+    render_alert_card()
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
