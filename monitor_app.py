@@ -9,7 +9,6 @@ import pytz
 import requests
 import streamlit as st
 from plotly.subplots import make_subplots
-from streamlit_autorefresh import st_autorefresh
 
 
 st.set_page_config(page_title="Terminal Institucional", page_icon="◈", layout="wide", initial_sidebar_state="collapsed")
@@ -148,10 +147,12 @@ def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.Data
 def make_data(asset: str, timeframe: str) -> pd.DataFrame:
     config = ASSETS[asset]
     now = dt.datetime.now(TZ).replace(second=0, microsecond=0)
-    bucket = int(dt.datetime.now().timestamp() // 3)
+    # O fallback é renovado somente no intervalo do cartão Spot, nunca a cada renderização.
+    bucket = int(dt.datetime.now().timestamp() // 15)
     rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47}[asset] + bucket)
     close = config["base"] + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
-    close = close - close[-1] + config["base"]
+    simulated_spot = config["base"] + rng.normal(0, config["scale"] * .62)
+    close = close - close[-1] + simulated_spot
     open_ = close - rng.normal(0, config["scale"] * 0.34, 60)
     high = np.maximum(open_, close) + rng.uniform(config["scale"] * .15, config["scale"] * .7, 60)
     low = np.minimum(open_, close) - rng.uniform(config["scale"] * .15, config["scale"] * .7, 60)
@@ -214,11 +215,8 @@ for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "a
 if st.session_state.session not in SESSION_NAMES:
     st.session_state.session = "Global"
 
-# Sem feed real, manter o fallback estável evita que toda a página seja reconstruída a cada poucos segundos.
-# Com chave configurada, o refresh é mais espaçado para reduzir a perceção de piscar.
+# O cartão Spot atualiza em fragmento próprio; os gráficos e painéis analíticos não recebem rerun periódico.
 has_live_feed = bool(read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip())
-if has_live_feed:
-    st_autorefresh(interval=15000, key="terminal-refresh")
 
 asset = st.session_state.asset
 timeframe = st.session_state.timeframe
@@ -258,8 +256,8 @@ is_real_feed = feed_mode == "real"
 feed_state_label = "FEED REAL · 15S" if is_real_feed else "FALLBACK ESTÁVEL"
 spot_title = f"Cotação Spot Atual ({timeframe})" if is_real_feed else f"Referência de Mercado ({timeframe})"
 spot_badge = '<span class="badge-green">Ao vivo</span>' if is_real_feed else '<span class="badge-amber">Fallback</span>'
-refresh_note = "Atualização do feed real a cada 15 segundos." if is_real_feed else "Fallback estável: sem refresh automático até configurar um feed real."
-refresh_footer = "Atualização a cada 15 segundos." if is_real_feed else "Fallback sem atualização automática."
+refresh_note = "Cotação Spot atualizada isoladamente a cada 15 segundos." if is_real_feed else "Fallback identificado; o cartão Spot é renovado a cada 15 segundos sem reconstruir os painéis."
+refresh_footer = "Cotação Spot atualizada a cada 15 segundos." if is_real_feed else "Cartão Spot em fallback com renovação isolada a cada 15 segundos."
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -305,9 +303,9 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
 spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
-    @st.fragment(run_every=15 if has_live_feed else None)
+    @st.fragment(run_every=15)
     def render_spot_card():
-        """Atualiza apenas Spot/VWAP quando existe feed real, sem recriar os demais painéis."""
+        """Atualiza apenas o cartão Spot em ciclos de 15 segundos, sem recriar os painéis."""
         live_asset = st.session_state.asset
         live_timeframe = st.session_state.timeframe
         live_config = ASSETS[live_asset]
@@ -322,7 +320,7 @@ with spot_col:
         live_title = f"Cotação Spot Atual ({live_timeframe})" if live_real else f"Referência de Mercado ({live_timeframe})"
         live_badge = '<span class="badge-green">Ao vivo</span>' if live_real else '<span class="badge-amber">Fallback</span>'
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-        live_note = "Atualização isolada a cada 15s." if live_real else "Sem feed real: referência estável."
+        live_note = "Atualização isolada a cada 15s." if live_real else "Fallback identificado; cartão renovado a cada 15s."
         st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
 
     render_spot_card()
