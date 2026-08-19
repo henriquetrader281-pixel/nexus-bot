@@ -343,6 +343,20 @@ with controls_right:
                     st.session_state.session = name
                     st.rerun()
 
+with st.container(border=True):
+    market_label_col, market_action_col, market_note_col = st.columns([.82, 2.15, .78], gap="small", vertical_alignment="center")
+    with market_label_col:
+        st.markdown('<div class="eyebrow">Mercado negociado</div><div class="card-title">Troca de ativo</div>', unsafe_allow_html=True)
+    with market_action_col:
+        accessible_asset_cols = st.columns(3, gap="small")
+        for col, key, label in zip(accessible_asset_cols, ["USDJPY", "US100", "XAUUSD"], ["USD/JPY", "US100 / Nasdaq", "XAU/USD · Ouro"]):
+            with col:
+                if st.button(label, key=f"market-access-{key}", type="primary" if asset == key else "secondary"):
+                    st.session_state.asset = key
+                    st.rerun()
+    with market_note_col:
+        st.markdown('<div class="card-note" style="text-align:right">Seletor acessível abaixo do cabeçalho.</div>', unsafe_allow_html=True)
+
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
