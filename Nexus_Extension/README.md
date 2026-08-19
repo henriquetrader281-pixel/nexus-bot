@@ -31,6 +31,6 @@ Na versão atual, a transferência para o Nexus é feita copiando esse JSON e co
 
 ## Limitações
 
-A extensão só encontra URLs que o navegador expõe no DOM, em metadados, em estilos computados ou no HTML disponível no momento da análise. Ela não ultrapassa autenticação, paywalls, CORS, DRM, URLs `blob:` ou recursos protegidos pelo próprio site. Um endereço `.m3u8` é identificado como recurso de vídeo, mas pode representar apenas uma playlist HLS; nesse caso, o download direto não produz necessariamente um ficheiro MP4.
+A extensão encontra URLs que o navegador expõe no DOM, em metadados, em estilos computados, no HTML e na Performance Resource Timeline da página. Para players dinâmicos, reproduza alguns segundos do vídeo antes de abrir o popup e clique novamente em **Analisar página**; isso permite que a extensão veja os recursos registados pelo navegador. Ela não ultrapassa autenticação, paywalls, CORS, DRM, URLs `blob:` ou recursos protegidos pelo próprio site. Um endereço `.m3u8` é identificado como recurso de vídeo, mas pode representar apenas uma playlist HLS; nesse caso, o download direto não produz necessariamente um ficheiro MP4.
 
 A extensão não publica conteúdo, não cria novos links de afiliado automaticamente e não envia dados para um servidor externo. O botão de exportação apenas copia o JSON localmente para o clipboard.

@@ -247,6 +247,24 @@ function collectMediaFromPage() {
     }
   });
 
+  // Muitos players não deixam o MP4 no DOM: carregam-no via fetch/XHR,
+  // atribuem um blob: ao elemento video ou usam um manifesto HLS/DASH.
+  // A Performance Resource Timeline mantém o URL HTTP original em vários
+  // destes casos, mesmo quando video.currentSrc é apenas blob:.
+  if (typeof performance?.getEntriesByType === "function") {
+    performance.getEntriesByType("resource").forEach((entry) => {
+      const resourceUrl = entry.name || "";
+      const initiator = String(entry.initiatorType || "").toLowerCase();
+      const mediaByExtension = videoPattern.test(resourceUrl) || /\.(?:mpd|m3u8)(?:[?#].*)?$/i.test(resourceUrl);
+      const mediaByInitiator = /^(?:video|audio|media)$/.test(initiator);
+      const mediaByNetworkHint = /^(?:fetch|xmlhttprequest|other)$/.test(initiator)
+        && /(?:video|media|stream|playback|manifest|hls|dash|mp4|webm|m3u8)/i.test(resourceUrl);
+      if (mediaByExtension || mediaByInitiator || mediaByNetworkHint) {
+        add(resourceUrl, "video", `performance:${initiator || "resource"}`);
+      }
+    });
+  }
+
   document.querySelectorAll("meta[property], meta[name]").forEach((element) => {
     const key = `${element.getAttribute("property") || ""} ${element.getAttribute("name") || ""}`.toLowerCase();
     const value = element.getAttribute("content");
