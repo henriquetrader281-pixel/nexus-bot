@@ -83,6 +83,47 @@ CREATE INDEX IF NOT EXISTS idx_creatives_variant ON creatives(variant);
 CREATE INDEX IF NOT EXISTS idx_publications_channel_status ON publications(channel, status);
 CREATE INDEX IF NOT EXISTS idx_metrics_publication_time ON creative_metrics(publication_id, measured_at);
 
+CREATE TABLE IF NOT EXISTS video_projects (
+    project_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    niche TEXT,
+    platform TEXT NOT NULL,
+    project_version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS video_publications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES video_projects(project_id) ON DELETE CASCADE,
+    platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'youtube', 'instagram')),
+    external_post_id TEXT,
+    external_url TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'failed', 'removed')),
+    published_at TEXT,
+    last_checked_at TEXT,
+    UNIQUE(project_id, platform)
+);
+
+CREATE TABLE IF NOT EXISTS video_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    publication_id INTEGER NOT NULL REFERENCES video_publications(id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK (views >= 0),
+    impressions INTEGER NOT NULL DEFAULT 0 CHECK (impressions >= 0),
+    avg_watch_time_seconds REAL NOT NULL DEFAULT 0 CHECK (avg_watch_time_seconds >= 0),
+    completed_views INTEGER NOT NULL DEFAULT 0 CHECK (completed_views >= 0),
+    likes INTEGER NOT NULL DEFAULT 0 CHECK (likes >= 0),
+    comments INTEGER NOT NULL DEFAULT 0 CHECK (comments >= 0),
+    shares INTEGER NOT NULL DEFAULT 0 CHECK (shares >= 0),
+    clicks INTEGER NOT NULL DEFAULT 0 CHECK (clicks >= 0),
+    follower_delta INTEGER NOT NULL DEFAULT 0,
+    measured_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_publications_project ON video_publications(project_id, platform);
+CREATE INDEX IF NOT EXISTS idx_video_metrics_publication_time ON video_metrics(publication_id, measured_at);
+
 CREATE VIEW IF NOT EXISTS creative_performance AS
 SELECT
     c.id AS campaign_id,

@@ -25,6 +25,8 @@ import scheduler_engine
 import seo_engine
 import update
 import backtest_engine
+from video_machine import studio_tab as video_machine_studio_tab
+from video_machine import metrics_tab as video_machine_metrics_tab
 
 
 st.set_page_config(
@@ -79,6 +81,8 @@ with st.sidebar:
 
 tabs = st.tabs([
     "🚀 ESTEIRA PRINCIPAL",
+    "🎬 MÁQUINA DE VÍDEOS",
+    "📈 MÉTRICAS",
     "🧠 AVANÇADO",
 ])
 
@@ -86,6 +90,12 @@ with tabs[0]:
     nexus_pipeline_ui.exibir_esteira_principal()
 
 with tabs[1]:
+    video_machine_studio_tab.exibir_maquina_videos()
+
+with tabs[2]:
+    video_machine_metrics_tab.exibir_painel_metricas()
+
+with tabs[3]:
     st.header("🧠 Ferramentas avançadas")
     st.caption("A operação normal não precisa destas áreas. Use-as apenas para diagnóstico, SEO, backtest, agendamento e configurações específicas.")
     autonomo_engine.exibir_aba_autonomo()

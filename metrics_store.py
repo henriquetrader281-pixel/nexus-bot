@@ -108,6 +108,105 @@ def performance_rows() -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
+def register_video_project(project: dict[str, Any]) -> None:
+    """Sincroniza o manifesto de projeto com o banco de métricas."""
+    init_db()
+    with connect() as connection:
+        connection.execute(
+            """INSERT INTO video_projects (project_id, title, product_name, niche, platform, project_version)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(project_id) DO UPDATE SET
+                title=excluded.title,
+                product_name=excluded.product_name,
+                niche=excluded.niche,
+                platform=excluded.platform,
+                project_version=excluded.project_version,
+                updated_at=datetime('now')""",
+            (
+                str(project.get("project_id") or ""),
+                str(project.get("title") or "Projeto"),
+                str(project.get("product_name") or "Tema"),
+                project.get("niche"),
+                str(project.get("platform") or "TikTok").lower().replace(" youtube shorts", "").replace(" instagram reels", ""),
+                int(project.get("version") or 1),
+            ),
+        )
+
+
+def record_video_publication(project_id: str, platform: str, *, external_post_id: str | None = None, external_url: str | None = None, status: str = "draft") -> int:
+    platform = platform.lower().replace(" youtube shorts", "").replace(" instagram reels", "")
+    if platform not in {"tiktok", "youtube", "instagram"}:
+        raise ValueError("platform inválida")
+    if status not in {"draft", "published", "failed", "removed"}:
+        raise ValueError("status inválido")
+    init_db()
+    with connect() as connection:
+        cursor = connection.execute(
+            """INSERT INTO video_publications (project_id, platform, external_post_id, external_url, status, published_at, last_checked_at)
+            VALUES (?, ?, ?, ?, ?, CASE WHEN ? = 'published' THEN datetime('now') ELSE NULL END, datetime('now'))
+            ON CONFLICT(project_id, platform) DO UPDATE SET
+                external_post_id=excluded.external_post_id,
+                external_url=excluded.external_url,
+                status=excluded.status,
+                published_at=excluded.published_at,
+                last_checked_at=excluded.last_checked_at""",
+            (project_id, platform, external_post_id, external_url, status, status),
+        )
+        if cursor.lastrowid:
+            return int(cursor.lastrowid)
+        row = connection.execute("SELECT id FROM video_publications WHERE project_id = ? AND platform = ?", (project_id, platform)).fetchone()
+        return int(row[0])
+
+
+def record_video_metrics(publication_id: int, *, views: int = 0, impressions: int = 0, avg_watch_time_seconds: float = 0.0, completed_views: int = 0, likes: int = 0, comments: int = 0, shares: int = 0, clicks: int = 0, follower_delta: int = 0) -> int:
+    integer_values = {"views": views, "impressions": impressions, "completed_views": completed_views, "likes": likes, "comments": comments, "shares": shares, "clicks": clicks, "follower_delta": follower_delta}
+    if any(not isinstance(value, int) or (key != "follower_delta" and value < 0) for key, value in integer_values.items()):
+        raise ValueError("métricas de vídeo precisam ser inteiros válidos")
+    if avg_watch_time_seconds < 0:
+        raise ValueError("avg_watch_time_seconds não pode ser negativo")
+    init_db()
+    with connect() as connection:
+        cursor = connection.execute(
+            """INSERT INTO video_metrics (publication_id, views, impressions, avg_watch_time_seconds, completed_views, likes, comments, shares, clicks, follower_delta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (publication_id, views, impressions, float(avg_watch_time_seconds), completed_views, likes, comments, shares, clicks, follower_delta),
+        )
+        return int(cursor.lastrowid)
+
+
+def list_video_publications(project_id: str | None = None) -> list[dict[str, Any]]:
+    init_db()
+    query = "SELECT id, project_id, platform, external_post_id, external_url, status, published_at, last_checked_at FROM video_publications"
+    params: tuple[Any, ...] = ()
+    if project_id:
+        query += " WHERE project_id = ?"
+        params = (project_id,)
+    query += " ORDER BY id DESC"
+    with connect() as connection:
+        return [dict(row) for row in connection.execute(query, params).fetchall()]
+
+
+def video_performance_rows(project_id: str | None = None) -> list[dict[str, Any]]:
+    init_db()
+    query = """SELECT vp.project_id, vp.platform, vp.status, COALESCE(SUM(vm.views), 0) AS views,
+        COALESCE(SUM(vm.impressions), 0) AS impressions,
+        COALESCE(SUM(vm.likes), 0) AS likes, COALESCE(SUM(vm.comments), 0) AS comments,
+        COALESCE(SUM(vm.shares), 0) AS shares, COALESCE(SUM(vm.clicks), 0) AS clicks,
+        COALESCE(SUM(vm.completed_views), 0) AS completed_views,
+        COALESCE(SUM(vm.follower_delta), 0) AS follower_delta,
+        CASE WHEN COALESCE(SUM(vm.impressions), 0) > 0 THEN CAST(SUM(vm.clicks) AS REAL) / SUM(vm.impressions) ELSE 0 END AS ctr,
+        CASE WHEN COALESCE(SUM(vm.views), 0) > 0 THEN CAST(SUM(vm.completed_views) AS REAL) / SUM(vm.views) ELSE 0 END AS completion_rate,
+        CASE WHEN COALESCE(SUM(vm.views), 0) > 0 THEN CAST(SUM(vm.likes + vm.comments + vm.shares) AS REAL) / SUM(vm.views) ELSE 0 END AS engagement_rate
+        FROM video_publications vp LEFT JOIN video_metrics vm ON vm.publication_id = vp.id"""
+    params: tuple[Any, ...] = ()
+    if project_id:
+        query += " WHERE vp.project_id = ?"
+        params = (project_id,)
+    query += " GROUP BY vp.project_id, vp.platform, vp.status ORDER BY vp.project_id, vp.platform"
+    with connect() as connection:
+        return [dict(row) for row in connection.execute(query, params).fetchall()]
+
+
 if __name__ == "__main__":
     init_db()
     print(f"Banco inicializado em: {DB_PATH}")

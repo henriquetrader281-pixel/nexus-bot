@@ -10,7 +10,7 @@ fi
 
 echo "📦 A instalar dependências no venv..."
 ./venv/bin/pip install --upgrade pip --quiet
-./venv/bin/pip install groq openai requests pandas streamlit --quiet
+./venv/bin/pip install -r requirements.txt --quiet
 
 echo "🚀 A executar Nexus Bot..."
 ./venv/bin/python3 nexus_autonome.py
