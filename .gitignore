@@ -12,4 +12,5 @@ generated_creatives/
 *.sqlite3
 test_worker_import.py
 nexus_performance.csv
+nexus_learning_log.json
 *.mp3

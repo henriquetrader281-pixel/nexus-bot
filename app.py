@@ -1,15 +1,7 @@
 from __future__ import annotations
 
 import streamlit as st
-import os
-
-
-def get_secret(name: str, default=None):
-    try:
-        value = st.secrets.get(name)
-    except Exception:
-        value = None
-    return value if value not in (None, "") else os.environ.get(name, default)
+from auth import check_password as password_matches, configured_password
 
 
 import autonomo_engine
@@ -38,13 +30,15 @@ st.set_page_config(
 
 def check_password() -> bool:
     def password_entered() -> None:
-        if st.session_state["password"] == get_secret("NEXUS_PASSWORD", "admin"):
+        if password_matches(st.session_state["password"]):
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
+        if configured_password() is None:
+            st.error("NEXUS_PASSWORD não configurada. Defina esse segredo antes de iniciar o Nexus.")
         st.text_input("🔑 Insira a Chave de Acesso Nexus:", type="password", on_change=password_entered, key="password")
         return False
     if not st.session_state["password_correct"]:
