@@ -12,7 +12,8 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 
-st.set_page_config(page_title="Terminal Institucional", page_icon="◈", layout="wide", initial_sidebar_state="collapsed")
+if __name__ == "__main__":
+    st.set_page_config(page_title="Terminal Institucional", page_icon="◈", layout="wide", initial_sidebar_state="collapsed")
 
 TZ = ZoneInfo("America/Sao_Paulo")
 ASSETS = {

@@ -77,6 +77,7 @@ tabs = st.tabs([
     "🚀 ESTEIRA PRINCIPAL",
     "🎬 MÁQUINA DE VÍDEOS",
     "📈 MÉTRICAS",
+    "📊 MONITOR DE MERCADO",
     "🧠 AVANÇADO",
 ])
 
@@ -90,6 +91,9 @@ with tabs[2]:
     video_machine_metrics_tab.exibir_painel_metricas()
 
 with tabs[3]:
+    import monitor_app
+
+with tabs[4]:
     st.header("🧠 Ferramentas avançadas")
     st.caption("A operação normal não precisa destas áreas. Use-as apenas para diagnóstico, SEO, backtest, agendamento e configurações específicas.")
     autonomo_engine.exibir_aba_autonomo()
