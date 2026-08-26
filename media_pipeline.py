@@ -90,12 +90,34 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
         source = download_image(product, output_dir)
     audio_path = campaign.get("audio_path")
     audio = Path(audio_path) if audio_path and Path(audio_path).exists() else None
-    image_path = make_image_a(product, source, output_dir)
     caption_lines = campaign.get("hooks") or campaign.get("keywords") or []
+    fingerprint_payload = {
+        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "product": product.title,
+        "caption_lines": caption_lines,
+        "audio": str(audio) if audio else None,
+    }
+    fingerprint = hashlib.sha256(json.dumps(fingerprint_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    manifest_path = output_dir / "campaign_manifest.json"
+    if manifest_path.is_file():
+        try:
+            cached = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if cached.get("fingerprint") == fingerprint and all(Path(cached.get(key, "")).is_file() for key in ("image_a", "video_b")):
+                return cached
+        except (OSError, TypeError, ValueError):
+            pass
+
+    image_path = make_image_a(product, source, output_dir)
     video_path = make_video_b(product, source, output_dir, audio, caption_lines=caption_lines)
-    source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    source_digest = fingerprint_payload["source_sha256"]
 
     manifest = {
+        "fingerprint": fingerprint,
+        "copy": campaign.get("copy_final") or campaign.get("copy") or "",
+        "keywords": campaign.get("keywords") or [],
+        "hooks": campaign.get("hooks") or [],
+        "caption": campaign.get("caption") or "",
+        "audio_status": "ready" if audio else "not_available",
         "source_image_path": str(source),
         "product": {
             "name": product.title,
@@ -115,7 +137,7 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
         "audio": str(audio) if audio else None,
         "publication": "not_executed",
     }
-    (output_dir / "campaign_manifest.json").write_text(
+    manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -17,10 +18,12 @@ def _secret(name: str) -> str | None:
     return value or os.environ.get(name)
 
 
-def _audio_path(professional: bool) -> Path:
+def _audio_path(professional: bool, text: str = "") -> Path:
     folder = Path(".nexus_media") / "audio"
     folder.mkdir(parents=True, exist_ok=True)
-    return folder / ("nexus_voice_pro.mp3" if professional else "nexus_voice_basic.mp3")
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+    prefix = "nexus_voice_pro" if professional else "nexus_voice_basic"
+    return folder / f"{prefix}_{digest}.mp3"
 
 
 def gerar_narração_ia(texto_roteiro, estilo="Profissional"):
@@ -33,7 +36,12 @@ def gerar_narração_ia(texto_roteiro, estilo="Profissional"):
     if not api_key:
         try:
             from gtts import gTTS
-            output_path = _audio_path(False)
+            try:
+                output_path = _audio_path(False, text)
+            except TypeError:  # compatibilidade com integrações legadas/testes
+                output_path = _audio_path(False)
+            if output_path.is_file():
+                return {"success": True, "audio_path": str(output_path), "aviso": "Narração reutilizada do cache local."}
             gTTS(text=text, lang="pt", tld="com.br").save(str(output_path))
             return {
                 "success": True,
@@ -54,7 +62,12 @@ def gerar_narração_ia(texto_roteiro, estilo="Profissional"):
     try:
         response = requests.post(url, json=data, headers=headers, timeout=30)
         if response.status_code == 200:
-            output_path = _audio_path(True)
+            try:
+                output_path = _audio_path(True, text)
+            except TypeError:  # compatibilidade com integrações legadas/testes
+                output_path = _audio_path(True)
+            if output_path.is_file():
+                return {"success": True, "audio_path": str(output_path), "aviso": "Narração reutilizada do cache local."}
             output_path.write_bytes(response.content)
             return {"success": True, "audio_path": str(output_path)}
         return {"success": False, "error": f"Erro ElevenLabs HTTP {response.status_code}: {response.text[:300]}"}
