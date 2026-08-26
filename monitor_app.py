@@ -1,19 +1,20 @@
 import datetime as dt
 import html
+import math
 import os
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import pytz
 import requests
+from zoneinfo import ZoneInfo
 import streamlit as st
 from plotly.subplots import make_subplots
 
 
 st.set_page_config(page_title="Terminal Institucional", page_icon="◈", layout="wide", initial_sidebar_state="collapsed")
 
-TZ = pytz.timezone("America/Sao_Paulo")
+TZ = ZoneInfo("America/Sao_Paulo")
 ASSETS = {
     "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "base": 159.31, "scale": 0.075},
     "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "base": 29490.96, "scale": 55.0},
@@ -50,10 +51,29 @@ st.markdown(
     .card-note { color:#9aaec8; font:500 10px/1.45 Inter,ui-sans-serif,system-ui,sans-serif; margin-top:3px; }
     .spot-symbol { color:#fff; font:850 16px/1 Inter,ui-sans-serif,system-ui,sans-serif; margin-top:6px; }
     .spot-value { color:#f7b718; font:900 34px/.96 ui-monospace,SFMono-Regular,monospace; letter-spacing:-.06em; margin:13px 0 8px; white-space:nowrap; }
+    .quote-change { display:inline-flex; gap:8px; align-items:center; font:800 12px ui-monospace,monospace; margin:0 0 10px; }.quote-change-up { color:#3d7bff; }.quote-change-down { color:#ef476f; }.quote-change-flat { color:#858585; }
     .unit { color:#dbe7f6; font:600 11px Inter,ui-sans-serif,system-ui,sans-serif; letter-spacing:0; }
     .small-row { color:#9ab0ca; font:500 10px/1.65 ui-monospace,monospace; display:flex; justify-content:space-between; align-items:center; gap:8px; }
     .small-row strong { color:#eef6ff; font-weight:800; }
     .vwap { color:#f7b718 !important; }
+    .tv-rating-panel { background:#050505; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:16px 18px; color:#f4f4f4; }
+    .tv-rating-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:4px; }
+    .tv-gauge-layout { display:grid; grid-template-columns:1.15fr 1fr; gap:12px; align-items:center; margin:4px auto 10px; max-width:760px; }
+    .tv-gauge { margin:0 auto; text-align:center; }
+    .tv-gauge svg { display:block; width:100%; height:auto; overflow:visible; }
+    .tv-gauge-title { color:#f4f4f4; font:800 13px Inter,ui-sans-serif,system-ui,sans-serif; margin-bottom:-2px; }
+    .tv-gauge-state { font:800 18px/1.1 Inter,ui-sans-serif,system-ui,sans-serif; margin-top:-11px; }
+    .tv-gauge-scale { display:flex; justify-content:space-between; gap:8px; color:#7f7f7f; font:600 9px ui-monospace,monospace; margin-top:5px; text-transform:uppercase; }
+    .tv-gauge-compact .tv-gauge-title { font-size:11px; }.tv-gauge-compact .tv-gauge-state { font-size:11px; margin-top:-8px; }.tv-gauge-compact .tv-gauge-scale { font-size:7px; }
+    .tv-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; align-items:end; }
+    .tv-counts { display:flex; justify-content:center; gap:24px; margin-top:-2px; font:600 10px Inter,ui-sans-serif,system-ui,sans-serif; }
+    .tv-counts span { display:flex; flex-direction:column; gap:4px; align-items:center; white-space:nowrap; }.tv-counts b { color:#f2f2f2; font:800 16px ui-monospace,monospace; }
+    .tv-rating-columns { display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:10px; }
+    .tv-section-title { border-bottom:1px solid rgba(255,255,255,.14); padding:0 0 8px; margin-bottom:0; color:#f4f4f4; font:800 12px Inter,ui-sans-serif,system-ui,sans-serif; }
+    .tv-rating-row { display:grid; grid-template-columns:minmax(0,1fr) 82px 108px; gap:10px; align-items:center; min-height:32px; border-bottom:1px solid rgba(255,255,255,.14); color:#e6e6e6; font:500 10px Inter,ui-sans-serif,system-ui,sans-serif; }
+    .tv-rating-row strong { color:#f1f1f1; font:700 10px ui-monospace,monospace; text-align:right; }.tv-rating-row em { font-style:normal; text-align:left; font-size:10px; }
+    .tv-rating--1 { color:#ef476f; }.tv-rating-0 { color:#858585; }.tv-rating-1 { color:#3d7bff; }
+    @media (max-width: 760px) { .tv-gauge-layout,.tv-rating-columns { grid-template-columns:1fr; }.tv-mini-grid { max-width:460px; margin:auto; }.tv-rating-row { grid-template-columns:minmax(0,1fr) 70px 92px; gap:5px; font-size:9px; }.tv-rating-head { flex-direction:column; }.tv-counts { gap:10px; } }
     .rule { height:1px; background:rgba(255,255,255,.09); margin:11px 0; }
     .badge-green, .badge-red, .badge-amber { padding:4px 7px; border-radius:5px; font:800 9px ui-monospace,monospace; text-transform:uppercase; white-space:nowrap; }
     .badge-green { color:#35e5ae; background:rgba(46,229,157,.13); }
@@ -210,6 +230,122 @@ def pivot_levels(data: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def _vote(value: float, buy_threshold: float, sell_threshold: float) -> int:
+    if value >= buy_threshold:
+        return 1
+    if value <= sell_threshold:
+        return -1
+    return 0
+
+
+def _rating_label(score: float) -> str:
+    if score <= -0.6:
+        return "Tendência de Baixa Forte"
+    if score <= -0.2:
+        return "Tendência de Baixa"
+    if score < 0.2:
+        return "Tendência Neutra"
+    if score < 0.6:
+        return "Viés de alta"
+    return "Viés de alta forte"
+
+
+def _rating_color(score: float) -> str:
+    if score <= -0.2:
+        return "#ef476f"
+    if score < 0.2:
+        return "#858585"
+    return "#3d7bff"
+
+
+def _arc_path(cx: float, cy: float, radius: float, start_deg: float, end_deg: float) -> str:
+    start = math.radians(start_deg)
+    end = math.radians(end_deg)
+    x1, y1 = cx + radius * math.cos(start), cy + radius * math.sin(start)
+    x2, y2 = cx + radius * math.cos(end), cy + radius * math.sin(end)
+    large = 1 if abs(end_deg - start_deg) > 180 else 0
+    return f"M {x1:.2f} {y1:.2f} A {radius} {radius} 0 {large} 1 {x2:.2f} {y2:.2f}"
+
+
+def render_gauge(score: float, title: str, compact: bool = False) -> str:
+    score = float(np.clip(score, -1, 1))
+    # Arco visual: esquerda = venda forte, centro = neutro, direita = compra forte.
+    cx, cy, radius = (160, 154, 112) if not compact else (110, 106, 67)
+    start, end = 180, 360
+    segments = [(180, 216, "#ef476f"), (216, 252, "#b84d91"), (252, 288, "#754fa8"), (288, 324, "#435bd1"), (324, 360, "#3d7bff")]
+    stroke = 13 if not compact else 9
+    paths = "".join(f'<path d="{_arc_path(cx, cy, radius, a, b)}" fill="none" stroke="{color}" stroke-width="{stroke}" stroke-linecap="butt"/>' for a, b, color in segments)
+    angle = 270 + score * 90
+    needle_len = radius - (26 if not compact else 16)
+    needle_x = cx + needle_len * math.cos(math.radians(angle))
+    needle_y = cy + needle_len * math.sin(math.radians(angle))
+    label = _rating_label(score)
+    color = _rating_color(score)
+    width = "340px" if not compact else "220px"
+    height = "205px" if not compact else "142px"
+    label_size = "20px" if not compact else "12px"
+    return f'''<div class="tv-gauge {'tv-gauge-compact' if compact else ''}" style="width:{width}"><div class="tv-gauge-title">{html.escape(title)}</div><svg viewBox="0 0 320 180" role="img" aria-label="{html.escape(label)}"><path d="{_arc_path(cx, cy, radius, 180, 360)}" fill="none" stroke="#333" stroke-width="{stroke}" opacity=".38"/>{paths}<line x1="{cx}" y1="{cy}" x2="{needle_x:.2f}" y2="{needle_y:.2f}" stroke="#f3f3f3" stroke-width="3"/><circle cx="{cx}" cy="{cy}" r="6" fill="#f3f3f3"/><circle cx="{cx}" cy="{cy}" r="3" fill="#202020"/></svg><div class="tv-gauge-state" style="color:{color};font-size:{label_size}">{html.escape(label)}</div><div class="tv-gauge-scale"><span>Venda forte</span><span>Neutro</span><span>Compra forte</span></div></div>'''
+
+
+def technical_ratings(data: pd.DataFrame) -> dict[str, object]:
+    close = data.close.astype(float)
+    high = data.high.astype(float)
+    low = data.low.astype(float)
+    delta = close.diff()
+    gain = delta.clip(lower=0).rolling(14, min_periods=1).mean()
+    loss = (-delta.clip(upper=0)).rolling(14, min_periods=1).mean().replace(0, np.nan)
+    rsi = (100 - (100 / (1 + gain / loss))).fillna(50).iloc[-1]
+    lowest = low.rolling(14, min_periods=1).min().iloc[-1]
+    highest = high.rolling(14, min_periods=1).max().iloc[-1]
+    stoch = ((close.iloc[-1] - lowest) / max(highest - lowest, 1e-9)) * 100
+    typical = (high + low + close) / 3
+    cci_mean = typical.rolling(20, min_periods=1).mean().iloc[-1]
+    cci_dev = (typical - typical.rolling(20, min_periods=1).mean()).abs().rolling(20, min_periods=1).mean().iloc[-1]
+    cci = (typical.iloc[-1] - cci_mean) / max(0.015 * cci_dev, 1e-9)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    signal_line = macd.ewm(span=9, adjust=False).mean()
+    ao = ((high + low) / 2).rolling(5, min_periods=1).mean().iloc[-1] - ((high + low) / 2).rolling(34, min_periods=1).mean().iloc[-1]
+    momentum = close.iloc[-1] - close.iloc[max(0, len(close) - 11)]
+    osc_votes = [
+        ("Índice de Força Relativa (14)", float(rsi), _vote(float(rsi), 55, 45)),
+        ("Estocástico %K (14, 3, 3)", float(stoch), _vote(float(stoch), 55, 45)),
+        ("Índice Canal de Commodities (20)", float(cci), _vote(float(cci), 100, -100)),
+        ("Índice Direcional Médio (14)", float(abs(momentum)), _vote(float(momentum), 0.0, 0.0)),
+        ("Oscilador Maravilhoso (AO)", float(ao), _vote(float(ao), 0.0, 0.0)),
+        ("Momentum (10)", float(momentum), _vote(float(momentum), 0.0, 0.0)),
+        ("Nível MACD (12,26)", float(macd.iloc[-1] - signal_line.iloc[-1]), _vote(float(macd.iloc[-1] - signal_line.iloc[-1]), 0.0, 0.0)),
+        ("IFR Estocástico Rápido (3, 3, 14, 14)", float(stoch), _vote(float(stoch), 60, 40)),
+    ]
+    lengths = [10, 20, 30, 50, 100, 200]
+    ma_votes = []
+    for length in lengths:
+        ema = float(close.ewm(span=length, adjust=False).mean().iloc[-1])
+        sma = float(close.rolling(length, min_periods=1).mean().iloc[-1])
+        ma_votes.extend([
+            (f"Média Móvel Exponencial ({length})", ema, 1 if close.iloc[-1] > ema else -1 if close.iloc[-1] < ema else 0),
+            (f"Média Móvel Simples ({length})", sma, 1 if close.iloc[-1] > sma else -1 if close.iloc[-1] < sma else 0),
+        ])
+    def summarize(votes: list[tuple[str, float, int]]) -> dict[str, object]:
+        values = [vote for _, _, vote in votes]
+        score = float(np.mean(values)) if values else 0.0
+        return {"votes": votes, "score": score, "sell": values.count(-1), "neutral": values.count(0), "buy": values.count(1), "label": _rating_label(score)}
+    oscillators = summarize(osc_votes)
+    moving_averages = summarize(ma_votes)
+    summary = summarize(osc_votes + ma_votes)
+    return {"summary": summary, "oscillators": oscillators, "moving_averages": moving_averages}
+
+
+def render_rating_panel(ratings: dict[str, object], asset_label: str, timeframe: str) -> str:
+    summary = ratings["summary"]
+    oscillators = ratings["oscillators"]
+    moving_averages = ratings["moving_averages"]
+    def rows(group: dict[str, object]) -> str:
+        return "".join(f'<div class="tv-rating-row"><span>{html.escape(name)}</span><strong>{value:,.3f}</strong><em class="tv-rating-{vote}">{_rating_label(vote):s}</em></div>' for name, value, vote in group["votes"])
+    return f'''<div class="tv-rating-panel"><div class="tv-rating-head"><div><div class="card-title">Análise técnica · {html.escape(asset_label)}</div><div class="card-note">Resumo dos sinais no intervalo <b>{html.escape(timeframe)}</b>, com preço do ativo sincronizado ao feed selecionado.</div></div><span class="badge-amber">TRADING VIEW STYLE</span></div><div class="tv-gauge-layout"><div>{render_gauge(summary["score"], "Resumo", False)}<div class="tv-counts"><span class="tv-rating--1">Tendência de Baixa <b>{summary["sell"]}</b></span><span class="tv-rating-0">Tendência Neutra <b>{summary["neutral"]}</b></span><span class="tv-rating-1">Viés de alta <b>{summary["buy"]}</b></span></div></div><div class="tv-mini-grid">{render_gauge(oscillators["score"], "Osciladores", True)}{render_gauge(moving_averages["score"], "Médias Móveis", True)}</div></div><div class="tv-rating-columns"><div><div class="tv-section-title">Osciladores</div>{rows(oscillators)}</div><div><div class="tv-section-title">Médias Móveis</div>{rows(moving_averages)}</div></div></div>'''
+
+
 def live_operational_state() -> dict[str, object]:
     """Calcula apenas os cartões operacionais que podem acompanhar a cotação sem rerun global."""
     live_asset = st.session_state.asset
@@ -290,6 +426,7 @@ ma200 = float(df.volume.rolling(200, min_periods=1).mean().iloc[-1])
 volume_ratio = float(df.volume.iloc[-1] / max(ma9, 1))
 volume_status = "Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if df.volume.iloc[-1] > ma9 else "Volume Normal")
 signal, confidence = ("VENDA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92))) if bearish else ("COMPRA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92)))
+ratings = technical_ratings(df)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
 backtest = df.assign(direction=np.where(df.close > df.open, "COMPRA", "VENDA"))
 backtest["next_return"] = backtest.close.shift(-1) - backtest.close
@@ -377,11 +514,16 @@ with spot_col:
         live_typical = (live_data.high + live_data.low + live_data.close) / 3
         live_vwap = float(np.average(live_typical, weights=live_data.volume))
         live_real = live_mode == "real"
+        live_previous = float(live_data.close.iloc[-2]) if len(live_data) > 1 else live_last
+        live_change = live_last - live_previous
+        live_change_pct = (live_change / live_previous * 100) if live_previous else 0.0
+        live_change_class = "quote-change-up" if live_change > 0 else "quote-change-down" if live_change < 0 else "quote-change-flat"
+        live_change_sign = "+" if live_change > 0 else ""
         live_title = f"Cotação Spot Atual ({live_timeframe})" if live_real else f"Referência de Mercado ({live_timeframe})"
         live_badge = '<span class="badge-green">Ao vivo</span>' if live_real else '<span class="badge-amber">Fallback</span>'
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
         live_note = "Atualização isolada a cada 3s." if live_real else "Fallback identificado; cartão renovado a cada 3s."
-        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
+        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="quote-change {live_change_class}">{live_change_sign}{price_format(live_change, live_is_usdjpy)} <span>{live_change_sign}{live_change_pct:.2f}%</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
 
     render_spot_card()
 with pressure_col:
@@ -392,6 +534,9 @@ with pressure_col:
         st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note" style="text-align:right">Atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
 
     render_pressure_card()
+
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+st.markdown(render_rating_panel(ratings, asset_label, timeframe), unsafe_allow_html=True)
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
