@@ -22,6 +22,8 @@ ASSETS = {
     "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "google_symbol": "USD-JPY", "google_name": "USD / JPY", "base": 159.31, "scale": 0.075},
     "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "google_symbol": "NDX:INDEXNASDAQ", "google_name": "Nasdaq-100", "base": 29490.96, "scale": 55.0},
     "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX", "base": 4351.90, "scale": 35.0},
+    "BTCUSD": {"label": "BTC/USD (Bitcoin)", "desk": "BTC / USD", "unit": "USD", "symbol": "BTC/USD", "google_symbol": "BTC-USD", "google_name": "Bitcoin", "base": 80542.94, "scale": 850.0},
+    "MINIWIN": {"label": "Mini-Índice (WIN)", "desk": "WIN / Ibovespa", "unit": "PTS", "symbol": "WIN", "google_symbol": "IBOV:INDEXBVMF", "google_name": "Ibovespa · proxy WIN", "base": 175215.55, "scale": 420.0},
 }
 TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1day"}
 TIME_FREQ = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
@@ -257,7 +259,7 @@ def make_data(asset: str, timeframe: str, anchor: float | None = None) -> pd.Dat
     now = dt.datetime.now(TZ).replace(second=0, microsecond=0)
     # O histórico estimado só é usado para visualização quando o provedor não oferece candles.
     bucket = int(dt.datetime.now().timestamp() // 15)
-    rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47}[asset] + bucket)
+    rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47, "BTCUSD": 71, "MINIWIN": 89}[asset] + bucket)
     close = base + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
     simulated_spot = base + rng.normal(0, config["scale"] * .62)
     close = close - close[-1] + simulated_spot
@@ -586,10 +588,10 @@ refresh_footer = f"Cotação {source_label} conforme o provedor." if is_real_fee
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
 header_left, header_actions = st.columns([1.2, 1.1], gap="small", vertical_alignment="center")
 with header_left:
-    st.markdown(f'<div class="topbar"><div class="brand-mark">↯</div><div><div class="kicker">Mesa de Tesouraria · Forex & Commodities Desk</div><div class="headline">Terminal Institucional (USD/JPY, US100 & XAU/USD)</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="topbar"><div class="brand-mark">↯</div><div><div class="kicker">Mesa de Tesouraria · Forex, Índices & Cripto</div><div class="headline">Terminal Institucional (USD/JPY, US100, XAU/USD, BTC/USD & WIN)</div></div></div>', unsafe_allow_html=True)
 with header_actions:
-    action_cols = st.columns([1, 1, 1.15, 1.35], gap="small")
-    for col, key, label in zip(action_cols[:3], ["USDJPY", "US100", "XAUUSD"], ["USD/JPY", "US100", "XAU/USD (Ouro)"]):
+    action_cols = st.columns([1, 1, 1, 1, 1, 1.35], gap="small")
+    for col, key, label in zip(action_cols[:5], ["USDJPY", "US100", "XAUUSD", "BTCUSD", "MINIWIN"], ["USD/JPY", "US100", "XAU/USD", "BTC/USD", "Mini WIN"]):
         with col:
             if st.button(label, key=f"asset-{key}", type="primary" if asset == key else "secondary"):
                 st.session_state.asset = key
@@ -643,8 +645,8 @@ with st.container(border=True):
     with market_label_col:
         st.markdown('<div class="eyebrow">Mercado negociado</div><div class="card-title">Troca de ativo</div>', unsafe_allow_html=True)
     with market_action_col:
-        accessible_asset_cols = st.columns(3, gap="small")
-        for col, key, label in zip(accessible_asset_cols, ["USDJPY", "US100", "XAUUSD"], ["USD/JPY", "US100 / Nasdaq", "XAU/USD · Ouro"]):
+        accessible_asset_cols = st.columns(5, gap="small")
+        for col, key, label in zip(accessible_asset_cols, ["USDJPY", "US100", "XAUUSD", "BTCUSD", "MINIWIN"], ["USD/JPY", "US100 / Nasdaq", "XAU/USD · Ouro", "BTC/USD · Bitcoin", "Mini-Índice · WIN"]):
             with col:
                 if st.button(label, key=f"market-access-{key}", type="primary" if asset == key else "secondary"):
                     st.session_state.asset = key
@@ -670,10 +672,10 @@ with spot_col:
             live_data.loc[live_data.index[-1], "close"] = live_spot
         live_typical = (live_data.high + live_data.low + live_data.close) / 3
         live_vwap = float(np.average(live_typical, weights=live_data.volume))
-        live_real = live_mode in {"google", "real"}
+        live_real = live_mode in {"google", "real", "xtb", "hantec"}
         live_unavailable = live_mode == "unavailable"
         live_previous = float(live_data.close.iloc[-2]) if len(live_data) > 1 else live_last
-        if live_mode == "google" and live_change is not None:
+        if live_mode in {"google", "xtb", "hantec"} and live_change is not None:
             live_change_value = float(live_change)
             live_change_percent = float(live_change_pct or 0.0)
         else:
@@ -880,6 +882,8 @@ news_by_asset = {
     "USDJPY": [("08:30 NY", "USD", "CPI / Inflação do Consumidor", "Alto"), ("10:30 NY", "USD", "Decisão de juros e comunicação do Fed", "Alto"), ("09:00 Tóquio", "JPY", "BoJ — política monetária", "Alto")],
     "US100": [("10:30 NY", "USD", "Resultados e fluxo de tecnologia", "Alto"), ("14:00 NY", "USD", "FOMC minutes e decisão de juros", "Alto"), ("08:30 NY", "USD", "Payrolls / emprego norte-americano", "Médio")],
     "XAUUSD": [("08:30 NY", "USD", "Inflação e procura por proteção", "Alto"), ("10:30 NY", "USD", "Decisão de juros e dólar", "Médio"), ("14:00 NY", "USD", "Fluxo para metais preciosos", "Médio")],
+    "BTCUSD": [("10:00 NY", "BTC", "Fluxo e volatilidade cripto", "Médio"), ("14:00 NY", "USD", "Decisão de juros e liquidez", "Alto"), ("18:00 NY", "BTC", "Vencimento de opções", "Médio")],
+    "MINIWIN": [("09:00 BRT", "BRL", "Abertura do pregão B3", "Alto"), ("10:00 BRT", "BRL", "Fluxo e ajuste do Ibovespa", "Médio"), ("14:00 BRT", "BRL", "Vencimento/ajuste de índice", "Médio")],
 }[asset]
 with st.container(border=True):
     news_head, news_actions = st.columns([2.3, 1], vertical_alignment="center")
