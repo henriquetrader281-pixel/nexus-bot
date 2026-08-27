@@ -17,6 +17,7 @@ import scheduler_engine
 import seo_engine
 import update
 import backtest_engine
+import health_check
 from video_machine import studio_tab as video_machine_studio_tab
 from video_machine import metrics_tab as video_machine_metrics_tab
 
@@ -96,6 +97,8 @@ with tabs[3]:
 with tabs[4]:
     st.header("🧠 Ferramentas avançadas")
     st.caption("A operação normal não precisa destas áreas. Use-as apenas para diagnóstico, SEO, backtest, agendamento e configurações específicas.")
+    with st.expander("🩺 Diagnóstico de operação", expanded=True):
+        health_check.render_panel(st)
     autonomo_engine.exibir_aba_autonomo()
     with st.expander("📊 Backtest e inteligência", expanded=False):
         backtest_engine.exibir_painel_backtest()
