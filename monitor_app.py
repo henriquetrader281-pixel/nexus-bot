@@ -2,11 +2,13 @@ import datetime as dt
 import html
 import math
 import os
+import re
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import requests
+from bs4 import BeautifulSoup
 from zoneinfo import ZoneInfo
 import streamlit as st
 from plotly.subplots import make_subplots
@@ -17,9 +19,9 @@ if __name__ == "__main__":
 
 TZ = ZoneInfo("America/Sao_Paulo")
 ASSETS = {
-    "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "base": 159.31, "scale": 0.075},
-    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "base": 29490.96, "scale": 55.0},
-    "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "base": 4351.90, "scale": 35.0},
+    "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "google_symbol": "USD-JPY", "google_name": "USD / JPY", "base": 159.31, "scale": 0.075},
+    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "google_symbol": "NDX:INDEXNASDAQ", "google_name": "Nasdaq-100", "base": 29490.96, "scale": 55.0},
+    "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX", "base": 4351.90, "scale": 35.0},
 }
 TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1day"}
 TIME_FREQ = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
@@ -136,6 +138,38 @@ def provider_message(response: requests.Response, label: str) -> str:
     return f"{label} HTTP {response.status_code}: {detail[:140]}"
 
 
+def parse_google_number(text: str) -> float:
+    normalized = str(text).replace("\xa0", " ").replace(",", "").replace("$", "")
+    match = re.search(r"[-+]?\s*\d+(?:\.\d+)?", normalized)
+    if not match:
+        raise ValueError(f"Número não encontrado em: {text[:80]}")
+    return float(match.group().replace(" ", ""))
+
+
+@st.cache_data(ttl=15, show_spinner=False)
+def fetch_google_finance_quote(asset: str) -> tuple[float, float, float, str]:
+    config = ASSETS[asset]
+    url = f"https://www.google.com/finance/quote/{config['google_symbol']}?hl=en"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    response = requests.get(url, headers=headers, timeout=12)
+    if not response.ok:
+        raise RuntimeError(provider_message(response, "Google Finance"))
+    soup = BeautifulSoup(response.text, "html.parser")
+    price_node = soup.select_one("div.N6SYTe")
+    if price_node is None:
+        raise RuntimeError(f"Google Finance não encontrou o preço de {config['google_name']}.")
+    price = parse_google_number(price_node.get_text(" ", strip=True))
+    quote_block = price_node.find_parent("div", class_="ujg0He") or price_node.parent
+    change_node = quote_block.select_one('span[jsname="xnruHf"]')
+    change_pct_node = quote_block.select_one('span[jsname="vY9t3b"]')
+    change = parse_google_number(change_node.get_text(" ", strip=True)) if change_node else 0.0
+    change_pct = parse_google_number(change_pct_node.get_text(" ", strip=True)) if change_pct_node else 0.0
+    return price, change, change_pct, config["google_name"]
+
+
 @st.cache_data(ttl=10, show_spinner=False)
 def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.DataFrame, float | None, str]:
     headers = {"Authorization": f"apikey {api_key}"}
@@ -166,14 +200,15 @@ def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.Data
     return data, spot, "volume real" if has_volume else "volume não fornecido pelo provedor"
 
 
-def make_data(asset: str, timeframe: str) -> pd.DataFrame:
+def make_data(asset: str, timeframe: str, anchor: float | None = None) -> pd.DataFrame:
     config = ASSETS[asset]
+    base = float(anchor if anchor is not None else config["base"])
     now = dt.datetime.now(TZ).replace(second=0, microsecond=0)
-    # O fallback é renovado somente no intervalo do cartão Spot, nunca a cada renderização.
-    bucket = int(dt.datetime.now().timestamp() // 3)
+    # O histórico estimado só é usado para visualização quando o provedor não oferece candles.
+    bucket = int(dt.datetime.now().timestamp() // 15)
     rng = np.random.default_rng({"USDJPY": 11, "US100": 29, "XAUUSD": 47}[asset] + bucket)
-    close = config["base"] + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
-    simulated_spot = config["base"] + rng.normal(0, config["scale"] * .62)
+    close = base + np.r_[0, np.cumsum(rng.normal(0, config["scale"], 59))]
+    simulated_spot = base + rng.normal(0, config["scale"] * .62)
     close = close - close[-1] + simulated_spot
     open_ = close - rng.normal(0, config["scale"] * 0.34, 60)
     high = np.maximum(open_, close) + rng.uniform(config["scale"] * .15, config["scale"] * .7, 60)
@@ -181,17 +216,35 @@ def make_data(asset: str, timeframe: str) -> pd.DataFrame:
     return pd.DataFrame({"time": pd.date_range(end=now, periods=60, freq=TIME_FREQ[timeframe]), "open": open_, "high": high, "low": low, "close": close, "volume": rng.integers(220, 880, 60)})
 
 
-def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | None, str, str]:
-    api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
-    if not api_key:
-        return make_data(asset, timeframe), None, "simulated", "Chave TwelveData ausente; fallback simulado identificado."
-    symbol = read_secret(f"TWELVEDATA_SYMBOL_{asset}") or ASSETS[asset]["symbol"]
+def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | None, float | None, float | None, str, str]:
+    config = ASSETS[asset]
     try:
-        data, spot, volume_note = fetch_twelve_data(symbol, TWELVE_INTERVALS[timeframe], api_key)
-        return data, spot, "real", f"Feed TwelveData ativo · {symbol} · {volume_note}."
-    except Exception as error:
-        reason = str(error).replace(api_key, "[oculto]")[:170]
-        return make_data(asset, timeframe), None, "fallback", f"Feed TwelveData indisponível · {symbol} · {reason}."
+        google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset)
+    except Exception as google_error:
+        google_reason = str(google_error)[:170]
+        api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
+        if api_key:
+            symbol = read_secret(f"TWELVEDATA_SYMBOL_{asset}") or config["symbol"]
+            try:
+                data, spot, volume_note = fetch_twelve_data(symbol, TWELVE_INTERVALS[timeframe], api_key)
+                return data, spot, None, None, "real", f"Google Finance indisponível · {google_reason} · backup TwelveData {symbol} · {volume_note}."
+            except Exception as twelve_error:
+                google_reason = f"{google_reason}; TwelveData: {str(twelve_error)[:110]}"
+        return make_data(asset, timeframe), None, None, None, "unavailable", f"Preço real indisponível · Google Finance {config['google_symbol']} · {google_reason}. Nenhum valor simulado é exibido como cotação."
+
+    api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
+    if api_key:
+        symbol = read_secret(f"TWELVEDATA_SYMBOL_{asset}") or config["symbol"]
+        try:
+            data, _, volume_note = fetch_twelve_data(symbol, TWELVE_INTERVALS[timeframe], api_key)
+            data.loc[data.index[-1], "close"] = google_spot
+            return data, google_spot, google_change, google_change_pct, "google", f"Google Finance · {google_name} ({config['google_symbol']}) · candles TwelveData {symbol} · {volume_note}."
+        except Exception:
+            pass
+
+    data = make_data(asset, timeframe, anchor=google_spot)
+    data.loc[data.index[-1], "close"] = google_spot
+    return data, google_spot, google_change, google_change_pct, "google", f"Google Finance · {google_name} ({config['google_symbol']}) · histórico intradiário estimado a partir da cotação atual."
 
 
 def session_slice(data: pd.DataFrame, session: str) -> pd.DataFrame:
@@ -352,7 +405,7 @@ def live_operational_state() -> dict[str, object]:
     live_asset = st.session_state.asset
     live_timeframe = st.session_state.timeframe
     live_session = st.session_state.session
-    live_data, live_spot, live_mode, live_note = load_market_data(live_asset, live_timeframe)
+    live_data, live_spot, live_change, live_change_pct, live_mode, live_note = load_market_data(live_asset, live_timeframe)
     if live_spot is not None:
         live_data.loc[live_data.index[-1], "close"] = live_spot
     live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
@@ -407,7 +460,7 @@ session = st.session_state.session
 is_usdjpy = asset == "USDJPY"
 config = ASSETS[asset]
 asset_label, desk_name = config["label"], config["desk"]
-df, live_spot, feed_mode, feed_note = load_market_data(asset, timeframe)
+df, live_spot, quote_change, quote_change_pct, feed_mode, feed_note = load_market_data(asset, timeframe)
 last = float(live_spot if live_spot is not None else df.close.iloc[-1])
 if live_spot is not None:
     df.loc[df.index[-1], "close"] = live_spot
@@ -431,17 +484,28 @@ ratings = technical_ratings(df)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
 backtest = df.assign(direction=np.where(df.close > df.open, "COMPRA", "VENDA"))
 backtest["next_return"] = backtest.close.shift(-1) - backtest.close
+backtest["next_return_pct"] = backtest["next_return"] / backtest.close.replace(0, np.nan)
+backtest["strategy_return_pct"] = np.where(backtest.direction == "COMPRA", backtest.next_return_pct, -backtest.next_return_pct)
 backtest["win"] = np.where(backtest.direction == "COMPRA", backtest.next_return > 0, backtest.next_return < 0)
-valid_backtest = backtest.dropna(subset=["next_return"])
+valid_backtest = backtest.replace([np.inf, -np.inf], np.nan).dropna(subset=["next_return", "strategy_return_pct"])
 win_rate = float(valid_backtest.win.mean()*100) if len(valid_backtest) else 0.0
 mean_pnl = float(valid_backtest.next_return.where(valid_backtest.direction == "COMPRA", -valid_backtest.next_return).mean()) if len(valid_backtest) else 0.0
+strategy_returns = valid_backtest["strategy_return_pct"].astype(float)
+periods_per_day = {"M5": 288, "M15": 96, "H1": 24, "H4": 6, "D1": 1}[timeframe]
+annualization_factor = math.sqrt(periods_per_day * 252)
+return_std = float(strategy_returns.std(ddof=1)) if len(strategy_returns) > 1 else 0.0
+sharpe_ratio = float(strategy_returns.mean() / return_std * annualization_factor) if return_std > 0 else 0.0
+equity_curve = (1 + strategy_returns).cumprod()
+drawdown_curve = equity_curve / equity_curve.cummax() - 1 if len(equity_curve) else pd.Series(dtype=float)
+max_drawdown = float(drawdown_curve.min() * 100) if len(drawdown_curve) else 0.0
+total_return = float((equity_curve.iloc[-1] - 1) * 100) if len(equity_curve) else 0.0
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-is_real_feed = feed_mode == "real"
-feed_state_label = "FEED REAL · 3S" if is_real_feed else "FALLBACK ESTÁVEL"
-spot_title = f"Cotação Spot Atual ({timeframe})" if is_real_feed else f"Referência de Mercado ({timeframe})"
-spot_badge = '<span class="badge-green">Ao vivo</span>' if is_real_feed else '<span class="badge-amber">Fallback</span>'
-refresh_note = "Cotação Spot atualizada isoladamente a cada 3 segundos." if is_real_feed else "Fallback identificado; o cartão Spot é renovado a cada 3 segundos sem reconstruir os painéis."
-refresh_footer = "Cotação Spot atualizada a cada 3 segundos." if is_real_feed else "Cartão Spot em fallback com renovação isolada a cada 3 segundos."
+is_real_feed = feed_mode in {"google", "real"}
+feed_state_label = "GOOGLE FINANCE · 15S" if feed_mode == "google" else ("BACKUP TWELVEDATA" if feed_mode == "real" else "PREÇO INDISPONÍVEL")
+spot_title = f"Cotação Google Finance ({timeframe})" if feed_mode == "google" else (f"Cotação de backup ({timeframe})" if feed_mode == "real" else "Cotação indisponível")
+spot_badge = '<span class="badge-green">Google Finance</span>' if feed_mode == "google" else ('<span class="badge-amber">Backup</span>' if feed_mode == "real" else '<span class="badge-red">Sem preço</span>')
+refresh_note = "Cotação do Google Finance atualizada a cada 15 segundos." if feed_mode == "google" else ("Cotação de backup atualizada pelo TwelveData." if feed_mode == "real" else "Não há cotação real disponível; nenhum valor simulado será exibido.")
+refresh_footer = "Cotação Google Finance atualizada a cada 15 segundos." if feed_mode == "google" else ("Cotação de backup TwelveData." if feed_mode == "real" else "Preço real indisponível.")
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -508,23 +572,30 @@ with spot_col:
         live_timeframe = st.session_state.timeframe
         live_config = ASSETS[live_asset]
         live_is_usdjpy = live_asset == "USDJPY"
-        live_data, live_spot, live_mode, _ = load_market_data(live_asset, live_timeframe)
+        live_data, live_spot, live_change, live_change_pct, live_mode, _ = load_market_data(live_asset, live_timeframe)
         live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
         if live_spot is not None:
             live_data.loc[live_data.index[-1], "close"] = live_spot
         live_typical = (live_data.high + live_data.low + live_data.close) / 3
         live_vwap = float(np.average(live_typical, weights=live_data.volume))
-        live_real = live_mode == "real"
+        live_real = live_mode in {"google", "real"}
+        live_unavailable = live_mode == "unavailable"
         live_previous = float(live_data.close.iloc[-2]) if len(live_data) > 1 else live_last
-        live_change = live_last - live_previous
-        live_change_pct = (live_change / live_previous * 100) if live_previous else 0.0
-        live_change_class = "quote-change-up" if live_change > 0 else "quote-change-down" if live_change < 0 else "quote-change-flat"
-        live_change_sign = "+" if live_change > 0 else ""
-        live_title = f"Cotação Spot Atual ({live_timeframe})" if live_real else f"Referência de Mercado ({live_timeframe})"
-        live_badge = '<span class="badge-green">Ao vivo</span>' if live_real else '<span class="badge-amber">Fallback</span>'
+        if live_mode == "google" and live_change is not None:
+            live_change_value = float(live_change)
+            live_change_percent = float(live_change_pct or 0.0)
+        else:
+            live_change_value = live_last - live_previous
+            live_change_percent = (live_change_value / live_previous * 100) if live_previous else 0.0
+        live_change_class = "quote-change-up" if live_change_value > 0 else "quote-change-down" if live_change_value < 0 else "quote-change-flat"
+        live_change_sign = "+" if live_change_value > 0 else ""
+        live_title = f"Cotação Google Finance ({live_timeframe})" if live_mode == "google" else (f"Cotação de backup ({live_timeframe})" if live_mode == "real" else "Cotação indisponível")
+        live_badge = '<span class="badge-green">Google Finance</span>' if live_mode == "google" else ('<span class="badge-amber">Backup</span>' if live_mode == "real" else '<span class="badge-red">Sem preço</span>')
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-        live_note = "Atualização isolada a cada 3s." if live_real else "Fallback identificado; cartão renovado a cada 3s."
-        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{price_format(live_last, live_is_usdjpy)} <span class="unit">{live_config["unit"]}</span></div><div class="quote-change {live_change_class}">{live_change_sign}{price_format(live_change, live_is_usdjpy)} <span>{live_change_sign}{live_change_pct:.2f}%</span></div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Spread: <strong>n/d</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
+        live_note = "Atualização do Google Finance a cada 15s." if live_mode == "google" else ("Backup TwelveData." if live_mode == "real" else "Preço real indisponível; nenhum valor simulado é exibido.")
+        live_value_html = "Indisponível" if live_unavailable else f"{price_format(live_last, live_is_usdjpy)} <span class=\"unit\">{live_config['unit']}</span>"
+        live_change_html = "—" if live_unavailable else f"{live_change_sign}{price_format(live_change_value, live_is_usdjpy)} <span>{live_change_sign}{live_change_percent:.2f}%</span>"
+        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{live_value_html}</div><div class="quote-change {live_change_class}">{live_change_html}</div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Fonte: <strong>{live_config["google_name"] if live_mode == "google" else "n/d"}</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
 
     render_spot_card()
 with pressure_col:
@@ -542,18 +613,25 @@ st.markdown(render_rating_panel(ratings, asset_label, timeframe), unsafe_allow_h
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 with st.container(border=True):
-    st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; não representa garantia de desempenho.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; Sharpe anualizado por timeframe e drawdown calculado sobre a curva da estratégia. Não representa garantia de desempenho.</div>', unsafe_allow_html=True)
     bt1, bt2, bt3, bt4 = st.columns(4, gap="small")
     with bt1:
         st.metric("Win Rate", f"{win_rate:.0f}%")
     with bt2:
         st.metric("Média PnL", price_format(mean_pnl, is_usdjpy))
     with bt3:
+        st.metric("Índice Sharpe", f"{sharpe_ratio:.2f}", help="Retorno médio da estratégia dividido pela volatilidade, anualizado com base no timeframe selecionado.")
+    with bt4:
+        st.metric("Drawdown máximo", f"{max_drawdown:.2f}%", help="Maior perda percentual da curva de capital em relação ao pico anterior.")
+    action_col, export_col, return_col = st.columns([1, 1, 2], gap="small")
+    with action_col:
         if st.button("Rodar", key="run-backtest"):
             st.session_state.backtest_result = {"clock": clock, "asset": asset_label}
-    with bt4:
-        export = backtest[["time", "open", "high", "low", "close", "volume", "direction", "next_return", "win"]].to_csv(index=False).encode("utf-8")
+    with export_col:
+        export = backtest[["time", "open", "high", "low", "close", "volume", "direction", "next_return", "next_return_pct", "strategy_return_pct", "win"]].to_csv(index=False).encode("utf-8")
         st.download_button("CSV", export, file_name=f"backtest_{asset}_{timeframe}.csv", mime="text/csv", key="csv-backtest")
+    with return_col:
+        st.markdown(f'<div class="small-row" style="padding:7px 0"><span>Retorno total da estratégia</span><strong style="color:{"#2ee59d" if total_return >= 0 else "#fb7185"}">{total_return:+.2f}%</strong></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="small-row" style="margin-top:8px"><span>Operação atual</span><strong style="color:{"#fb7185" if bearish else "#2ee59d"}">{signal} · EM OBSERVAÇÃO</strong><span>Entrada: <b>{price_format(last, is_usdjpy)}</b></span><span>Confiança: <b style="color:#f7b718">{confidence}%</b></span></div>', unsafe_allow_html=True)
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
@@ -709,11 +787,11 @@ with st.container(border=True):
     secret_loaded = bool(read_secret("TWELVEDATA_API_KEY"))
     feed_status_col, sound_col = st.columns([1.25, 1], gap="small")
     with feed_status_col:
-        feed_color = "#2ee59d" if is_real_feed else "#f7c948"
-        feed_label = "Feed TwelveData ativo" if is_real_feed else "Feed real não confirmado"
+        feed_color = "#2ee59d" if feed_mode == "google" else ("#f7c948" if feed_mode == "real" else "#fb7185")
+        feed_label = "Google Finance ativo" if feed_mode == "google" else ("Backup TwelveData" if feed_mode == "real" else "Preço real indisponível")
         st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
     with sound_col:
         st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
-    st.markdown(f'<div class="card-note">{"TWELVEDATA_API_KEY foi detetada sem ser exibida." if secret_loaded else "Nenhuma credencial foi detetada pelo runtime; salve o Secret e reinicie a app."}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-note">{"Google Finance é consultado sem chave; TwelveData é usado apenas como backup de candles quando disponível." if feed_mode == "google" else ("TwelveData foi usado como backup." if secret_loaded and feed_mode == "real" else "Google Finance não devolveu cotação nesta execução; revise a disponibilidade do provedor.")}</div>', unsafe_allow_html=True)
 
 st.markdown(f'<div class="footer-note">Terminal Institucional · {asset_label} · {feed_note} {refresh_footer}</div>', unsafe_allow_html=True)
