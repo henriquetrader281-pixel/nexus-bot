@@ -1,5 +1,6 @@
 import datetime as dt
 import html
+import json
 import math
 import os
 import re
@@ -186,6 +187,12 @@ def source_is_enabled(source: str) -> bool:
     return read_secret(f"{source.upper()}_ENABLED").lower() in {"1", "true", "yes", "on", "sim"}
 
 
+def source_is_configured(source: str) -> bool:
+    if source_is_enabled(source):
+        return True
+    return source.lower() == "xtb" and bool((read_secret("XTB_USER_ID") or read_secret("XTB_LOGIN")) and read_secret("XTB_PASSWORD"))
+
+
 def _find_quote_value(payload: object, keys: tuple[str, ...]) -> float | None:
     if isinstance(payload, dict):
         for key, value in payload.items():
@@ -206,8 +213,90 @@ def _find_quote_value(payload: object, keys: tuple[str, ...]) -> float | None:
     return None
 
 
+def _xtb_error(response: dict) -> str:
+    code = response.get("errorCode", "sem código")
+    description = str(response.get("errorDescr", "sem detalhe")).replace("\\n", " ").strip()
+    return f"XTB xAPI {code}: {description[:180]}"
+
+
+def _xtb_request(ws, payload: dict, timeout: int = 10) -> dict:
+    """Envia um comando de leitura e valida a resposta sem registrar credenciais."""
+    ws.settimeout(timeout)
+    ws.send(json.dumps(payload, separators=(",", ":")))
+    raw = ws.recv()
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
+    messages = [part.strip() for part in str(raw).split("\n\n") if part.strip()]
+    for message in messages:
+        response = json.loads(message)
+        if response.get("status") is not True:
+            raise RuntimeError(_xtb_error(response))
+        return response
+    raise RuntimeError("XTB xAPI devolveu uma resposta vazia.")
+
+
+@st.cache_data(ttl=6, show_spinner=False)
+def fetch_xtb_xapi_quote(asset: str, refresh_bucket: int) -> tuple[float, float, float, str]:
+    """Consulta cotação na xAPI sem executar ordens; uma sessão é aberta e encerrada por leitura."""
+    try:
+        import websocket
+    except ImportError as exc:
+        raise RuntimeError("Dependência websocket-client ausente; instale-a pelo requirements.txt.") from exc
+
+    user_id = read_secret("XTB_USER_ID") or read_secret("XTB_LOGIN")
+    password = read_secret("XTB_PASSWORD")
+    if not user_id or not password:
+        raise RuntimeError("Configure XTB_USER_ID e XTB_PASSWORD nos Secrets; credenciais nunca ficam no código.")
+    environment = read_secret("XTB_ENVIRONMENT").lower() or "demo"
+    default_url = "wss://ws.xapi.pro/real" if environment == "real" else "wss://ws.xapi.pro/demo"
+    ws_url = read_secret("XTB_WS_URL") or default_url
+    config = ASSETS[asset]
+    symbol = read_secret(f"XTB_SYMBOL_{asset}") or config["symbol"]
+    app_name = read_secret("XTB_APP_NAME") or "monitor-de-mercado"
+    ws = None
+    logged_in = False
+    try:
+        ws = websocket.create_connection(ws_url, timeout=10, enable_multithread=False)
+        login = _xtb_request(ws, {"command": "login", "arguments": {"userId": user_id, "password": password, "appName": app_name}})
+        logged_in = login.get("status") is True
+        symbol_response = _xtb_request(ws, {"command": "getSymbol", "arguments": {"symbol": symbol}})
+        tick_response = _xtb_request(ws, {"command": "getTickPrices", "arguments": {"level": 0, "symbols": [symbol], "timestamp": int(dt.datetime.now(dt.timezone.utc).timestamp() * 1000)}})
+        symbol_data = symbol_response.get("returnData") or {}
+        quotations = tick_response.get("returnData", {}).get("quotations", [])
+        quote = next((item for item in quotations if str(item.get("symbol", "")).upper() == symbol.upper()), quotations[0] if quotations else {})
+        bid = _find_quote_value(quote, ("bid",))
+        ask = _find_quote_value(quote, ("ask",))
+        last = _find_quote_value(quote, ("last", "price"))
+        price = last if last is not None else ((bid + ask) / 2 if bid is not None and ask is not None else bid or ask)
+        if price is None:
+            price = _find_quote_value(symbol_data, ("bid", "ask", "last", "price"))
+        if price is None:
+            raise RuntimeError(f"XTB xAPI não devolveu preço para o símbolo {symbol}.")
+        change = _find_quote_value(symbol_data, ("dailychange", "change", "pricechange")) or _find_quote_value(quote, ("change", "pricechange")) or 0.0
+        change_pct = _find_quote_value(symbol_data, ("percentagechange", "changepct", "changepercent", "pct")) or _find_quote_value(quote, ("changepct", "changepercent", "pct")) or 0.0
+        return float(price), float(change), float(change_pct), f"XTB xAPI · {symbol} · {environment}"
+    except Exception as exc:
+        if isinstance(exc, RuntimeError):
+            raise
+        raise RuntimeError(f"XTB xAPI indisponível: {str(exc)[:180]}") from exc
+    finally:
+        if ws is not None:
+            if logged_in:
+                try:
+                    _xtb_request(ws, {"command": "logout"}, timeout=3)
+                except Exception:
+                    pass
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+
 @st.cache_data(ttl=6, show_spinner=False)
 def fetch_broker_quote(source: str, asset: str, refresh_bucket: int) -> tuple[float, float, float, str]:
+    if source.lower() == "xtb" and (read_secret("XTB_USER_ID") or read_secret("XTB_LOGIN") or read_secret("XTB_PASSWORD")):
+        return fetch_xtb_xapi_quote(asset, refresh_bucket)
+
     prefix = source.upper()
     url = read_secret(f"{prefix}_QUOTE_URL_{asset}") or read_secret(f"{prefix}_QUOTE_URL")
     if not url:
@@ -280,7 +369,7 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
     config = ASSETS[asset]
     requested_source = st.session_state.get("source_mode", "auto")
     if requested_source == "auto":
-        broker_candidates = [source for source in ("xtb", "hantec") if source_is_enabled(source)]
+        broker_candidates = [source for source in ("xtb", "hantec") if source_is_configured(source)]
     elif requested_source in {"xtb", "hantec"}:
         broker_candidates = [requested_source]
     else:
@@ -475,6 +564,35 @@ def technical_ratings(data: pd.DataFrame) -> dict[str, object]:
     return {"summary": summary, "oscillators": oscillators, "moving_averages": moving_averages}
 
 
+def pressure_confluence(data: pd.DataFrame, poc: float, vah: float, val: float) -> dict[str, object]:
+    """Consolida indicadores, perfil de volume e volume relativo em uma pressão direcional."""
+    features = strategy_features(data)
+    row = features.iloc[-1]
+    close = float(row["close"])
+    atr = max(float(row["atr"]), abs(float(row["high"]) - float(row["low"])), 1e-9)
+    clip = lambda value: float(np.clip(value, -1.0, 1.0))
+    trend = clip((close - float(row["ema_fast_generic"])) / atr)
+    momentum = clip((float(row["rsi"]) - 50.0) / 25.0)
+    macd = clip(float(row["macd_hist"]) / atr)
+    adx_direction = 0.0 if float(row["adx"]) < 10 else clip((float(row["plus_di"]) - float(row["minus_di"])) / 35.0) * float(np.clip(float(row["adx"]) / 25.0, 0.0, 1.0))
+    bollinger = clip(float(row["bb_z"]) / 2.0)
+    vwap_bias = clip((close - float(row["vwap_20"])) / atr)
+    profile_width = max(float(vah - val), atr)
+    poc_bias = clip((close - float(poc)) / profile_width * 2.0)
+    value_bias = 1.0 if close > vah else -1.0 if close < val else clip((close - float(poc)) / profile_width * 2.0)
+    volume_ratio = float(row["volume"] / max(float(row["volume_sma20"]), 1e-9))
+    candle_direction = float(np.sign(float(row["close"]) - float(row["open"])))
+    volume_confirmation = candle_direction * float(np.clip(volume_ratio / 1.5, 0.0, 1.0))
+    components = {
+        "Indicadores": float(np.mean([trend, momentum, macd, adx_direction, bollinger, vwap_bias])),
+        "POC / Área de Valor": float(np.mean([poc_bias, value_bias])),
+        "Volume relativo": volume_confirmation,
+    }
+    score = float(np.clip(components["Indicadores"] * 0.60 + components["POC / Área de Valor"] * 0.25 + components["Volume relativo"] * 0.15, -1.0, 1.0))
+    buy = int(np.clip(round(50 + score * 45), 5, 95))
+    return {"score": score, "buy": buy, "sell": 100 - buy, "ratio": volume_ratio, "components": components}
+
+
 STRATEGY_PROFILES = {
     "BTCUSD": {
         "name": "BTC · tendência + momentum",
@@ -647,13 +765,13 @@ def live_operational_state() -> dict[str, object]:
     live_ma9 = float(live_data.volume.rolling(9, min_periods=1).mean().iloc[-1])
     live_ma21 = float(live_data.volume.rolling(21, min_periods=1).mean().iloc[-1])
     live_ma200 = float(live_data.volume.rolling(200, min_periods=1).mean().iloc[-1])
-    live_recent = live_data.tail(12)
-    live_buy = int(np.clip(50 + int((live_recent.close > live_recent.open).sum()) * 3 - 18, 18, 82))
-    live_sell = 100 - live_buy
+    live_pressure = pressure_confluence(live_data, live_poc, live_vah, live_val)
+    live_buy = int(live_pressure["buy"])
+    live_sell = int(live_pressure["sell"])
     live_bearish = live_buy < 50
-    live_ratio = float(live_data.volume.iloc[-1] / max(live_ma9, 1))
-    live_volume_status = "Volume não fornecido" if "não fornecido" in live_note else ("Volume Acima da MA9" if live_data.volume.iloc[-1] > live_ma9 else "Volume Normal")
-    live_confidence = ("VENDA", int(np.clip(55 + abs(live_buy-live_sell)*.55, 55, 92))) if live_bearish else ("COMPRA", int(np.clip(55 + abs(live_buy-live_sell)*.55, 55, 92)))
+    live_ratio = float(live_pressure["ratio"])
+    live_volume_status = "Volume não fornecido" if "não fornecido" in live_note else ("Volume Acima da MA9" if live_ratio > 1.0 else "Volume Normal")
+    live_confidence = ("VENDA", int(np.clip(50 + abs(live_pressure["score"]) * 42, 50, 92))) if live_bearish else ("COMPRA", int(np.clip(50 + abs(live_pressure["score"]) * 42, 50, 92)))
     return {
         "asset": live_asset,
         "label": ASSETS[live_asset]["label"],
@@ -675,6 +793,8 @@ def live_operational_state() -> dict[str, object]:
         "volume_status": live_volume_status,
         "signal": live_confidence[0],
         "confidence": live_confidence[1],
+        "pressure_score": live_pressure["score"],
+        "pressure_components": live_pressure["components"],
     }
 
 
@@ -705,14 +825,15 @@ session_levels = historical_pocs(df)
 pivots = pivot_levels(df)
 swing_high, swing_low = float(df.high.max()), float(df.low.min())
 recent = df.tail(12)
-buy = int(np.clip(50 + int((recent.close > recent.open).sum()) * 3 - 18, 18, 82))
-sell, bearish = 100 - buy, buy < 50
+pressure = pressure_confluence(df, poc, vah, val)
+buy = int(pressure["buy"])
+sell, bearish = int(pressure["sell"]), buy < 50
 ma9 = float(df.volume.rolling(9, min_periods=1).mean().iloc[-1])
 ma21 = float(df.volume.rolling(21, min_periods=1).mean().iloc[-1])
 ma200 = float(df.volume.rolling(200, min_periods=1).mean().iloc[-1])
-volume_ratio = float(df.volume.iloc[-1] / max(ma9, 1))
-volume_status = "Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if df.volume.iloc[-1] > ma9 else "Volume Normal")
-signal, confidence = ("VENDA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92))) if bearish else ("COMPRA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92)))
+volume_ratio = float(pressure["ratio"])
+volume_status = "Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if volume_ratio > 1.0 else "Volume Normal")
+signal, confidence = ("VENDA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92))) if bearish else ("COMPRA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92)))
 ratings = technical_ratings(df)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
 backtest = build_strategy_backtest(df, asset)
@@ -787,7 +908,7 @@ with st.container(border=True):
         source_options = [("auto", "Auto"), ("xtb", "XTB"), ("hantec", "Hantec"), ("google", "Google")]
         for col, source, label in zip(source_cols, [item[0] for item in source_options], [item[1] for item in source_options]):
             with col:
-                available = source in {"auto", "google"} or source_is_enabled(source)
+                available = source in {"auto", "google"} or source_is_configured(source)
                 button_label = label + (" ✓" if available else " · off")
                 if st.button(button_label, key=f"source-{source}", disabled=not available, type="primary" if st.session_state.source_mode == source else "secondary"):
                     st.session_state.source_mode = source
@@ -853,7 +974,9 @@ with pressure_col:
     def render_pressure_card():
         state = live_operational_state()
         bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if state["bearish"] else '<span class="badge-green">Viés Comprador Dominante</span>'
-        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note" style="text-align:right">Atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
+        components = state["pressure_components"]
+        component_text = " · ".join(f"{html.escape(name)}: <b>{value:+.2f}</b>" for name, value in components.items())
+        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note">{component_text}</div><div class="card-note" style="text-align:right">Pesos: indicadores 60% · POC/VA 25% · volume 15% · atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
 
     render_pressure_card()
 

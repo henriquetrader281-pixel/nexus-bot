@@ -16,4 +16,5 @@ python-dotenv
 pytrends
 gTTS
 beautifulsoup4
+websocket-client>=1.8.0
 urllib3<2
