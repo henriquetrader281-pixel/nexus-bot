@@ -541,6 +541,23 @@ st.markdown(render_rating_panel(ratings, asset_label, timeframe), unsafe_allow_h
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
+with st.container(border=True):
+    st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; não representa garantia de desempenho.</div>', unsafe_allow_html=True)
+    bt1, bt2, bt3, bt4 = st.columns(4, gap="small")
+    with bt1:
+        st.metric("Win Rate", f"{win_rate:.0f}%")
+    with bt2:
+        st.metric("Média PnL", price_format(mean_pnl, is_usdjpy))
+    with bt3:
+        if st.button("Rodar", key="run-backtest"):
+            st.session_state.backtest_result = {"clock": clock, "asset": asset_label}
+    with bt4:
+        export = backtest[["time", "open", "high", "low", "close", "volume", "direction", "next_return", "win"]].to_csv(index=False).encode("utf-8")
+        st.download_button("CSV", export, file_name=f"backtest_{asset}_{timeframe}.csv", mime="text/csv", key="csv-backtest")
+    st.markdown(f'<div class="small-row" style="margin-top:8px"><span>Operação atual</span><strong style="color:{"#fb7185" if bearish else "#2ee59d"}">{signal} · EM OBSERVAÇÃO</strong><span>Entrada: <b>{price_format(last, is_usdjpy)}</b></span><span>Confiança: <b style="color:#f7b718">{confidence}%</b></span></div>', unsafe_allow_html=True)
+
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
 # O gráfico de preço volta a ser prioritário, lado a lado com o alerta operacional.
 chart_col, alert_col = st.columns([2.12, 1], gap="medium")
 with chart_col:
@@ -687,31 +704,16 @@ with st.container(border=True):
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
-config_col, backtest_col = st.columns([1.18, 1], gap="medium")
-with config_col:
-    with st.container(border=True):
-        st.markdown('<div class="card-title">⚙ Status do Feed & Alertas Sonoros</div><div class="card-note">A credencial é gerida exclusivamente em Manage app → Settings → Secrets.</div>', unsafe_allow_html=True)
-        secret_loaded = bool(read_secret("TWELVEDATA_API_KEY"))
-        feed_status_col, sound_col = st.columns([1.25, 1], gap="small")
-        with feed_status_col:
-            feed_color = "#2ee59d" if is_real_feed else "#f7c948"
-            feed_label = "Feed TwelveData ativo" if is_real_feed else "Feed real não confirmado"
-            st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
-        with sound_col:
-            st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
-        st.markdown(f'<div class="card-note">{"TWELVEDATA_API_KEY foi detetada sem ser exibida." if secret_loaded else "Nenhuma credencial foi detetada pelo runtime; salve o Secret e reinicie a app."}</div>', unsafe_allow_html=True)
-with backtest_col:
-    with st.container(border=True):
-        st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; não representa garantia de desempenho.</div>', unsafe_allow_html=True)
-        bt1, bt2, bt3, bt4 = st.columns(4, gap="small")
-        with bt1: st.metric("Win Rate", f"{win_rate:.0f}%")
-        with bt2: st.metric("Média PnL", price_format(mean_pnl, is_usdjpy))
-        with bt3:
-            if st.button("Rodar", key="run-backtest"):
-                st.session_state.backtest_result = {"clock": clock, "asset": asset_label}
-        with bt4:
-            export = backtest[["time", "open", "high", "low", "close", "volume", "direction", "next_return", "win"]].to_csv(index=False).encode("utf-8")
-            st.download_button("CSV", export, file_name=f"backtest_{asset}_{timeframe}.csv", mime="text/csv", key="csv-backtest")
-        st.markdown(f'<div class="small-row" style="margin-top:8px"><span>Operação atual</span><strong style="color:{"#fb7185" if bearish else "#2ee59d"}">{signal} · EM OBSERVAÇÃO</strong><span>Entrada: <b>{price_format(last, is_usdjpy)}</b></span><span>Confiança: <b style="color:#f7b718">{confidence}%</b></span></div>', unsafe_allow_html=True)
+with st.container(border=True):
+    st.markdown('<div class="card-title">⚙ Status do Feed & Alertas Sonoros</div><div class="card-note">A credencial é gerida exclusivamente em Manage app → Settings → Secrets.</div>', unsafe_allow_html=True)
+    secret_loaded = bool(read_secret("TWELVEDATA_API_KEY"))
+    feed_status_col, sound_col = st.columns([1.25, 1], gap="small")
+    with feed_status_col:
+        feed_color = "#2ee59d" if is_real_feed else "#f7c948"
+        feed_label = "Feed TwelveData ativo" if is_real_feed else "Feed real não confirmado"
+        st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
+    with sound_col:
+        st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
+    st.markdown(f'<div class="card-note">{"TWELVEDATA_API_KEY foi detetada sem ser exibida." if secret_loaded else "Nenhuma credencial foi detetada pelo runtime; salve o Secret e reinicie a app."}</div>', unsafe_allow_html=True)
 
 st.markdown(f'<div class="footer-note">Terminal Institucional · {asset_label} · {feed_note} {refresh_footer}</div>', unsafe_allow_html=True)
