@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from zoneinfo import ZoneInfo
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 from plotly.subplots import make_subplots
 
 
@@ -821,7 +822,9 @@ for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "s
 if st.session_state.session not in SESSION_NAMES:
     st.session_state.session = "Global"
 
-# O cartão Spot atualiza em fragmento próprio; os gráficos e painéis analíticos não recebem rerun periódico.
+# Um único rerun periódico evita condições de corrida DOM entre múltiplos fragmentos concorrentes.
+st_autorefresh(interval=3000, limit=None, key="market-refresh")
+
 has_live_feed = bool(read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip())
 
 asset = st.session_state.asset
@@ -952,7 +955,6 @@ st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 # Spot e pressão partilham a primeira linha, tal como no terminal de referência.
 spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
-    @st.fragment(run_every=3)
     def render_spot_card():
         """Atualiza apenas o cartão Spot em ciclos de 3 segundos, sem recriar os painéis."""
         live_asset = st.session_state.asset
@@ -987,7 +989,6 @@ with spot_col:
 
     render_spot_card()
 with pressure_col:
-    @st.fragment(run_every=3)
     def render_pressure_card():
         state = live_operational_state()
         bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if state["bearish"] else '<span class="badge-green">Viés Comprador Dominante</span>'
