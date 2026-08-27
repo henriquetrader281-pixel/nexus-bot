@@ -727,6 +727,29 @@ with st.container(border=True):
         st.markdown(f'<div class="small-row" style="padding:7px 0"><span>Retorno total da estratégia</span><strong style="color:{"#2ee59d" if total_return >= 0 else "#fb7185"}">{total_return:+.2f}%</strong></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="small-row" style="margin-top:8px"><span>Operação atual</span><strong style="color:{"#fb7185" if bearish else "#2ee59d"}">{signal} · EM OBSERVAÇÃO</strong><span>Entrada: <b>{price_format(last, is_usdjpy)}</b></span><span>Confiança: <b style="color:#f7b718">{confidence}%</b></span></div>', unsafe_allow_html=True)
 
+    bt_chart_col1, bt_chart_col2 = st.columns(2, gap="small")
+    with bt_chart_col1:
+        st.markdown('<div class="eyebrow" style="margin-top:12px">Evolução do patrimônio</div><div class="card-note">Curva de patrimônio normalizada em base 100.</div>', unsafe_allow_html=True)
+        equity_fig = go.Figure()
+        if len(equity_curve):
+            equity_fig.add_trace(go.Scatter(x=valid_backtest["time"], y=equity_curve.to_numpy() * 100, mode="lines", name="Patrimônio", line={"color": "#2ee59d", "width": 2}, fill="tozeroy", fillcolor="rgba(46,229,157,.12)", hovertemplate="%{y:.2f}<extra>Patrimônio</extra>"))
+            equity_fig.add_hline(y=100, line_color="rgba(255,255,255,.35)", line_dash="dot", line_width=1)
+        equity_fig.update_layout(height=220, margin={"l": 8, "r": 8, "t": 8, "b": 8}, paper_bgcolor="#101d31", plot_bgcolor="#101d31", font={"color": "#dbe8f7", "size": 9}, showlegend=False, hovermode="x unified")
+        equity_fig.update_yaxes(title="Base 100", gridcolor="rgba(255,255,255,.06)", zeroline=False, tickformat=".1f")
+        equity_fig.update_xaxes(gridcolor="rgba(255,255,255,.035)")
+        st.plotly_chart(equity_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False}, key=f"backtest-equity-{asset}-{timeframe}")
+    with bt_chart_col2:
+        st.markdown('<div class="eyebrow" style="margin-top:12px">Curva de capital</div><div class="card-note">Retorno acumulado da estratégia ao longo das operações.</div>', unsafe_allow_html=True)
+        capital_fig = go.Figure()
+        if len(equity_curve):
+            capital_values = (equity_curve.to_numpy() - 1) * 100
+            capital_fig.add_trace(go.Scatter(x=valid_backtest["time"], y=capital_values, mode="lines", name="Capital", line={"color": "#5799ff", "width": 2}, fill="tozeroy", fillcolor="rgba(87,153,255,.12)", hovertemplate="%{y:.2f}%<extra>Capital</extra>"))
+            capital_fig.add_hline(y=0, line_color="rgba(255,255,255,.35)", line_dash="dot", line_width=1)
+        capital_fig.update_layout(height=220, margin={"l": 8, "r": 8, "t": 8, "b": 8}, paper_bgcolor="#101d31", plot_bgcolor="#101d31", font={"color": "#dbe8f7", "size": 9}, showlegend=False, hovermode="x unified")
+        capital_fig.update_yaxes(title="Retorno (%)", gridcolor="rgba(255,255,255,.06)", zeroline=False, ticksuffix="%", tickformat=".1f")
+        capital_fig.update_xaxes(gridcolor="rgba(255,255,255,.035)")
+        st.plotly_chart(capital_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False}, key=f"backtest-capital-{asset}-{timeframe}")
+
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 # O gráfico de preço volta a ser prioritário, lado a lado com o alerta operacional.
