@@ -148,13 +148,20 @@ def parse_google_number(text: str) -> float:
     return float(match.group().replace(" ", ""))
 
 
-@st.cache_data(ttl=15, show_spinner=False)
-def fetch_google_finance_quote(asset: str) -> tuple[float, float, float, str]:
+def quote_refresh_bucket(seconds: int = 5) -> int:
+    """Gera uma janela curta para que os fragmentos renovem a cotação sem cache obsoleto."""
+    return int(dt.datetime.now(TZ).timestamp() // seconds)
+
+
+@st.cache_data(ttl=6, show_spinner=False)
+def fetch_google_finance_quote(asset: str, refresh_bucket: int) -> tuple[float, float, float, str]:
     config = ASSETS[asset]
-    url = f"https://www.google.com/finance/quote/{config['google_symbol']}?hl=en"
+    url = f"https://www.google.com/finance/quote/{config['google_symbol']}?hl=en&refresh={refresh_bucket}"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache, no-store, max-age=0",
+        "Pragma": "no-cache",
     }
     response = requests.get(url, headers=headers, timeout=12)
     if not response.ok:
@@ -199,8 +206,8 @@ def _find_quote_value(payload: object, keys: tuple[str, ...]) -> float | None:
     return None
 
 
-@st.cache_data(ttl=10, show_spinner=False)
-def fetch_broker_quote(source: str, asset: str) -> tuple[float, float, float, str]:
+@st.cache_data(ttl=6, show_spinner=False)
+def fetch_broker_quote(source: str, asset: str, refresh_bucket: int) -> tuple[float, float, float, str]:
     prefix = source.upper()
     url = read_secret(f"{prefix}_QUOTE_URL_{asset}") or read_secret(f"{prefix}_QUOTE_URL")
     if not url:
@@ -208,7 +215,7 @@ def fetch_broker_quote(source: str, asset: str) -> tuple[float, float, float, st
     config = ASSETS[asset]
     symbol = read_secret(f"{prefix}_SYMBOL_{asset}") or config["symbol"]
     token = read_secret(f"{prefix}_API_KEY") or read_secret(f"{prefix}_TOKEN")
-    headers = {"Accept": "application/json", "User-Agent": "Monitor-de-Mercado/1.0"}
+    headers = {"Accept": "application/json", "User-Agent": "Monitor-de-Mercado/1.0", "Cache-Control": "no-cache, no-store, max-age=0", "Pragma": "no-cache"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     response = requests.get(url, params={"symbol": symbol, "asset": asset}, headers=headers, timeout=12)
@@ -279,9 +286,10 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
     else:
         broker_candidates = []
     source_errors = []
+    refresh_bucket = quote_refresh_bucket()
     for source in broker_candidates:
         try:
-            broker_spot, broker_change, broker_change_pct, broker_name = fetch_broker_quote(source, asset)
+            broker_spot, broker_change, broker_change_pct, broker_name = fetch_broker_quote(source, asset, refresh_bucket)
             data = make_data(asset, timeframe, anchor=broker_spot)
             data.loc[data.index[-1], "close"] = broker_spot
             return data, broker_spot, broker_change, broker_change_pct, source, f"{broker_name} ativo."
@@ -289,7 +297,7 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
             source_errors.append(f"{source.upper()}: {str(broker_error)[:120]}")
 
     try:
-        google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset)
+        google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset, refresh_bucket)
     except Exception as google_error:
         google_reason = str(google_error)[:170]
         api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
@@ -467,6 +475,155 @@ def technical_ratings(data: pd.DataFrame) -> dict[str, object]:
     return {"summary": summary, "oscillators": oscillators, "moving_averages": moving_averages}
 
 
+STRATEGY_PROFILES = {
+    "BTCUSD": {
+        "name": "BTC · tendência + momentum",
+        "fast": 21,
+        "slow": 55,
+        "min_confirmations": 3,
+        "volume_factor": 0.75,
+        "exit_rsi_long": 45,
+        "exit_rsi_short": 55,
+        "exit_adx": 14,
+    },
+    "MINIWIN": {
+        "name": "WIN · tendência + VWAP",
+        "fast": 9,
+        "slow": 21,
+        "min_confirmations": 3,
+        "volume_factor": 0.75,
+        "exit_rsi_long": 46,
+        "exit_rsi_short": 54,
+        "exit_adx": 14,
+    },
+}
+
+
+def strategy_features(data: pd.DataFrame) -> pd.DataFrame:
+    """Calcula indicadores somente com dados disponíveis até cada vela."""
+    out = data.copy()
+    close = out["close"].astype(float)
+    high = out["high"].astype(float)
+    low = out["low"].astype(float)
+    volume = out["volume"].astype(float).clip(lower=0)
+    typical = (high + low + close) / 3
+    out["ema_fast_generic"] = close.ewm(span=9, adjust=False).mean()
+    out["ema_slow_generic"] = close.ewm(span=21, adjust=False).mean()
+    delta = close.diff()
+    gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    out["rsi"] = (100 - (100 / (1 + gain / loss.replace(0, np.nan)))).fillna(50).clip(0, 100)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    out["macd_hist"] = macd - macd.ewm(span=9, adjust=False).mean()
+    true_range = pd.concat([(high - low), (high - close.shift()).abs(), (low - close.shift()).abs()], axis=1).max(axis=1)
+    atr = true_range.ewm(alpha=1 / 14, adjust=False).mean()
+    out["atr"] = atr.replace(0, np.nan).fillna((high - low).abs().mean()).fillna(0)
+    up_move = high.diff()
+    down_move = -low.diff()
+    plus_dm = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=out.index)
+    minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=out.index)
+    plus_di = (100 * plus_dm.ewm(alpha=1 / 14, adjust=False).mean() / out["atr"].replace(0, np.nan)).fillna(0)
+    minus_di = (100 * minus_dm.ewm(alpha=1 / 14, adjust=False).mean() / out["atr"].replace(0, np.nan)).fillna(0)
+    dx = (100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)).fillna(0)
+    out["adx"] = dx.ewm(alpha=1 / 14, adjust=False).mean().fillna(0)
+    out["plus_di"] = plus_di
+    out["minus_di"] = minus_di
+    out["bb_mid"] = close.rolling(20, min_periods=1).mean()
+    bb_std = close.rolling(20, min_periods=1).std(ddof=0).fillna(0)
+    out["bb_z"] = ((close - out["bb_mid"]) / bb_std.replace(0, np.nan)).fillna(0)
+    volume_sum = volume.rolling(20, min_periods=1).sum().replace(0, np.nan)
+    out["vwap_20"] = ((typical * volume).rolling(20, min_periods=1).sum() / volume_sum).fillna(close)
+    out["volume_sma20"] = volume.rolling(20, min_periods=1).mean()
+    return out
+
+
+def build_strategy_backtest(data: pd.DataFrame, asset: str) -> pd.DataFrame:
+    """Aplica regras direcionais específicas a BTC/WIN e preserva o baseline nos demais ativos."""
+    out = strategy_features(data)
+    close = out["close"].astype(float)
+    profile = STRATEGY_PROFILES.get(asset)
+    if profile is None:
+        out["ema_fast"] = out["ema_fast_generic"]
+        out["ema_slow"] = out["ema_slow_generic"]
+        out["entry_signal"] = np.where(close > out["open"], "COMPRA", "VENDA")
+        out["exit_signal"] = "Próxima vela"
+        out["exit_reason"] = "Baseline de direção da vela"
+        out["position"] = np.where(close > out["open"], 1, -1).astype(float)
+        out["direction"] = np.where(out["position"] > 0, "COMPRA", "VENDA")
+    else:
+        fast = close.ewm(span=profile["fast"], adjust=False).mean()
+        slow = close.ewm(span=profile["slow"], adjust=False).mean()
+        out["ema_fast"] = fast
+        out["ema_slow"] = slow
+        bullish = [
+            close > fast,
+            fast > slow,
+            out["rsi"] > 52,
+            out["macd_hist"] > 0,
+            (out["adx"] > 18) & (out["plus_di"] > out["minus_di"]),
+            close > out["bb_mid"],
+            close > out["vwap_20"],
+            out["volume"] >= out["volume_sma20"] * profile["volume_factor"],
+        ]
+        bearish = [
+            close < fast,
+            fast < slow,
+            out["rsi"] < 48,
+            out["macd_hist"] < 0,
+            (out["adx"] > 18) & (out["minus_di"] > out["plus_di"]),
+            close < out["bb_mid"],
+            close < out["vwap_20"],
+            out["volume"] >= out["volume_sma20"] * profile["volume_factor"],
+        ]
+        long_score = sum(condition.astype(int) for condition in bullish)
+        short_score = sum(condition.astype(int) for condition in bearish)
+        long_entry = (long_score >= profile["min_confirmations"]) & (long_score > short_score)
+        short_entry = (short_score >= profile["min_confirmations"]) & (short_score > long_score)
+        exit_long = (close < fast) | (out["rsi"] <= profile["exit_rsi_long"]) | (out["macd_hist"] < 0) | ((out["adx"] < profile["exit_adx"]) & (close < out["vwap_20"]))
+        exit_short = (close > fast) | (out["rsi"] >= profile["exit_rsi_short"]) | (out["macd_hist"] > 0) | ((out["adx"] < profile["exit_adx"]) & (close > out["vwap_20"]))
+        positions = np.zeros(len(out), dtype=float)
+        entry_signal = np.full(len(out), "", dtype=object)
+        exit_signal = np.full(len(out), "", dtype=object)
+        exit_reason = np.full(len(out), "", dtype=object)
+        current = 0
+        for i in range(len(out)):
+            if current == 0:
+                if bool(long_entry.iloc[i]):
+                    current = 1
+                    entry_signal[i] = "COMPRA"
+                elif bool(short_entry.iloc[i]):
+                    current = -1
+                    entry_signal[i] = "VENDA"
+            elif current == 1 and bool(exit_long.iloc[i]):
+                current = 0
+                exit_signal[i] = "SAÍDA"
+                exit_reason[i] = "Perda de tendência, momentum ou VWAP"
+                if bool(short_entry.iloc[i]):
+                    current = -1
+                    entry_signal[i] = "VENDA"
+            elif current == -1 and bool(exit_short.iloc[i]):
+                current = 0
+                exit_signal[i] = "SAÍDA"
+                exit_reason[i] = "Perda de tendência, momentum ou VWAP"
+                if bool(long_entry.iloc[i]):
+                    current = 1
+                    entry_signal[i] = "COMPRA"
+            positions[i] = current
+        out["entry_signal"] = entry_signal
+        out["exit_signal"] = exit_signal
+        out["exit_reason"] = exit_reason
+        out["position"] = positions
+        out["direction"] = np.where(positions > 0, "COMPRA", np.where(positions < 0, "VENDA", "FORA"))
+    out["next_return"] = close.shift(-1) - close
+    out["next_return_pct"] = out["next_return"] / close.replace(0, np.nan)
+    out["strategy_return_pct"] = np.where(out["position"] != 0, out["position"] * out["next_return_pct"], 0.0)
+    out["strategy_pnl"] = np.where(out["position"] != 0, out["position"] * out["next_return"], 0.0)
+    out["win"] = np.where(out["position"] != 0, out["strategy_return_pct"] > 0, np.nan)
+    return out
+
+
 def render_rating_panel(ratings: dict[str, object], asset_label: str, timeframe: str) -> str:
     summary = ratings["summary"]
     oscillators = ratings["oscillators"]
@@ -558,14 +715,11 @@ volume_status = "Volume não fornecido" if "não fornecido" in feed_note else ("
 signal, confidence = ("VENDA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92))) if bearish else ("COMPRA", int(np.clip(55 + abs(buy-sell)*.55, 55, 92)))
 ratings = technical_ratings(df)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
-backtest = df.assign(direction=np.where(df.close > df.open, "COMPRA", "VENDA"))
-backtest["next_return"] = backtest.close.shift(-1) - backtest.close
-backtest["next_return_pct"] = backtest["next_return"] / backtest.close.replace(0, np.nan)
-backtest["strategy_return_pct"] = np.where(backtest.direction == "COMPRA", backtest.next_return_pct, -backtest.next_return_pct)
-backtest["win"] = np.where(backtest.direction == "COMPRA", backtest.next_return > 0, backtest.next_return < 0)
+backtest = build_strategy_backtest(df, asset)
 valid_backtest = backtest.replace([np.inf, -np.inf], np.nan).dropna(subset=["next_return", "strategy_return_pct"])
-win_rate = float(valid_backtest.win.mean()*100) if len(valid_backtest) else 0.0
-mean_pnl = float(valid_backtest.next_return.where(valid_backtest.direction == "COMPRA", -valid_backtest.next_return).mean()) if len(valid_backtest) else 0.0
+traded_backtest = valid_backtest[valid_backtest["position"] != 0]
+win_rate = float(traded_backtest.win.mean() * 100) if len(traded_backtest) else 0.0
+mean_pnl = float(traded_backtest["strategy_pnl"].mean()) if len(traded_backtest) else 0.0
 strategy_returns = valid_backtest["strategy_return_pct"].astype(float)
 periods_per_day = {"M5": 288, "M15": 96, "H1": 24, "H4": 6, "D1": 1}[timeframe]
 annualization_factor = math.sqrt(periods_per_day * 252)
@@ -575,6 +729,7 @@ equity_curve = (1 + strategy_returns).cumprod()
 drawdown_curve = equity_curve / equity_curve.cummax() - 1 if len(equity_curve) else pd.Series(dtype=float)
 max_drawdown = float(drawdown_curve.min() * 100) if len(drawdown_curve) else 0.0
 total_return = float((equity_curve.iloc[-1] - 1) * 100) if len(equity_curve) else 0.0
+strategy_profile_label = STRATEGY_PROFILES.get(asset, {}).get("name", "Baseline direcional")
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
 is_real_feed = feed_mode in {"google", "real", "xtb", "hantec"}
 source_label = SOURCE_LABELS.get(feed_mode, feed_mode.upper())
@@ -708,7 +863,7 @@ st.markdown(render_rating_panel(ratings, asset_label, timeframe), unsafe_allow_h
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 with st.container(border=True):
-    st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; Sharpe anualizado por timeframe e drawdown calculado sobre a curva da estratégia. Não representa garantia de desempenho.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-title">▧ Desempenho Histórico & Backtest ({asset_label})</div><div class="card-note">Teste rápido nas velas de {timeframe}; regra <b>{html.escape(strategy_profile_label)}</b>. Sharpe anualizado por timeframe e drawdown calculado sobre a curva da estratégia. Não representa garantia de desempenho.</div>', unsafe_allow_html=True)
     bt1, bt2, bt3, bt4 = st.columns(4, gap="small")
     with bt1:
         st.metric("Win Rate", f"{win_rate:.0f}%")
@@ -723,7 +878,8 @@ with st.container(border=True):
         if st.button("Rodar", key="run-backtest"):
             st.session_state.backtest_result = {"clock": clock, "asset": asset_label}
     with export_col:
-        export = backtest[["time", "open", "high", "low", "close", "volume", "direction", "next_return", "next_return_pct", "strategy_return_pct", "win"]].to_csv(index=False).encode("utf-8")
+        export_columns = ["time", "open", "high", "low", "close", "volume", "direction", "entry_signal", "exit_signal", "exit_reason", "position", "next_return", "next_return_pct", "strategy_return_pct", "strategy_pnl", "win", "rsi", "macd_hist", "adx", "bb_z", "vwap_20", "ema_fast", "ema_slow"]
+        export = backtest[export_columns].to_csv(index=False).encode("utf-8")
         st.download_button("CSV", export, file_name=f"backtest_{asset}_{timeframe}.csv", mime="text/csv", key="csv-backtest")
     with return_col:
         st.markdown(f'<div class="small-row" style="padding:7px 0"><span>Retorno total da estratégia</span><strong style="color:{"#2ee59d" if total_return >= 0 else "#fb7185"}">{total_return:+.2f}%</strong></div>', unsafe_allow_html=True)
