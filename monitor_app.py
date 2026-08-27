@@ -22,7 +22,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 ASSETS = {
     "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "google_symbol": "USD-JPY", "google_name": "USD / JPY", "base": 159.31, "scale": 0.075},
     "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "google_symbol": "NDX:INDEXNASDAQ", "google_name": "Nasdaq-100", "base": 29490.96, "scale": 55.0},
-    "XAUUSD": {"label": "XAU/USD (Ouro)", "desk": "XAU / USD", "unit": "USD", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX", "base": 4351.90, "scale": 35.0},
+    "XAUUSD": {"label": "XAU/USD (Ouro spot)", "desk": "XAU / USD · Spot", "unit": "USD/oz", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX (futuro; não é XAU/USD spot)", "base": 4351.90, "scale": 35.0},
     "BTCUSD": {"label": "BTC/USD (Bitcoin)", "desk": "BTC / USD", "unit": "USD", "symbol": "BTC/USD", "google_symbol": "BTC-USD", "google_name": "Bitcoin", "base": 80542.94, "scale": 850.0},
     "MINIWIN": {"label": "Mini-Índice (WIN)", "desk": "WIN / Ibovespa", "unit": "PTS", "symbol": "WIN", "google_symbol": "IBOV:INDEXBVMF", "google_name": "Ibovespa · proxy WIN", "base": 175215.55, "scale": 420.0},
 }
@@ -251,7 +251,8 @@ def fetch_xtb_xapi_quote(asset: str, refresh_bucket: int) -> tuple[float, float,
     default_url = "wss://ws.xapi.pro/real" if environment == "real" else "wss://ws.xapi.pro/demo"
     ws_url = read_secret("XTB_WS_URL") or default_url
     config = ASSETS[asset]
-    symbol = read_secret(f"XTB_SYMBOL_{asset}") or config["symbol"]
+    xtb_defaults = {"XAUUSD": "GOLD", "MINIWIN": "WIN"}
+    symbol = read_secret(f"XTB_SYMBOL_{asset}") or xtb_defaults.get(asset, config["symbol"])
     app_name = read_secret("XTB_APP_NAME") or "monitor-de-mercado"
     ws = None
     logged_in = False
@@ -385,6 +386,18 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
         except Exception as broker_error:
             source_errors.append(f"{source.upper()}: {str(broker_error)[:120]}")
 
+    api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
+    if asset == "XAUUSD" and api_key:
+        symbol = read_secret(f"TWELVEDATA_SYMBOL_{asset}") or "XAU/USD"
+        try:
+            data, spot, volume_note = fetch_twelve_data(symbol, TWELVE_INTERVALS[timeframe], api_key)
+            if spot is None:
+                raise RuntimeError("Twelve Data não devolveu o spot XAU/USD.")
+            data.loc[data.index[-1], "close"] = spot
+            return data, spot, None, None, "real", f"TwelveData · Gold Spot / US Dollar ({symbol}) · {volume_note}. Google Finance foi evitado porque o identificador público disponível é futuro COMEX."
+        except Exception as twelve_spot_error:
+            source_errors.append(f"TwelveData XAU/USD: {str(twelve_spot_error)[:120]}")
+
     try:
         google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset, refresh_bucket)
     except Exception as google_error:
@@ -399,6 +412,10 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
                 google_reason = f"{google_reason}; TwelveData: {str(twelve_error)[:110]}"
         broker_note = " | ".join(source_errors)
         return make_data(asset, timeframe), None, None, None, "unavailable", f"Preço real indisponível · Google Finance {config['google_symbol']} · {google_reason}. {broker_note} Nenhum valor simulado é exibido como cotação."
+
+    if asset == "XAUUSD":
+        broker_note = " | ".join(source_errors)
+        return make_data(asset, timeframe), None, None, None, "unavailable", f"XAU/USD spot indisponível. O Google Finance disponível é {config['google_symbol']} ({config['google_name']}) e não será usado como preço spot. Configure XTB/Hantec ou TWELVEDATA_API_KEY para XAU/USD. {broker_note}"
 
     api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
     if api_key:
