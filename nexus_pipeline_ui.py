@@ -118,9 +118,14 @@ def _mine_one_product(query: str = "") -> None:
         st.info(f"Tendência usada: **{trend_term}** · fonte: {trend_source}")
         st.rerun()
     except Exception as exc:
-        st.error("A mineração foi bloqueada com segurança: o Mercado Livre não devolveu um produto com imagem pública.")
-        st.code(str(exc), language="text")
-        st.info("Na mesma tela, informe o produto e uma imagem pública ou faça upload da imagem real para continuar sem a API.")
+        message = str(exc)
+        if "HTTP 401" in message or "HTTP 403" in message or "API desativada" in message:
+            st.warning("A API do Mercado Livre bloqueou a pesquisa automática. Isso normalmente indica token ausente, inválido ou sem permissão.")
+            st.info("Configure ML_ACCESS_TOKEN/ML_API_ACCESS_TOKEN ou continue manualmente informando o produto e fazendo upload da imagem real.")
+        else:
+            st.error("A mineração não encontrou um anúncio com imagem pública.")
+            st.info("Informe o produto e uma imagem pública ou faça upload da imagem real para continuar sem a API.")
+        st.code(message, language="text")
 
 
 def _generate_package(campaign: dict[str, Any]) -> tuple[dict[str, Any], str]:

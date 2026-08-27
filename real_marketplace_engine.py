@@ -26,6 +26,14 @@ LIST_URL = "https://lista.mercadolivre.com.br/{query}"
 TIMEOUT = 15
 
 
+class MarketplaceAccessError(RuntimeError):
+    """Indica que a busca do marketplace exige autenticação ou foi bloqueada."""
+
+    def __init__(self, status_code: int, message: str = "A API do Mercado Livre bloqueou a pesquisa") -> None:
+        self.status_code = status_code
+        super().__init__(f"{message} (HTTP {status_code}).")
+
+
 def _session_get(key: str, default: Any = None) -> Any:
     if st is not None:
         try:
@@ -71,6 +79,8 @@ def buscar_produtos_mercado_livre(query: str, limit: int = 8) -> list[dict[str, 
         headers=headers,
         timeout=TIMEOUT,
     )
+    if response.status_code in {401, 403}:
+        raise MarketplaceAccessError(response.status_code)
     response.raise_for_status()
     payload = response.json()
     results: list[dict[str, Any]] = []
@@ -168,14 +178,19 @@ def _normalise_result(item: dict[str, Any], query: str) -> dict[str, Any]:
 def obter_produto_real_validado(provedor: str = "openai", query: str | None = None) -> dict[str, Any]:
     """Pesquisa anúncios atuais e escolhe o primeiro com URL e imagem públicas."""
     errors: list[str] = []
+    api_blocked = False
     for candidate in _candidate_queries(query):
-        try:
-            results = buscar_produtos_mercado_livre(candidate, limit=8)
-            if results:
-                return _normalise_result(results[0], candidate)
-            errors.append(f"{candidate}: API sem resultado com imagem pública")
-        except Exception as exc:
-            errors.append(f"{candidate}: API {exc}")
+        if not api_blocked:
+            try:
+                results = buscar_produtos_mercado_livre(candidate, limit=8)
+                if results:
+                    return _normalise_result(results[0], candidate)
+                errors.append(f"{candidate}: API sem resultado com imagem pública")
+            except MarketplaceAccessError as exc:
+                api_blocked = True
+                errors.append(f"{candidate}: API bloqueada — {exc}")
+            except Exception as exc:
+                errors.append(f"{candidate}: API {exc}")
         try:
             web_results = buscar_produtos_mercado_livre_web(candidate, limit=8)
             if web_results:
@@ -184,9 +199,9 @@ def obter_produto_real_validado(provedor: str = "openai", query: str | None = No
         except Exception as web_exc:
             errors.append(f"{candidate}: web {web_exc}")
     details = " | ".join(errors[-5:])
-    if any("403" in error for error in errors):
-        details += " | Configure ML_ACCESS_TOKEN/ML_API_ACCESS_TOKEN ou use o link oficial e a imagem pública da campanha."
+    if api_blocked:
+        details += " | API desativada após HTTP 401/403: configure ML_ACCESS_TOKEN ou ML_API_ACCESS_TOKEN; enquanto isso, use busca manual, link oficial ou upload da imagem."
     raise RuntimeError("Mercado Livre não devolveu um produto com imagem pública. " + details)
 
 
-__all__ = ["buscar_produtos_mercado_livre", "buscar_produtos_mercado_livre_web", "obter_produto_real_validado"]
+__all__ = ["MarketplaceAccessError", "buscar_produtos_mercado_livre", "buscar_produtos_mercado_livre_web", "obter_produto_real_validado"]
