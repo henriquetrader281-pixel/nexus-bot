@@ -170,6 +170,57 @@ def fetch_google_finance_quote(asset: str) -> tuple[float, float, float, str]:
     return price, change, change_pct, config["google_name"]
 
 
+SOURCE_LABELS = {"xtb": "XTB", "hantec": "Hantec", "google": "Google Finance", "real": "TwelveData", "unavailable": "Indisponível"}
+
+
+def source_is_enabled(source: str) -> bool:
+    return read_secret(f"{source.upper()}_ENABLED").lower() in {"1", "true", "yes", "on", "sim"}
+
+
+def _find_quote_value(payload: object, keys: tuple[str, ...]) -> float | None:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if str(key).lower() in keys and value not in (None, ""):
+                try:
+                    return float(str(value).replace(",", ""))
+                except ValueError:
+                    pass
+        for value in payload.values():
+            found = _find_quote_value(value, keys)
+            if found is not None:
+                return found
+    elif isinstance(payload, list):
+        for value in payload:
+            found = _find_quote_value(value, keys)
+            if found is not None:
+                return found
+    return None
+
+
+@st.cache_data(ttl=10, show_spinner=False)
+def fetch_broker_quote(source: str, asset: str) -> tuple[float, float, float, str]:
+    prefix = source.upper()
+    url = read_secret(f"{prefix}_QUOTE_URL_{asset}") or read_secret(f"{prefix}_QUOTE_URL")
+    if not url:
+        raise RuntimeError(f"{source.upper()} não configurada: informe {prefix}_QUOTE_URL ou {prefix}_QUOTE_URL_{asset}.")
+    config = ASSETS[asset]
+    symbol = read_secret(f"{prefix}_SYMBOL_{asset}") or config["symbol"]
+    token = read_secret(f"{prefix}_API_KEY") or read_secret(f"{prefix}_TOKEN")
+    headers = {"Accept": "application/json", "User-Agent": "Monitor-de-Mercado/1.0"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    response = requests.get(url, params={"symbol": symbol, "asset": asset}, headers=headers, timeout=12)
+    if not response.ok:
+        raise RuntimeError(provider_message(response, source.upper()))
+    payload = response.json()
+    price = _find_quote_value(payload, ("price", "last", "lastprice", "close", "bid"))
+    if price is None:
+        raise RuntimeError(f"{source.upper()} respondeu sem campo de preço para {symbol}.")
+    change = _find_quote_value(payload, ("change", "changevalue", "pricechange")) or 0.0
+    change_pct = _find_quote_value(payload, ("changepct", "changepercent", "percentchange", "pct")) or 0.0
+    return price, change, change_pct, f"{source.upper()} · {symbol}"
+
+
 @st.cache_data(ttl=10, show_spinner=False)
 def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.DataFrame, float | None, str]:
     headers = {"Authorization": f"apikey {api_key}"}
@@ -218,6 +269,23 @@ def make_data(asset: str, timeframe: str, anchor: float | None = None) -> pd.Dat
 
 def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | None, float | None, float | None, str, str]:
     config = ASSETS[asset]
+    requested_source = st.session_state.get("source_mode", "auto")
+    if requested_source == "auto":
+        broker_candidates = [source for source in ("xtb", "hantec") if source_is_enabled(source)]
+    elif requested_source in {"xtb", "hantec"}:
+        broker_candidates = [requested_source]
+    else:
+        broker_candidates = []
+    source_errors = []
+    for source in broker_candidates:
+        try:
+            broker_spot, broker_change, broker_change_pct, broker_name = fetch_broker_quote(source, asset)
+            data = make_data(asset, timeframe, anchor=broker_spot)
+            data.loc[data.index[-1], "close"] = broker_spot
+            return data, broker_spot, broker_change, broker_change_pct, source, f"{broker_name} ativo."
+        except Exception as broker_error:
+            source_errors.append(f"{source.upper()}: {str(broker_error)[:120]}")
+
     try:
         google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset)
     except Exception as google_error:
@@ -230,7 +298,8 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
                 return data, spot, None, None, "real", f"Google Finance indisponível · {google_reason} · backup TwelveData {symbol} · {volume_note}."
             except Exception as twelve_error:
                 google_reason = f"{google_reason}; TwelveData: {str(twelve_error)[:110]}"
-        return make_data(asset, timeframe), None, None, None, "unavailable", f"Preço real indisponível · Google Finance {config['google_symbol']} · {google_reason}. Nenhum valor simulado é exibido como cotação."
+        broker_note = " | ".join(source_errors)
+        return make_data(asset, timeframe), None, None, None, "unavailable", f"Preço real indisponível · Google Finance {config['google_symbol']} · {google_reason}. {broker_note} Nenhum valor simulado é exibido como cotação."
 
     api_key = read_secret("TWELVEDATA_API_KEY") or st.session_state.get("api_key", "").strip()
     if api_key:
@@ -244,7 +313,12 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
 
     data = make_data(asset, timeframe, anchor=google_spot)
     data.loc[data.index[-1], "close"] = google_spot
-    return data, google_spot, google_change, google_change_pct, "google", f"Google Finance · {google_name} ({config['google_symbol']}) · histórico intradiário estimado a partir da cotação atual."
+    fallback_note = f"Google Finance · {google_name} ({config['google_symbol']}) · histórico intradiário estimado a partir da cotação atual."
+    if requested_source in {"xtb", "hantec"} and source_errors:
+        fallback_note = f"{requested_source.upper()} indisponível ({source_errors[-1]}) · fallback automático para {fallback_note}"
+    elif requested_source == "auto" and not broker_candidates:
+        fallback_note = f"XTB e Hantec desativadas/não configuradas · fallback automático para {fallback_note}"
+    return data, google_spot, google_change, google_change_pct, "google", fallback_note
 
 
 def session_slice(data: pd.DataFrame, session: str) -> pd.DataFrame:
@@ -445,7 +519,7 @@ def live_operational_state() -> dict[str, object]:
     }
 
 
-for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "api_key": "", "sound_alerts": False, "news_filter": "Todas", "bottom_view": "Linha", "backtest_result": None}.items():
+for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "source_mode": "auto", "api_key": "", "sound_alerts": False, "news_filter": "Todas", "bottom_view": "Linha", "backtest_result": None}.items():
     if key not in st.session_state:
         st.session_state[key] = value
 if st.session_state.session not in SESSION_NAMES:
@@ -500,12 +574,13 @@ drawdown_curve = equity_curve / equity_curve.cummax() - 1 if len(equity_curve) e
 max_drawdown = float(drawdown_curve.min() * 100) if len(drawdown_curve) else 0.0
 total_return = float((equity_curve.iloc[-1] - 1) * 100) if len(equity_curve) else 0.0
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-is_real_feed = feed_mode in {"google", "real"}
-feed_state_label = "GOOGLE FINANCE · 15S" if feed_mode == "google" else ("BACKUP TWELVEDATA" if feed_mode == "real" else "PREÇO INDISPONÍVEL")
-spot_title = f"Cotação Google Finance ({timeframe})" if feed_mode == "google" else (f"Cotação de backup ({timeframe})" if feed_mode == "real" else "Cotação indisponível")
-spot_badge = '<span class="badge-green">Google Finance</span>' if feed_mode == "google" else ('<span class="badge-amber">Backup</span>' if feed_mode == "real" else '<span class="badge-red">Sem preço</span>')
-refresh_note = "Cotação do Google Finance atualizada a cada 15 segundos." if feed_mode == "google" else ("Cotação de backup atualizada pelo TwelveData." if feed_mode == "real" else "Não há cotação real disponível; nenhum valor simulado será exibido.")
-refresh_footer = "Cotação Google Finance atualizada a cada 15 segundos." if feed_mode == "google" else ("Cotação de backup TwelveData." if feed_mode == "real" else "Preço real indisponível.")
+is_real_feed = feed_mode in {"google", "real", "xtb", "hantec"}
+source_label = SOURCE_LABELS.get(feed_mode, feed_mode.upper())
+feed_state_label = f"{source_label.upper()} · 15S" if is_real_feed else "PREÇO INDISPONÍVEL"
+spot_title = f"Cotação {source_label} ({timeframe})" if is_real_feed else "Cotação indisponível"
+spot_badge = f'<span class="badge-green">{source_label}</span>' if feed_mode in {"google", "xtb", "hantec"} else ('<span class="badge-amber">Backup</span>' if feed_mode == "real" else '<span class="badge-red">Sem preço</span>')
+refresh_note = f"Cotação {source_label} atualizada conforme o provedor." if is_real_feed else "Não há cotação real disponível; nenhum valor simulado será exibido."
+refresh_footer = f"Cotação {source_label} conforme o provedor." if is_real_feed else "Preço real indisponível."
 
 
 # Topo compacto do terminal original: marca à esquerda e seleção de ativo no canto direito.
@@ -545,6 +620,23 @@ with controls_right:
                 if st.button(name, key=f"session-{name}", type="primary" if session == name else "secondary"):
                     st.session_state.session = name
                     st.rerun()
+
+with st.container(border=True):
+    source_label_col, source_action_col, source_note_col = st.columns([.82, 2.15, .78], gap="small", vertical_alignment="center")
+    with source_label_col:
+        st.markdown('<div class="eyebrow">Fonte de cotação</div><div class="card-title">Prioridade do feed</div>', unsafe_allow_html=True)
+    with source_action_col:
+        source_cols = st.columns(4, gap="small")
+        source_options = [("auto", "Auto"), ("xtb", "XTB"), ("hantec", "Hantec"), ("google", "Google")]
+        for col, source, label in zip(source_cols, [item[0] for item in source_options], [item[1] for item in source_options]):
+            with col:
+                available = source in {"auto", "google"} or source_is_enabled(source)
+                button_label = label + (" ✓" if available else " · off")
+                if st.button(button_label, key=f"source-{source}", disabled=not available, type="primary" if st.session_state.source_mode == source else "secondary"):
+                    st.session_state.source_mode = source
+                    st.rerun()
+    with source_note_col:
+        st.markdown('<div class="card-note" style="text-align:right">Auto: XTB → Hantec → Google.<br>Ative XTB_ENABLED/HANTEC_ENABLED nos Secrets.</div>', unsafe_allow_html=True)
 
 with st.container(border=True):
     market_label_col, market_action_col, market_note_col = st.columns([.82, 2.15, .78], gap="small", vertical_alignment="center")
@@ -589,13 +681,14 @@ with spot_col:
             live_change_percent = (live_change_value / live_previous * 100) if live_previous else 0.0
         live_change_class = "quote-change-up" if live_change_value > 0 else "quote-change-down" if live_change_value < 0 else "quote-change-flat"
         live_change_sign = "+" if live_change_value > 0 else ""
-        live_title = f"Cotação Google Finance ({live_timeframe})" if live_mode == "google" else (f"Cotação de backup ({live_timeframe})" if live_mode == "real" else "Cotação indisponível")
-        live_badge = '<span class="badge-green">Google Finance</span>' if live_mode == "google" else ('<span class="badge-amber">Backup</span>' if live_mode == "real" else '<span class="badge-red">Sem preço</span>')
+        live_source_label = SOURCE_LABELS.get(live_mode, live_mode.upper())
+        live_title = f"Cotação {live_source_label} ({live_timeframe})" if live_real else "Cotação indisponível"
+        live_badge = f'<span class="badge-green">{live_source_label}</span>' if live_mode in {"google", "xtb", "hantec"} else ('<span class="badge-amber">Backup</span>' if live_mode == "real" else '<span class="badge-red">Sem preço</span>')
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-        live_note = "Atualização do Google Finance a cada 15s." if live_mode == "google" else ("Backup TwelveData." if live_mode == "real" else "Preço real indisponível; nenhum valor simulado é exibido.")
+        live_note = f"Atualização de {live_source_label} conforme o provedor." if live_real else "Preço real indisponível; nenhum valor simulado é exibido."
         live_value_html = "Indisponível" if live_unavailable else f"{price_format(live_last, live_is_usdjpy)} <span class=\"unit\">{live_config['unit']}</span>"
         live_change_html = "—" if live_unavailable else f"{live_change_sign}{price_format(live_change_value, live_is_usdjpy)} <span>{live_change_sign}{live_change_percent:.2f}%</span>"
-        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{live_value_html}</div><div class="quote-change {live_change_class}">{live_change_html}</div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Fonte: <strong>{live_config["google_name"] if live_mode == "google" else "n/d"}</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
+        st.markdown(f'''<div class="ui-card spot-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">{live_title}</div>{live_badge}</div><div class="spot-symbol">{live_config["desk"]}</div><div class="spot-value">{live_value_html}</div><div class="quote-change {live_change_class}">{live_change_html}</div><div class="small-row"><span>VWAP: <strong class="vwap">{price_format(live_vwap, live_is_usdjpy)}</strong></span><span>Fonte: <strong>{live_config["google_name"] if live_mode == "google" else live_source_label}</strong></span></div><div class="rule"></div><div class="small-row"><span>{live_note}</span><strong>{live_clock}</strong></div></div>''', unsafe_allow_html=True)
 
     render_spot_card()
 with pressure_col:
@@ -787,8 +880,8 @@ with st.container(border=True):
     secret_loaded = bool(read_secret("TWELVEDATA_API_KEY"))
     feed_status_col, sound_col = st.columns([1.25, 1], gap="small")
     with feed_status_col:
-        feed_color = "#2ee59d" if feed_mode == "google" else ("#f7c948" if feed_mode == "real" else "#fb7185")
-        feed_label = "Google Finance ativo" if feed_mode == "google" else ("Backup TwelveData" if feed_mode == "real" else "Preço real indisponível")
+        feed_color = "#2ee59d" if feed_mode in {"google", "xtb", "hantec"} else ("#f7c948" if feed_mode == "real" else "#fb7185")
+        feed_label = f"{source_label} ativo" if feed_mode in {"google", "xtb", "hantec"} else ("Backup TwelveData" if feed_mode == "real" else "Preço real indisponível")
         st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
     with sound_col:
         st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
