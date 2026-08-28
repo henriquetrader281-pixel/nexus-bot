@@ -181,7 +181,7 @@ def fetch_google_finance_quote(asset: str, refresh_bucket: int) -> tuple[float, 
     return price, change, change_pct, config["google_name"]
 
 
-SOURCE_LABELS = {"xtb": "XTB", "hantec": "Hantec", "google": "Google Finance", "real": "TwelveData", "unavailable": "Indisponível"}
+SOURCE_LABELS = {"xtb": "XTB", "hantec": "Hantec", "google": "Google Finance", "real": "TwelveData", "goldapi": "Gold API", "unavailable": "Indisponível"}
 
 
 def source_is_enabled(source: str) -> bool:
@@ -321,6 +321,19 @@ def fetch_broker_quote(source: str, asset: str, refresh_bucket: int) -> tuple[fl
     return price, change, change_pct, f"{source.upper()} · {symbol}"
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def fetch_gold_api_quote(refresh_bucket: int) -> tuple[float, str]:
+    response = requests.get("https://api.gold-api.com/price/XAU/USD", headers={"Accept": "application/json", "User-Agent": "Monitor-de-Mercado/1.0"}, timeout=8)
+    if not response.ok:
+        raise RuntimeError(provider_message(response, "Gold API"))
+    payload = response.json()
+    price = payload.get("price")
+    if price in (None, ""):
+        raise RuntimeError("Gold API respondeu sem preço spot XAU/USD.")
+    updated = str(payload.get("updatedAtReadable") or payload.get("updatedAt") or "horário não informado")
+    return float(price), updated
+
+
 @st.cache_data(ttl=10, show_spinner=False)
 def fetch_twelve_data(symbol: str, interval: str, api_key: str) -> tuple[pd.DataFrame, float | None, str]:
     headers = {"Authorization": f"apikey {api_key}"}
@@ -398,6 +411,16 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
             return data, spot, None, None, "real", f"TwelveData · Gold Spot / US Dollar ({symbol}) · {volume_note}. Google Finance foi evitado porque o identificador público disponível é futuro COMEX."
         except Exception as twelve_spot_error:
             source_errors.append(f"TwelveData XAU/USD: {str(twelve_spot_error)[:120]}")
+
+    if asset == "XAUUSD":
+        try:
+            gold_refresh_bucket = int(dt.datetime.now(dt.timezone.utc).timestamp() // 30)
+            spot, updated = fetch_gold_api_quote(gold_refresh_bucket)
+            data = make_data(asset, timeframe, anchor=spot)
+            data.loc[data.index[-1], "close"] = spot
+            return data, spot, None, None, "goldapi", f"Gold API · XAU/USD spot · atualizado pelo provedor: {updated}. Cache local de 30s."
+        except Exception as gold_api_error:
+            source_errors.append(f"Gold API: {str(gold_api_error)[:120]}")
 
     try:
         google_spot, google_change, google_change_pct, google_name = fetch_google_finance_quote(asset, refresh_bucket)
@@ -872,11 +895,11 @@ max_drawdown = float(drawdown_curve.min() * 100) if len(drawdown_curve) else 0.0
 total_return = float((equity_curve.iloc[-1] - 1) * 100) if len(equity_curve) else 0.0
 strategy_profile_label = STRATEGY_PROFILES.get(asset, {}).get("name", "Baseline direcional")
 clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
-is_real_feed = feed_mode in {"google", "real", "xtb", "hantec"}
+is_real_feed = feed_mode in {"google", "real", "goldapi", "xtb", "hantec"}
 source_label = SOURCE_LABELS.get(feed_mode, feed_mode.upper())
 feed_state_label = f"{source_label.upper()} · 15S" if is_real_feed else "PREÇO INDISPONÍVEL"
 spot_title = f"Cotação {source_label} ({timeframe})" if is_real_feed else "Cotação indisponível"
-spot_badge = f'<span class="badge-green">{source_label}</span>' if feed_mode in {"google", "xtb", "hantec"} else ('<span class="badge-amber">Backup</span>' if feed_mode == "real" else '<span class="badge-red">Sem preço</span>')
+spot_badge = f'<span class="badge-green">{source_label}</span>' if feed_mode in {"google", "xtb", "hantec", "goldapi"} else ('<span class="badge-amber">Backup</span>' if feed_mode == "real" else '<span class="badge-red">Sem preço</span>')
 refresh_note = f"Cotação {source_label} atualizada conforme o provedor." if is_real_feed else "Não há cotação real disponível; nenhum valor simulado será exibido."
 refresh_footer = f"Cotação {source_label} conforme o provedor." if is_real_feed else "Preço real indisponível."
 
@@ -967,10 +990,10 @@ with spot_col:
             live_data.loc[live_data.index[-1], "close"] = live_spot
         live_typical = (live_data.high + live_data.low + live_data.close) / 3
         live_vwap = float(np.average(live_typical, weights=live_data.volume))
-        live_real = live_mode in {"google", "real", "xtb", "hantec"}
+        live_real = live_mode in {"google", "real", "goldapi", "xtb", "hantec"}
         live_unavailable = live_mode == "unavailable"
         live_previous = float(live_data.close.iloc[-2]) if len(live_data) > 1 else live_last
-        if live_mode in {"google", "xtb", "hantec"} and live_change is not None:
+        if live_mode in {"google", "xtb", "hantec", "goldapi"} and live_change is not None:
             live_change_value = float(live_change)
             live_change_percent = float(live_change_pct or 0.0)
         else:
@@ -980,7 +1003,7 @@ with spot_col:
         live_change_sign = "+" if live_change_value > 0 else ""
         live_source_label = SOURCE_LABELS.get(live_mode, live_mode.upper())
         live_title = f"Cotação {live_source_label} ({live_timeframe})" if live_real else "Cotação indisponível"
-        live_badge = f'<span class="badge-green">{live_source_label}</span>' if live_mode in {"google", "xtb", "hantec"} else ('<span class="badge-amber">Backup</span>' if live_mode == "real" else '<span class="badge-red">Sem preço</span>')
+        live_badge = f'<span class="badge-green">{live_source_label}</span>' if live_mode in {"google", "xtb", "hantec", "goldapi"} else ('<span class="badge-amber">Backup</span>' if live_mode == "real" else '<span class="badge-red">Sem preço</span>')
         live_clock = dt.datetime.now(TZ).strftime("%H:%M:%S")
         live_note = f"Atualização de {live_source_label} conforme o provedor." if live_real else "Preço real indisponível; nenhum valor simulado é exibido."
         live_value_html = "Indisponível" if live_unavailable else f"{price_format(live_last, live_is_usdjpy)} <span class=\"unit\">{live_config['unit']}</span>"
