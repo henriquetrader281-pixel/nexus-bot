@@ -41,8 +41,11 @@ import pandas as pd
 
 feature_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "strategy_features")
 pressure_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "pressure_confluence")
+ratings_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "technical_ratings")
+vote_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "_vote")
+label_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "_rating_label")
 feature_namespace = {"np": np, "pd": pd}
-exec(compile(ast.Module(body=[feature_node, pressure_node], type_ignores=[]), "monitor_app.py", "exec"), feature_namespace)
+exec(compile(ast.Module(body=[vote_node, label_node, feature_node, ratings_node, pressure_node], type_ignores=[]), "monitor_app.py", "exec"), feature_namespace)
 index = pd.date_range("2026-01-01", periods=60, freq="h")
 close = np.linspace(100.0, 112.0, 60)
 data = pd.DataFrame({
@@ -56,5 +59,6 @@ data = pd.DataFrame({
 pressure = feature_namespace["pressure_confluence"](data, 106.0, 109.0, 103.0)
 assert -1.0 <= pressure["score"] <= 1.0
 assert pressure["buy"] + pressure["sell"] == 100
-assert set(pressure["components"]) == {"Indicadores", "POC / Área de Valor", "Volume relativo"}
-print("pressure confluence: OK")
+assert set(pressure["components"]) == {"Resumo dos termômetros", "Osciladores", "Médias Móveis", "POC / Área de Valor", "Volume relativo"}
+assert np.sign(pressure["score"]) == np.sign(pressure["summary_score"])
+print("pressure confluence aligned with gauges: OK")
