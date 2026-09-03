@@ -624,14 +624,23 @@ def pressure_confluence(data: pd.DataFrame, poc: float, vah: float, val: float) 
     volume_ratio = float(row["volume"] / max(float(row["volume_sma20"]), 1e-9))
     candle_direction = float(np.sign(float(row["close"]) - float(row["open"])))
     volume_confirmation = candle_direction * float(np.clip(volume_ratio / 1.5, 0.0, 1.0))
+    tv_ratings = technical_ratings(data)
     components = {
-        "Indicadores": float(np.mean([trend, momentum, macd, adx_direction, bollinger, vwap_bias])),
+        "Resumo dos termômetros": float(tv_ratings["summary"]["score"]),
+        "Osciladores": float(tv_ratings["oscillators"]["score"]),
+        "Médias Móveis": float(tv_ratings["moving_averages"]["score"]),
         "POC / Área de Valor": float(np.mean([poc_bias, value_bias])),
         "Volume relativo": volume_confirmation,
     }
-    score = float(np.clip(components["Indicadores"] * 0.60 + components["POC / Área de Valor"] * 0.25 + components["Volume relativo"] * 0.15, -1.0, 1.0))
+    summary_score = components["Resumo dos termômetros"]
+    # O ponteiro de Resumo é a direção canônica. POC/VA e volume refinam apenas
+    # uma leitura neutra; assim, a barra nunca contradiz uma tendência forte exibida abaixo.
+    if abs(summary_score) < 0.20:
+        score = float(np.clip(summary_score * 0.55 + components["Osciladores"] * 0.20 + components["Médias Móveis"] * 0.15 + components["POC / Área de Valor"] * 0.07 + components["Volume relativo"] * 0.03, -1.0, 1.0))
+    else:
+        score = float(np.clip(summary_score * 0.85 + components["POC / Área de Valor"] * 0.10 + components["Volume relativo"] * 0.05, -1.0, 1.0))
     buy = int(np.clip(round(50 + score * 45), 5, 95))
-    return {"score": score, "buy": buy, "sell": 100 - buy, "ratio": volume_ratio, "components": components}
+    return {"score": score, "buy": buy, "sell": 100 - buy, "ratio": volume_ratio, "components": components, "summary_score": components["Resumo dos termômetros"]}
 
 
 STRATEGY_PROFILES = {
@@ -1017,7 +1026,7 @@ with pressure_col:
         bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if state["bearish"] else '<span class="badge-green">Viés Comprador Dominante</span>'
         components = state["pressure_components"]
         component_text = " · ".join(f"{html.escape(name)}: <b>{value:+.2f}</b>" for name, value in components.items())
-        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note">{component_text}</div><div class="card-note" style="text-align:right">Pesos: indicadores 60% · POC/VA 25% · volume 15% · atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
+        st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="card-title">⌁ Médias de Volume & Pressão ({state["timeframe"]})</div><div class="card-note">MA9: <b>{state["ma9"]:.1f}</b> &nbsp;|&nbsp; MA21: <b>{state["ma21"]:.1f}</b> &nbsp;|&nbsp; MA200: <b>{state["ma200"]:.1f}</b></div></div>{bias_badge}</div><div class="pressure-label" style="color:#2ee59d">Pressão Compradora <span style="float:right">{state["buy"]}%</span></div><div class="bar-shell"><div class="bar-fill-green" style="width:{state["buy"]}%"></div></div><div class="pressure-label" style="color:#fb7185">Pressão Vendedora <span style="float:right">{state["sell"]}%</span></div><div class="bar-shell"><div class="bar-fill-red" style="width:{state["sell"]}%"></div></div><div class="rule"></div><div class="small-row"><span>Volume Ratio: <strong>{state["ratio"]:.1f}x</strong></span><span>Status: <strong style="color:#f7b718">{state["volume_status"]}</strong></span></div><div class="card-note">{component_text}</div><div class="card-note" style="text-align:right">Direção canônica: Resumo dos termômetros · POC/VA e volume refinam sinais neutros · atualizado a cada 3s</div></div>''', unsafe_allow_html=True)
 
     render_pressure_card()
 
