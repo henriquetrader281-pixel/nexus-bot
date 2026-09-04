@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+
 import streamlit as st
 from auth import check_password as password_matches, configured_password
 
@@ -93,6 +95,9 @@ with tabs[2]:
 
 with tabs[3]:
     import monitor_app
+    # O monitor é um módulo top-level; reload é necessário para que cada rerun
+    # do st_autorefresh recarregue preço, candles e ponteiros no app integrado.
+    importlib.reload(monitor_app)
 
 with tabs[4]:
     st.header("🧠 Ferramentas avançadas")
