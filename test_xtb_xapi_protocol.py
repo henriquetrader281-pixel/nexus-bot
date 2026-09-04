@@ -62,3 +62,13 @@ assert pressure["buy"] + pressure["sell"] == 100
 assert set(pressure["components"]) == {"Resumo dos termômetros", "Osciladores", "Médias Móveis", "POC / Área de Valor", "Volume relativo"}
 assert np.sign(pressure["score"]) == np.sign(pressure["summary_score"])
 print("pressure confluence aligned with gauges: OK")
+
+# Verificação específica do timeframe M30: cadência das velas e volume usado pela pressão.
+m30_index = pd.date_range("2026-01-01", periods=60, freq="30min")
+assert (m30_index[1] - m30_index[0]).total_seconds() == 30 * 60
+m30_data = data.copy()
+m30_data["time"] = m30_index
+m30_pressure = feature_namespace["pressure_confluence"](m30_data, 106.0, 109.0, 103.0)
+assert np.isfinite(m30_pressure["ratio"]) and m30_pressure["ratio"] > 0
+assert np.isfinite(m30_pressure["components"]["Volume relativo"])
+print("M30 candle cadence and volume pressure: OK")
