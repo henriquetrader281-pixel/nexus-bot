@@ -404,7 +404,7 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
             broker_spot, broker_change, broker_change_pct, broker_name = fetch_broker_quote(source, asset, refresh_bucket)
             data = make_data(asset, timeframe, anchor=broker_spot)
             data.loc[data.index[-1], "close"] = broker_spot
-            return data, broker_spot, broker_change, broker_change_pct, source, f"{broker_name} ativo."
+            return data, broker_spot, broker_change, broker_change_pct, source, f"{broker_name} ativo. Volume estimado: a cotação do broker não fornece candles/volume neste adaptador."
         except Exception as broker_error:
             source_errors.append(f"{source.upper()}: {str(broker_error)[:120]}")
 
@@ -426,7 +426,7 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
             spot, updated = fetch_gold_api_quote(gold_refresh_bucket)
             data = make_data(asset, timeframe, anchor=spot)
             data.loc[data.index[-1], "close"] = spot
-            return data, spot, None, None, "goldapi", f"Gold API · XAU/USD spot · atualizado pelo provedor: {updated}. Cache local de 30s."
+            return data, spot, None, None, "goldapi", f"Gold API · XAU/USD spot · atualizado pelo provedor: {updated}. Cache local de 30s. Volume estimado: Gold API fornece spot, não candles/volume."
         except Exception as gold_api_error:
             source_errors.append(f"Gold API: {str(gold_api_error)[:120]}")
 
@@ -461,7 +461,7 @@ def load_market_data(asset: str, timeframe: str) -> tuple[pd.DataFrame, float | 
 
     data = make_data(asset, timeframe, anchor=google_spot)
     data.loc[data.index[-1], "close"] = google_spot
-    fallback_note = f"Google Finance · {google_name} ({config['google_symbol']}) · histórico intradiário estimado a partir da cotação atual."
+    fallback_note = f"Google Finance · {google_name} ({config['google_symbol']}) · histórico intradiário e volume estimados a partir da cotação atual."
     if requested_source in {"xtb", "hantec"} and source_errors:
         fallback_note = f"{requested_source.upper()} indisponível ({source_errors[-1]}) · fallback automático para {fallback_note}"
     elif requested_source == "auto" and not broker_candidates:
@@ -900,7 +900,7 @@ ma9 = float(df.volume.rolling(9, min_periods=1).mean().iloc[-1])
 ma21 = float(df.volume.rolling(21, min_periods=1).mean().iloc[-1])
 ma200 = float(df.volume.rolling(200, min_periods=1).mean().iloc[-1])
 volume_ratio = float(pressure["ratio"])
-volume_status = "Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if volume_ratio > 1.0 else "Volume Normal")
+volume_status = "Volume estimado" if "Volume estimado" in feed_note or "volume estimados" in feed_note else ("Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if volume_ratio > 1.0 else "Volume Normal"))
 signal, confidence = ("VENDA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92))) if bearish else ("COMPRA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92)))
 ratings = technical_ratings(df)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
