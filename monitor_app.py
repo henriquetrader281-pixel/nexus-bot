@@ -21,11 +21,11 @@ if __name__ == "__main__":
 
 TZ = ZoneInfo("America/Sao_Paulo")
 ASSETS = {
-    "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "google_symbol": "USD-JPY", "google_name": "USD / JPY", "base": 159.31, "scale": 0.075},
-    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "google_symbol": "NDX:INDEXNASDAQ", "google_name": "Nasdaq-100", "base": 29490.96, "scale": 55.0},
-    "XAUUSD": {"label": "XAU/USD (Ouro spot)", "desk": "XAU / USD · Spot", "unit": "USD/oz", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX (futuro; não é XAU/USD spot)", "base": 4351.90, "scale": 35.0},
-    "BTCUSD": {"label": "BTC/USD (Bitcoin)", "desk": "BTC / USD", "unit": "USD", "symbol": "BTC/USD", "google_symbol": "BTC-USD", "google_name": "Bitcoin", "base": 80542.94, "scale": 850.0},
-    "MINIWIN": {"label": "Mini-Índice (WIN)", "desk": "WIN / Ibovespa", "unit": "PTS", "symbol": "WIN", "google_symbol": "IBOV:INDEXBVMF", "google_name": "Ibovespa · proxy WIN", "base": 175215.55, "scale": 420.0},
+    "USDJPY": {"label": "USD/JPY", "desk": "USD / JPY", "unit": "JPY", "symbol": "USD/JPY", "google_symbol": "USD-JPY", "google_name": "USD / JPY", "base": 159.31, "scale": 0.075, "price_range": (50.0, 200.0)},
+    "US100": {"label": "US100", "desk": "US100 / Nasdaq", "unit": "PTS", "symbol": "NDX", "google_symbol": "NDX:INDEXNASDAQ", "google_name": "Nasdaq-100", "base": 29490.96, "scale": 55.0, "price_range": (5000.0, 50000.0)},
+    "XAUUSD": {"label": "XAU/USD (Ouro spot)", "desk": "XAU / USD · Spot", "unit": "USD/oz", "symbol": "XAU/USD", "google_symbol": "GCW00:COMEX", "google_name": "Gold COMEX (futuro; não é XAU/USD spot)", "base": 4351.90, "scale": 35.0, "price_range": (1000.0, 10000.0)},
+    "BTCUSD": {"label": "BTC/USD (Bitcoin)", "desk": "BTC / USD", "unit": "USD", "symbol": "BTC/USD", "google_symbol": "BTC-USD", "google_name": "Bitcoin", "base": 80542.94, "scale": 850.0, "price_range": (1000.0, 250000.0)},
+    "MINIWIN": {"label": "Mini-Índice (WIN)", "desk": "WIN / Ibovespa", "unit": "PTS", "symbol": "WIN", "google_symbol": "IBOV:INDEXBVMF", "google_name": "Ibovespa · proxy WIN", "base": 175215.55, "scale": 420.0, "price_range": (50000.0, 400000.0)},
 }
 TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1day"}
 TIME_FREQ = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
@@ -131,6 +131,14 @@ def price_format(value: float, is_usdjpy: bool) -> str:
     return f"{value:.3f}" if is_usdjpy else f"{value:,.2f}"
 
 
+def validate_quote(asset: str, price: float, source: str) -> float:
+    value = float(price)
+    minimum, maximum = ASSETS[asset]["price_range"]
+    if not np.isfinite(value) or not minimum <= value <= maximum:
+        raise RuntimeError(f"{source} devolveu {value:.6f} fora da faixa esperada para {ASSETS[asset]['label']} ({minimum:g}–{maximum:g}).")
+    return value
+
+
 def provider_message(response: requests.Response, label: str) -> str:
     """Extrai uma mensagem curta do provedor sem nunca incluir a chave de API."""
     try:
@@ -178,7 +186,7 @@ def fetch_google_finance_quote(asset: str, refresh_bucket: int) -> tuple[float, 
     change_pct_node = quote_block.select_one('span[jsname="vY9t3b"]')
     change = parse_google_number(change_node.get_text(" ", strip=True)) if change_node else 0.0
     change_pct = parse_google_number(change_pct_node.get_text(" ", strip=True)) if change_pct_node else 0.0
-    return price, change, change_pct, config["google_name"]
+    return validate_quote(asset, price, "Google Finance"), change, change_pct, config["google_name"]
 
 
 SOURCE_LABELS = {"xtb": "XTB", "hantec": "Hantec", "google": "Google Finance", "real": "TwelveData", "goldapi": "Gold API", "unavailable": "Indisponível"}
@@ -276,7 +284,7 @@ def fetch_xtb_xapi_quote(asset: str, refresh_bucket: int) -> tuple[float, float,
             raise RuntimeError(f"XTB xAPI não devolveu preço para o símbolo {symbol}.")
         change = _find_quote_value(symbol_data, ("dailychange", "change", "pricechange")) or _find_quote_value(quote, ("change", "pricechange")) or 0.0
         change_pct = _find_quote_value(symbol_data, ("percentagechange", "changepct", "changepercent", "pct")) or _find_quote_value(quote, ("changepct", "changepercent", "pct")) or 0.0
-        return float(price), float(change), float(change_pct), f"XTB xAPI · {symbol} · {environment}"
+        return validate_quote(asset, price, "XTB"), float(change), float(change_pct), f"XTB xAPI · {symbol} · {environment}"
     except Exception as exc:
         if isinstance(exc, RuntimeError):
             raise
@@ -318,7 +326,7 @@ def fetch_broker_quote(source: str, asset: str, refresh_bucket: int) -> tuple[fl
         raise RuntimeError(f"{source.upper()} respondeu sem campo de preço para {symbol}.")
     change = _find_quote_value(payload, ("change", "changevalue", "pricechange")) or 0.0
     change_pct = _find_quote_value(payload, ("changepct", "changepercent", "percentchange", "pct")) or 0.0
-    return price, change, change_pct, f"{source.upper()} · {symbol}"
+    return validate_quote(asset, price, source.upper()), change, change_pct, f"{source.upper()} · {symbol}"
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -331,7 +339,7 @@ def fetch_gold_api_quote(refresh_bucket: int) -> tuple[float, str]:
     if price in (None, ""):
         raise RuntimeError("Gold API respondeu sem preço spot XAU/USD.")
     updated = str(payload.get("updatedAtReadable") or payload.get("updatedAt") or "horário não informado")
-    return float(price), updated
+    return validate_quote("XAUUSD", float(price), "Gold API"), updated
 
 
 @st.cache_data(ttl=10, show_spinner=False)
@@ -801,12 +809,20 @@ def render_rating_panel(ratings: dict[str, object], asset_label: str, timeframe:
     return f'''<div class="tv-rating-panel"><div class="tv-rating-head"><div><div class="card-title">Análise técnica · {html.escape(asset_label)}</div><div class="card-note">Resumo dos sinais no intervalo <b>{html.escape(timeframe)}</b>, com preço do ativo sincronizado ao feed selecionado.</div></div><span class="badge-amber">TRADING VIEW STYLE</span></div><div class="tv-gauge-layout"><div>{render_gauge(summary["score"], "Resumo", False)}<div class="tv-counts"><span class="tv-rating--1">Tendência de Baixa <b>{summary["sell"]}</b></span><span class="tv-rating-0">Tendência Neutra <b>{summary["neutral"]}</b></span><span class="tv-rating-1">Viés de alta <b>{summary["buy"]}</b></span></div></div><div class="tv-mini-grid">{render_gauge(oscillators["score"], "Osciladores", True)}{render_gauge(moving_averages["score"], "Médias Móveis", True)}</div></div><div class="tv-rating-columns"><div><div class="tv-section-title">Osciladores</div>{rows(oscillators)}</div><div><div class="tv-section-title">Médias Móveis</div>{rows(moving_averages)}</div></div></div>'''
 
 
-def live_operational_state() -> dict[str, object]:
-    """Calcula apenas os cartões operacionais que podem acompanhar a cotação sem rerun global."""
+def live_operational_state(current_data: pd.DataFrame | None = None, current_spot: float | None = None, current_mode: str | None = None, current_note: str | None = None) -> dict[str, object]:
+    """Calcula os cartões operacionais a partir da mesma leitura usada no painel principal."""
     live_asset = st.session_state.asset
     live_timeframe = st.session_state.timeframe
     live_session = st.session_state.session
-    live_data, live_spot, live_change, live_change_pct, live_mode, live_note = load_market_data(live_asset, live_timeframe)
+    if current_data is None:
+        live_data, live_spot, live_change, live_change_pct, live_mode, live_note = load_market_data(live_asset, live_timeframe)
+    else:
+        live_data = current_data.copy()
+        live_spot = current_spot
+        live_change = None
+        live_change_pct = None
+        live_mode = current_mode or "unavailable"
+        live_note = current_note or ""
     if live_spot is not None:
         live_data.loc[live_data.index[-1], "close"] = live_spot
     live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
@@ -989,11 +1005,14 @@ spot_col, pressure_col = st.columns([.78, 2.22], gap="medium")
 with spot_col:
     def render_spot_card():
         """Atualiza apenas o cartão Spot em ciclos de 3 segundos, sem recriar os painéis."""
-        live_asset = st.session_state.asset
-        live_timeframe = st.session_state.timeframe
-        live_config = ASSETS[live_asset]
-        live_is_usdjpy = live_asset == "USDJPY"
-        live_data, live_spot, live_change, live_change_pct, live_mode, _ = load_market_data(live_asset, live_timeframe)
+        live_asset = asset
+        live_timeframe = timeframe
+        live_config = config
+        live_is_usdjpy = is_usdjpy
+        live_data = df.copy()
+        live_change = quote_change
+        live_change_pct = quote_change_pct
+        live_mode = feed_mode
         live_last = float(live_spot if live_spot is not None else live_data.close.iloc[-1])
         if live_spot is not None:
             live_data.loc[live_data.index[-1], "close"] = live_spot
@@ -1022,7 +1041,7 @@ with spot_col:
     render_spot_card()
 with pressure_col:
     def render_pressure_card():
-        state = live_operational_state()
+        state = live_operational_state(df, live_spot, feed_mode, feed_note)
         bias_badge = '<span class="badge-red">Viés Vendedor Dominante</span>' if state["bearish"] else '<span class="badge-green">Viés Comprador Dominante</span>'
         components = state["pressure_components"]
         component_text = " · ".join(f"{html.escape(name)}: <b>{value:+.2f}</b>" for name, value in components.items())
@@ -1100,9 +1119,8 @@ with chart_col:
         main_fig.update_xaxes(gridcolor="rgba(255,255,255,.035)", showspikes=True)
         st.plotly_chart(main_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
 with alert_col:
-    @st.fragment(run_every=3)
     def render_alert_card():
-        state = live_operational_state()
+        state = live_operational_state(df, live_spot, feed_mode, feed_note)
         signal_badge = '<span class="badge-red">VENDA</span>' if state["bearish"] else '<span class="badge-green">COMPRA</span>'
         operational_text = "Sinal de baixa: volume atual acima das médias MA9 e MA21 com pressão vendedora." if state["bearish"] else "Sinal de alta: volume atual acima das médias MA9 e MA21 com pressão compradora."
         st.markdown(f'''<div class="ui-card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">◉ Alerta Operacional ({state["label"]})</div>{signal_badge}</div><div class="rule"></div><div class="card-note">{operational_text}</div><div class="rule"></div><div class="small-row"><span>VAH (Resistência)</span><strong style="color:#fb7185">{price_format(state["vah"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>POC (Control)</span><strong style="color:#f7b718">{price_format(state["poc"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>VAL (Suporte)</span><strong style="color:#2ee59d">{price_format(state["val"], state["is_usdjpy"])}</strong></div><div class="small-row"><span>Confiança do Sinal</span><strong style="color:#2ee59d">{state["confidence"]}%</strong></div><div class="rule"></div><div class="card-note" style="text-align:center;font-style:italic">Painel atualizado isoladamente a cada 3 segundos.</div></div>''', unsafe_allow_html=True)
