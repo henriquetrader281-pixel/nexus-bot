@@ -27,8 +27,8 @@ ASSETS = {
     "BTCUSD": {"label": "BTC/USD (Bitcoin)", "desk": "BTC / USD", "unit": "USD", "symbol": "BTC/USD", "google_symbol": "BTC-USD", "google_name": "Bitcoin", "base": 80542.94, "scale": 850.0, "price_range": (1000.0, 250000.0)},
     "MINIWIN": {"label": "Mini-Índice (WIN)", "desk": "WIN / Ibovespa", "unit": "PTS", "symbol": "WIN", "google_symbol": "IBOV:INDEXBVMF", "google_name": "Ibovespa · proxy WIN", "base": 175215.55, "scale": 420.0, "price_range": (50000.0, 400000.0)},
 }
-TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1day"}
-TIME_FREQ = {"M5": "5min", "M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
+TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "M30": "30min", "H1": "1h", "H4": "4h", "D1": "1day"}
+TIME_FREQ = {"M5": "5min", "M15": "15min", "M30": "30min", "H1": "1h", "H4": "4h", "D1": "1D"}
 SESSION_NAMES = ["Global", "Tóquio", "Londres", "Nova Iorque"]
 
 
@@ -910,7 +910,7 @@ traded_backtest = valid_backtest[valid_backtest["position"] != 0]
 win_rate = float(traded_backtest.win.mean() * 100) if len(traded_backtest) else 0.0
 mean_pnl = float(traded_backtest["strategy_pnl"].mean()) if len(traded_backtest) else 0.0
 strategy_returns = valid_backtest["strategy_return_pct"].astype(float)
-periods_per_day = {"M5": 288, "M15": 96, "H1": 24, "H4": 6, "D1": 1}[timeframe]
+periods_per_day = {"M5": 288, "M15": 96, "M30": 48, "H1": 24, "H4": 6, "D1": 1}[timeframe]
 annualization_factor = math.sqrt(periods_per_day * 252)
 return_std = float(strategy_returns.std(ddof=1)) if len(strategy_returns) > 1 else 0.0
 sharpe_ratio = float(strategy_returns.mean() / return_std * annualization_factor) if return_std > 0 else 0.0
@@ -949,8 +949,8 @@ with controls_left:
     with control_text:
         st.markdown('<div class="control-panel"><div class="eyebrow">Timeframe ativo</div><div class="card-title">Gráficos de linhas (Cotação + Regiões POC/VAH/VAL)</div></div>', unsafe_allow_html=True)
     with control_buttons:
-        tf_cols = st.columns(5, gap="small")
-        for col, tf in zip(tf_cols, ["M5", "M15", "H1", "H4", "D1"]):
+        tf_cols = st.columns(6, gap="small")
+        for col, tf in zip(tf_cols, ["M5", "M15", "M30", "H1", "H4", "D1"]):
             with col:
                 if st.button(tf, key=f"tf-{tf}", type="primary" if timeframe == tf else "secondary"):
                     st.session_state.timeframe = tf
