@@ -1,9 +1,13 @@
 import datetime as dt
+import base64
 import html
+import io
 import json
 import math
 import os
 import re
+import struct
+import wave
 
 import numpy as np
 import pandas as pd
@@ -30,6 +34,7 @@ ASSETS = {
 TWELVE_INTERVALS = {"M5": "5min", "M15": "15min", "M30": "30min", "H1": "1h", "H4": "4h", "D1": "1day"}
 TIME_FREQ = {"M5": "5min", "M15": "15min", "M30": "30min", "H1": "1h", "H4": "4h", "D1": "1D"}
 SESSION_NAMES = ["Global", "Tóquio", "Londres", "Nova Iorque"]
+VOLUME_ALERT_THRESHOLD = 1.5
 
 
 st.markdown(
@@ -137,6 +142,31 @@ def validate_quote(asset: str, price: float, source: str) -> float:
     if not np.isfinite(value) or not minimum <= value <= maximum:
         raise RuntimeError(f"{source} devolveu {value:.6f} fora da faixa esperada para {ASSETS[asset]['label']} ({minimum:g}–{maximum:g}).")
     return value
+
+
+@st.cache_data(show_spinner=False)
+def volume_alert_beep_uri() -> str:
+    """Cria um beep curto no navegador sem depender de arquivo ou serviço externo."""
+    sample_rate = 8000
+    duration = 0.22
+    frequency = 880.0
+    frames = bytearray()
+    for index in range(int(sample_rate * duration)):
+        envelope = min(1.0, index / 160.0, (sample_rate * duration - index) / 320.0)
+        sample = int(12000 * envelope * math.sin(2 * math.pi * frequency * index / sample_rate))
+        frames.extend(struct.pack("<h", sample))
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(sample_rate)
+        audio.writeframes(bytes(frames))
+    return "data:audio/wav;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def volume_alert_crossed(previous: float | None, current: float, threshold: float = VOLUME_ALERT_THRESHOLD) -> bool:
+    """Dispara somente na passagem ascendente do limiar, não em cada atualização."""
+    return previous is not None and float(previous) < threshold <= float(current)
 
 
 def provider_message(response: requests.Response, label: str) -> str:
@@ -867,6 +897,8 @@ def live_operational_state(current_data: pd.DataFrame | None = None, current_spo
 for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "source_mode": "auto", "api_key": "", "sound_alerts": False, "news_filter": "Todas", "bottom_view": "Linha", "backtest_result": None}.items():
     if key not in st.session_state:
         st.session_state[key] = value
+if "volume_alert_previous" not in st.session_state:
+    st.session_state.volume_alert_previous = {}
 if st.session_state.session not in SESSION_NAMES:
     st.session_state.session = "Global"
 
@@ -900,6 +932,10 @@ ma9 = float(df.volume.rolling(9, min_periods=1).mean().iloc[-1])
 ma21 = float(df.volume.rolling(21, min_periods=1).mean().iloc[-1])
 ma200 = float(df.volume.rolling(200, min_periods=1).mean().iloc[-1])
 volume_ratio = float(pressure["ratio"])
+alert_key = f"{asset}:{timeframe}"
+previous_volume_ratio = st.session_state.volume_alert_previous.get(alert_key)
+volume_alert_trigger = bool(st.session_state.sound_alerts and volume_alert_crossed(previous_volume_ratio, volume_ratio))
+st.session_state.volume_alert_previous[alert_key] = volume_ratio
 volume_status = "Volume estimado" if "Volume estimado" in feed_note or "volume estimados" in feed_note else ("Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if volume_ratio > 1.0 else "Volume Normal"))
 signal, confidence = ("VENDA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92))) if bearish else ("COMPRA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92)))
 ratings = technical_ratings(df)
@@ -1258,7 +1294,11 @@ with st.container(border=True):
         feed_label = f"{source_label} ativo" if feed_mode in {"google", "xtb", "hantec"} else ("Backup TwelveData" if feed_mode == "real" else "Preço real indisponível")
         st.markdown(f'<div class="metric-cell"><span>Estado do feed</span><b style="color:{feed_color}">{feed_label}</b><span style="margin-top:6px;text-transform:none;font-weight:500">{html.escape(feed_note)}</span></div>', unsafe_allow_html=True)
     with sound_col:
-        st.session_state.sound_alerts = st.toggle("Alertas sonoros de Compra/Venda", value=st.session_state.sound_alerts, key="sound-toggle")
+        st.session_state.sound_alerts = st.toggle("Alertas sonoros de volume", value=st.session_state.sound_alerts, key="sound-toggle")
+        st.caption(f"Dispara ao cruzar Volume Ratio ≥ {VOLUME_ALERT_THRESHOLD:.1f}x no timeframe ativo ({timeframe}).")
+        if volume_alert_trigger:
+            st.markdown(f'<audio autoplay aria-label="Alerta de volume acima de {VOLUME_ALERT_THRESHOLD:.1f} vezes"><source src="{volume_alert_beep_uri()}" type="audio/wav"></audio>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-note" style="color:#f7c948">Alerta sonoro: Volume Ratio cruzou {volume_ratio:.1f}x no {timeframe}.</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="card-note">{"Google Finance é consultado sem chave; TwelveData é usado apenas como backup de candles quando disponível." if feed_mode == "google" else ("TwelveData foi usado como backup." if secret_loaded and feed_mode == "real" else "Google Finance não devolveu cotação nesta execução; revise a disponibilidade do provedor.")}</div>', unsafe_allow_html=True)
 
 st.markdown(f'<div class="footer-note">Terminal Institucional · {asset_label} · {feed_note} {refresh_footer}</div>', unsafe_allow_html=True)
