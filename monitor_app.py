@@ -8,6 +8,7 @@ import os
 import re
 import struct
 import wave
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import pandas as pd
@@ -220,6 +221,23 @@ def fetch_google_finance_quote(asset: str, refresh_bucket: int) -> tuple[float, 
 
 
 SOURCE_LABELS = {"xtb": "XTB", "hantec": "Hantec", "google": "Google Finance", "real": "TwelveData", "goldapi": "Gold API", "unavailable": "Indisponível"}
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_gold_news() -> list[dict[str, str]]:
+    """Busca manchetes recentes de ouro/XAU/USD para o resumo informativo."""
+    url = "https://news.google.com/rss/search?q=gold+XAU+USD+markets&hl=en-US&gl=US&ceid=US:en"
+    response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+    response.raise_for_status()
+    root = ET.fromstring(response.content)
+    items = []
+    for item in root.findall(".//item")[:5]:
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        pub_date = (item.findtext("pubDate") or "").strip()
+        if title and link:
+            items.append({"title": title, "link": link, "published": pub_date})
+    return items
 
 
 def source_is_enabled(source: str) -> bool:
@@ -1002,6 +1020,14 @@ signal, confidence = ("VENDA", int(np.clip(50 + abs(pressure["score"]) * 42, 50,
 ratings = technical_ratings(df)
 frequency = market_frequency_snapshot(df, timeframe, last, vwap, poc, vah, val, pivots, pressure, ratings)
 reference_range = float((df.high - df.low).tail(14).mean())
+news_items = []
+if asset == "XAUUSD":
+    try:
+        news_items = fetch_gold_news()
+    except Exception:
+        news_items = []
+daily_bias_score = float(ratings["summary"]["score"] * 0.60 + pressure["score"] * 0.40)
+daily_bias = "Mais favorável à alta" if daily_bias_score >= 0.20 else "Mais favorável à baixa" if daily_bias_score <= -0.20 else "Neutro / equilibrado"
 attention = attention_alert_snapshot(asset, timeframe, last, attention_levels(poc, vah, val, pivots), reference_range, st.session_state.sound_alerts, st.session_state.attention_alert_state)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
 backtest = build_strategy_backtest(df, asset)
@@ -1293,6 +1319,12 @@ with st.container(border=True):
             st.markdown(f'<div class="ui-card" style="border-color:#f7c948"><div class="card-title" style="color:#f7c948">Pontos de atenção próximos</div><div class="card-note">{active_text}</div><div class="card-note">Zona de proximidade: ±{price_format(attention["tolerance"], is_usdjpy)} · mais próximo: <b>{html.escape(attention["nearest"])}</b></div></div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="ui-card"><div class="card-title">Pontos de atenção do dia</div><div class="card-note">Mais próximo: <b>{html.escape(attention["nearest"])}</b> em {price_format(attention["nearest_distance"], is_usdjpy)} de distância.</div><div class="card-note">Níveis monitorados: POC, VAH, VAL, Pivot P, R1 e S1.</div></div>', unsafe_allow_html=True)
+
+if asset == "XAUUSD":
+    with st.container(border=True):
+        bias_color = "#2ee59d" if daily_bias_score > 0.20 else "#fb7185" if daily_bias_score < -0.20 else "#f7c948"
+        attention_names = ", ".join(item["name"] for item in attention["active"]) if attention["active"] else attention["nearest"]
+        st.markdown(f'<div class="card-title">◉ Resumo diário do ouro · XAU/USD</div><div class="card-note">Confluência técnica do monitor no timeframe <b>{timeframe}</b>; não é garantia de direção futura.</div><div class="metric-grid"><div class="metric-cell"><span>Viés técnico</span><b style="color:{bias_color}">{daily_bias}</b></div><div class="metric-cell"><span>Score diário</span><b style="color:{bias_color}">{daily_bias_score:+.2f}</b></div><div class="metric-cell"><span>Pontos de atenção</span><b>{html.escape(attention_names)}</b></div></div><div class="card-note"><b>Leitura:</b> Resumo dos termômetros {ratings["summary"]["score"]:+.2f} · Pressão {pressure["score"]:+.2f} · Volume Ratio {volume_ratio:.1f}x · VWAP {frequency["vwap_side"]}.</div><div class="rule"></div><div class="card-title" style="font-size:12px">Notícias recentes que podem afetar o ouro</div>{''.join(f'<div class="card-note">• <a href="{html.escape(item["link"])}" target="_blank">{html.escape(item["title"])}</a></div>' for item in news_items) if news_items else '<div class="card-note">Notícias indisponíveis nesta atualização.</div>'}</div>', unsafe_allow_html=True)
 
 # Gráfico inferior do original, com a alternância Linha/Velas compacta no canto.
 with st.container(border=True):
