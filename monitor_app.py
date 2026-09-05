@@ -536,6 +536,65 @@ def pivot_levels(data: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def market_frequency_snapshot(data: pd.DataFrame, timeframe: str, last: float, vwap: float, poc: float, vah: float, val: float, pivots: dict[str, float], pressure: dict[str, object], ratings: dict[str, object]) -> dict[str, object]:
+    """Resume ritmo, direção e zonas de atenção do período carregado, sem previsão automática."""
+    minutes = {"M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 240, "D1": 1440}[timeframe]
+    recent = data.tail(min(len(data), max(12, int(480 / minutes))))
+    changes = recent.close.astype(float).diff().dropna()
+    up = int((changes > 0).sum())
+    down = int((changes < 0).sum())
+    flat = int((changes == 0).sum())
+    total = max(len(changes), 1)
+    avg_range = float((recent.high - recent.low).mean())
+    observed_range = float(recent.high.max() - recent.low.min())
+    range_pct = observed_range / max(abs(last), 1e-9) * 100
+    return {
+        "timeframe": timeframe,
+        "bars": len(recent),
+        "bars_per_hour": 60 / minutes,
+        "up_pct": up / total * 100,
+        "down_pct": down / total * 100,
+        "flat_pct": flat / total * 100,
+        "avg_range": avg_range,
+        "observed_range": observed_range,
+        "range_pct": range_pct,
+        "nearest_level": min({"POC": poc, "VAH": vah, "VAL": val, "Pivot P": pivots["P"], "R1": pivots["R1"], "S1": pivots["S1"]}, key=lambda name: abs(last - {"POC": poc, "VAH": vah, "VAL": val, "Pivot P": pivots["P"], "R1": pivots["R1"], "S1": pivots["S1"]}[name])),
+        "nearest_distance_pct": min(abs(last - level) for level in [poc, vah, val, pivots["P"], pivots["R1"], pivots["S1"]]) / max(abs(last), 1e-9) * 100,
+        "vwap_side": "acima" if last > vwap else "abaixo" if last < vwap else "sobre",
+        "volume_ratio": float(pressure["ratio"]),
+        "summary_label": str(ratings["summary"]["label"]),
+    }
+
+
+def attention_levels(poc: float, vah: float, val: float, pivots: dict[str, float]) -> dict[str, float]:
+    return {"POC": float(poc), "VAH": float(vah), "VAL": float(val), "Pivot P": float(pivots["P"]), "R1": float(pivots["R1"]), "S1": float(pivots["S1"])}
+
+
+def attention_alert_snapshot(asset: str, timeframe: str, last: float, levels: dict[str, float], reference_range: float, enabled: bool, state: dict[str, dict[str, object]]) -> dict[str, object]:
+    """Detecta entrada em zona de atenção ou toque/cruzamento de nível."""
+    tolerance = max(float(reference_range) * 0.35, abs(float(last)) * 0.0005, 1e-9)
+    now_ts = dt.datetime.now(TZ).timestamp()
+    active = []
+    triggered = []
+    for name, level in levels.items():
+        distance = abs(float(last) - level)
+        inside = distance <= tolerance
+        key = f"{asset}:{timeframe}:{name}"
+        previous = state.get(key, {})
+        was_inside = bool(previous.get("inside", False))
+        previous_price = previous.get("price")
+        crossed = previous_price is not None and (float(previous_price) - level) * (float(last) - level) <= 0 and float(previous_price) != float(last)
+        last_alert = float(previous.get("last_alert", 0.0) or 0.0)
+        should_trigger = bool(enabled and (inside and not was_inside or crossed) and now_ts - last_alert >= 90)
+        state[key] = {"inside": inside, "price": float(last), "last_alert": now_ts if should_trigger else last_alert}
+        if inside:
+            active.append({"name": name, "level": level, "distance": distance, "triggered": should_trigger})
+        if should_trigger:
+            triggered.append({"name": name, "level": level, "distance": distance})
+    nearest = min(levels, key=lambda name: abs(float(last) - levels[name])) if levels else ""
+    return {"tolerance": tolerance, "active": active, "triggered": triggered, "nearest": nearest, "nearest_distance": abs(float(last) - levels[nearest]) if nearest else None}
+
+
 def _vote(value: float, buy_threshold: float, sell_threshold: float) -> int:
     if value >= buy_threshold:
         return 1
@@ -899,6 +958,8 @@ for key, value in {"asset": "USDJPY", "timeframe": "H1", "session": "Global", "s
         st.session_state[key] = value
 if "volume_alert_previous" not in st.session_state:
     st.session_state.volume_alert_previous = {}
+if "attention_alert_state" not in st.session_state:
+    st.session_state.attention_alert_state = {}
 if st.session_state.session not in SESSION_NAMES:
     st.session_state.session = "Global"
 
@@ -939,6 +1000,9 @@ st.session_state.volume_alert_previous[alert_key] = volume_ratio
 volume_status = "Volume estimado" if "Volume estimado" in feed_note or "volume estimados" in feed_note else ("Volume não fornecido" if "não fornecido" in feed_note else ("Volume Acima da MA9" if volume_ratio > 1.0 else "Volume Normal"))
 signal, confidence = ("VENDA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92))) if bearish else ("COMPRA", int(np.clip(50 + abs(pressure["score"]) * 42, 50, 92)))
 ratings = technical_ratings(df)
+frequency = market_frequency_snapshot(df, timeframe, last, vwap, poc, vah, val, pivots, pressure, ratings)
+reference_range = float((df.high - df.low).tail(14).mean())
+attention = attention_alert_snapshot(asset, timeframe, last, attention_levels(poc, vah, val, pivots), reference_range, st.session_state.sound_alerts, st.session_state.attention_alert_state)
 vwap_series = (typical * df.volume).cumsum() / df.volume.cumsum()
 backtest = build_strategy_backtest(df, asset)
 valid_backtest = backtest.replace([np.inf, -np.inf], np.nan).dropna(subset=["next_return", "strategy_return_pct"])
@@ -1209,6 +1273,26 @@ with st.container(border=True):
         st.plotly_chart(pivot_fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
 
 st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+# Frequência intradiária e níveis de atenção do dia.
+with st.container(border=True):
+    frequency_col, attention_col = st.columns([1.05, 1.95], gap="medium")
+    with frequency_col:
+        direction_text = f"Alta {frequency['up_pct']:.0f}% · Baixa {frequency['down_pct']:.0f}% · Lateral {frequency['flat_pct']:.0f}%"
+        st.markdown(f'''<div class="ui-card"><div class="card-title">⌁ Frequência do Mercado ({timeframe})</div><div class="card-note">Ritmo observado nas últimas {frequency["bars"]} velas do timeframe ativo.</div><div class="metric-grid"><div class="metric-cell"><span>Velas por hora</span><b>{frequency["bars_per_hour"]:.1f}</b></div><div class="metric-cell"><span>Faixa observada</span><b>{frequency["range_pct"]:.2f}%</b></div><div class="metric-cell"><span>Volume Ratio</span><b>{frequency["volume_ratio"]:.1f}x</b></div></div><div class="card-note"><b>Direção:</b> {direction_text}</div><div class="card-note"><b>Preço:</b> {frequency["vwap_side"]} da VWAP · <b>Resumo:</b> {html.escape(frequency["summary_label"])}</div></div>''', unsafe_allow_html=True)
+    with attention_col:
+        triggered = attention["triggered"]
+        active = attention["active"]
+        if triggered:
+            trigger_text = " · ".join(f"<b>{html.escape(item['name'])}</b> em {price_format(item['level'], is_usdjpy)}" for item in triggered)
+            st.markdown(f'<div class="ui-card" style="border-color:#f7b718"><div class="card-title" style="color:#f7b718">⚠ Atenção acionada</div><div class="card-note">O preço tocou/cruzou: {trigger_text}</div></div>', unsafe_allow_html=True)
+            if st.session_state.sound_alerts:
+                st.markdown(f'<audio autoplay aria-label="Alerta de ponto de atenção"><source src="{volume_alert_beep_uri()}" type="audio/wav"></audio>', unsafe_allow_html=True)
+        elif active:
+            active_text = " · ".join(f"<b>{html.escape(item['name'])}</b> ({price_format(item['level'], is_usdjpy)})" for item in active[:4])
+            st.markdown(f'<div class="ui-card" style="border-color:#f7c948"><div class="card-title" style="color:#f7c948">Pontos de atenção próximos</div><div class="card-note">{active_text}</div><div class="card-note">Zona de proximidade: ±{price_format(attention["tolerance"], is_usdjpy)} · mais próximo: <b>{html.escape(attention["nearest"])}</b></div></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="ui-card"><div class="card-title">Pontos de atenção do dia</div><div class="card-note">Mais próximo: <b>{html.escape(attention["nearest"])}</b> em {price_format(attention["nearest_distance"], is_usdjpy)} de distância.</div><div class="card-note">Níveis monitorados: POC, VAH, VAL, Pivot P, R1 e S1.</div></div>', unsafe_allow_html=True)
 
 # Gráfico inferior do original, com a alternância Linha/Velas compacta no canto.
 with st.container(border=True):
