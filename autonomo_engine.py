@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 import streamlit as st
 from real_marketplace_engine import obter_produto_real_validado
+from multi_marketplace_engine import obter_produto_marketplace
 import update
 import campaign_state
 
@@ -42,14 +43,19 @@ def executar_ciclo_mestre_um_clique(provedor="openai", publicar=False):
                 "image_source": campaign.get("image_source"),
             }
         else:
-            dados = obter_produto_real_validado(provedor)
+            marketplace = st.session_state.get("mkt_global", "Mercado Livre")
+            if marketplace == "Mercado Livre":
+                dados = obter_produto_real_validado(provedor)
+            else:
+                dados = obter_produto_marketplace(marketplace, provedor=provedor)
 
         # Validação de stock apenas quando há URL de origem real disponível.
         from stock_validator import validar_link_e_stock
         if dados.get("link_ml"):
             val_stock = validar_link_e_stock(dados["link_ml"])
             if not val_stock["valido"] and not campaign.get("product_name"):
-                dados = obter_produto_real_validado(provedor)
+                marketplace = st.session_state.get("mkt_global", "Mercado Livre")
+                dados = obter_produto_real_validado(provedor) if marketplace == "Mercado Livre" else obter_produto_marketplace(marketplace, provedor=provedor)
     except Exception as mining_error:
         # Falha de descoberta não pode encerrar o Streamlit. Não criamos produto,
         # imagem ou link fictício; guardamos o diagnóstico e orientamos a próxima ação.
@@ -58,8 +64,9 @@ def executar_ciclo_mestre_um_clique(provedor="openai", publicar=False):
         campaign_state.set_campaign(mining_status="blocked", mining_error=reason, source="autonomo_blocked")
         st.session_state.nexus_mining_error = reason
         progresso.progress(15, text="⛔ Mineração bloqueada: nenhum produto seguro foi confirmado.")
-        st.error("**Ciclo bloqueado com segurança.** O Mercado Livre não devolveu um anúncio com imagem pública; nenhum produto genérico foi usado.")
-        st.warning("Configure `ML_ACCESS_TOKEN`/`ML_API_ACCESS_TOKEN` nos Secrets ou associe um link oficial e uma imagem pública no Modo Simples/Afiliados.")
+        marketplace = st.session_state.get("mkt_global", "Mercado Livre")
+        st.error(f"**Ciclo bloqueado com segurança.** O {marketplace} não devolveu um anúncio com imagem pública; nenhum produto genérico foi usado.")
+        st.warning("Configure a integração do marketplace ou associe um link oficial e uma imagem pública no Modo Simples/Afiliados.")
         st.code(reason, language="text")
         st.info("Depois de corrigir a integração, execute novamente o ciclo. A publicação não foi acionada.")
         return {"status": "blocked", "reason": reason, "publication": "not_executed"}

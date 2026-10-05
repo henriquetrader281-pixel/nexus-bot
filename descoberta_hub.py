@@ -32,9 +32,19 @@ def _render_scanner() -> None:
         with st.container(border=True):
             st.write(line)
             if st.button(f"🎯 USAR {product_name.upper()}", key=f"hub_scan_{index}"):
+                fields = [part.strip() for part in line.split("|")]
+                data = {}
+                for field in fields[1:]:
+                    if ":" in field:
+                        key, value = field.split(":", 1)
+                        data[key.strip().upper()] = value.strip()
                 campaign_state.set_campaign(
                     product_name=product_name,
                     pain=f"Necessidade detetada no nicho {nicho_scan}",
+                    product_source_url=data.get("URL"),
+                    image_url=data.get("IMAGEM"),
+                    image_verified=bool(data.get("IMAGEM")),
+                    image_source=f"{mkt_scan} · anúncio retornado pelo scanner",
                     marketplace=mkt_scan,
                     source="scanner",
                 )

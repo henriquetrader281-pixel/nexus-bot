@@ -82,28 +82,12 @@ def _secret(name: str) -> str | None:
 
 
 def buscar_produtos_mercado_livre(query: str, limit: int = 8) -> list[dict[str, Any]]:
-    headers = {"User-Agent": "NexusBot-SimpleMode/1.0", "Accept": "application/json"}
-    access_token = _secret("ML_ACCESS_TOKEN") or _secret("ML_API_ACCESS_TOKEN")
-    if access_token:
-        headers["Authorization"] = f"Bearer {access_token}"
-    response = requests.get(
-        SEARCH_URL,
-        params={"q": query, "limit": limit},
-        headers=headers,
-        timeout=15,
-    )
-    response.raise_for_status()
-    data = response.json()
-    results = []
-    for item in data.get("results", []):
-        results.append({
-            "id": item.get("id"),
-            "title": item.get("title") or "Produto Mercado Livre",
-            "permalink": item.get("permalink") or "",
-            "image_url": item.get("secure_thumbnail") or item.get("thumbnail"),
-            "price": item.get("price"),
-        })
-    return results
+    return buscar_produtos_modo_simples("Mercado Livre", query, limit=limit)
+
+
+def buscar_produtos_modo_simples(marketplace: str, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    from multi_marketplace_engine import buscar_produtos_marketplace
+    return buscar_produtos_marketplace(marketplace, query, limit=limit)
 
 
 def analisar_palavras_chave(product: str, pain: str, raw_keywords: str = "", trends: list[str] | None = None) -> dict[str, Any]:
@@ -249,17 +233,18 @@ def exibir_modo_simples() -> None:
 
     with st.container(border=True):
         st.markdown("#### 1. Encontrar o produto")
-        source = st.radio("Entrada", ["Buscar no Mercado Livre", "Colar link oficial"], horizontal=True, key="simple_source")
-        if source == "Buscar no Mercado Livre":
-            query = st.text_input("O que você procura?", placeholder="ex.: organizador de cozinha, power bank, luminária para monitor", key="simple_search_query")
+        marketplace = st.session_state.get("mkt_global", "Mercado Livre")
+        source = st.radio("Entrada", [f"Buscar no {marketplace}", "Colar link oficial"], horizontal=True, key="simple_source")
+        if source == f"Buscar no {marketplace}":
+            query = st.text_input(f"O que você procura no {marketplace}?", placeholder="ex.: organizador de cozinha, power bank, luminária para monitor", key="simple_search_query")
             if st.button("🔎 BUSCAR PRODUTOS", type="primary", key="simple_search_button"):
                 if not query.strip():
                     st.warning("Digite um produto ou problema para pesquisar.")
                 else:
                     try:
-                        st.session_state.simple_search_results = buscar_produtos_mercado_livre(query)
+                        st.session_state.simple_search_results = buscar_produtos_modo_simples(marketplace, query)
                     except Exception as exc:
-                        st.error(f"Não foi possível consultar o Mercado Livre agora: {exc}")
+                        st.error(f"Não foi possível consultar o {marketplace} agora: {exc}")
             results = st.session_state.get("simple_search_results", [])
             if results:
                 labels = [f"{item['title']} · R$ {item['price']}" if item.get("price") else item["title"] for item in results]
@@ -272,8 +257,8 @@ def exibir_modo_simples() -> None:
                         product_source_url=selected.get("permalink"),
                         image_url=selected.get("image_url"),
                         price=selected.get("price"),
-                        marketplace="Mercado Livre",
-                        source="mercado_livre_search",
+                        marketplace=marketplace,
+                        source=f"{marketplace.lower().replace(' ', '_')}_search",
                     )
                     st.success("Produto selecionado. Agora associe o link oficial de afiliado para liberar a publicação.")
                     st.rerun()
@@ -282,7 +267,7 @@ def exibir_modo_simples() -> None:
 
         product = st.text_input("Produto", value=campaign.get("product_name", ""), key="simple_product_input")
         pain = st.text_input("Dor ou desejo principal", value=campaign.get("pain", ""), key="simple_pain_input")
-        official_url = st.text_input("Link oficial do Mercado Livre para rastrear a oferta", value=campaign.get("official_affiliate_url", ""), placeholder="https://meli.la/...", key="simple_official_url")
+        official_url = st.text_input(f"Link oficial de afiliado do {marketplace}", value=campaign.get("official_affiliate_url", ""), placeholder="https://...", key="simple_official_url")
         image_url = st.text_input("URL pública da imagem (opcional)", value=campaign.get("image_url", ""), placeholder="https://...jpg", key="simple_image_url")
         upload = st.file_uploader("Ou suba uma imagem do produto", type=["jpg", "jpeg", "png", "webp"], key="simple_image_upload")
         if upload is not None and product:

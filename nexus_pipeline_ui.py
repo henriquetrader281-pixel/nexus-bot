@@ -10,10 +10,10 @@ import streamlit as st
 import campaign_queue
 import campaign_state
 from media_pipeline import generate_campaign_media
+from multi_marketplace_engine import buscar_produtos_marketplace, obter_produto_marketplace
 from simple_mode import (
     _save_upload,
     analisar_palavras_chave,
-    buscar_produtos_mercado_livre,
     gerar_copy,
 )
 
@@ -49,23 +49,15 @@ def _keywords_for_product(product_name: str, trend_term: str = "") -> list[str]:
     return list(dict.fromkeys(value for value in values if value))[:12]
 
 
-def _buscar_produtos_para_tendencias(terms: list[str], per_term: int = 3) -> list[dict[str, Any]]:
-    from real_marketplace_engine import buscar_produtos_mercado_livre as search_api
-    from real_marketplace_engine import buscar_produtos_mercado_livre_web as search_web
-
+def _buscar_produtos_para_tendencias(terms: list[str], per_term: int = 3, marketplace: str = "Mercado Livre") -> list[dict[str, Any]]:
     products: list[dict[str, Any]] = []
     seen: set[str] = set()
     for term in terms[:5]:
         candidates: list[dict[str, Any]] = []
         try:
-            candidates = search_api(term, limit=per_term)
+            candidates = buscar_produtos_marketplace(marketplace, term, limit=per_term)
         except Exception:
             candidates = []
-        if not candidates:
-            try:
-                candidates = search_web(term, limit=per_term)
-            except Exception:
-                candidates = []
         for candidate in candidates:
             permalink = str(candidate.get("permalink") or "").strip()
             image_url = str(candidate.get("image_url") or "").strip()
@@ -105,14 +97,13 @@ def _load_selected_queue() -> None:
         st.rerun()
 
 
-def _mine_one_product(query: str = "") -> None:
+def _mine_one_product(query: str = "", marketplace: str = "Mercado Livre") -> None:
     try:
-        from real_marketplace_engine import obter_produto_real_validado
         from trends import obter_tendencias_comerciais
 
         trend_values, trend_source = obter_tendencias_comerciais(limit=10)
         trend_term = query.strip() or (trend_values[0] if trend_values else "produtos úteis")
-        product = obter_produto_real_validado("gemini", query=trend_term)
+        product = obter_produto_marketplace(marketplace, query=trend_term, provedor="gemini")
         _apply_mined_product(product, trend_term, trend_source)
         st.success(f"Produto minerado: {product.get('produto') or product.get('title')}")
         st.info(f"Tendência usada: **{trend_term}** · fonte: {trend_source}")
@@ -120,8 +111,8 @@ def _mine_one_product(query: str = "") -> None:
     except Exception as exc:
         message = str(exc)
         if "HTTP 401" in message or "HTTP 403" in message or "API desativada" in message:
-            st.warning("A API do Mercado Livre bloqueou a pesquisa automática. Isso normalmente indica token ausente, inválido ou sem permissão.")
-            st.info("Configure ML_ACCESS_TOKEN/ML_API_ACCESS_TOKEN ou continue manualmente informando o produto e fazendo upload da imagem real.")
+            st.warning(f"A busca automática do {marketplace} foi bloqueada ou exige autenticação.")
+            st.info("Configure a integração do marketplace ou continue informando o produto e fazendo upload da imagem real.")
         else:
             st.error("A mineração não encontrou um anúncio com imagem pública.")
             st.info("Informe o produto e uma imagem pública ou faça upload da imagem real para continuar sem a API.")
@@ -279,12 +270,13 @@ def exibir_esteira_principal() -> None:
     if campaign.get("official_affiliate_url"):
         progress = 1.0
     st.progress(progress, text=f"Progresso da esteira: {int(progress * 100)}%")
+    marketplace = st.session_state.get("mkt_global", "Mercado Livre")
 
     with st.container(border=True):
         st.markdown("### 1. Encontrar o produto")
         search_col, auto_col = st.columns([3, 1])
         with search_col:
-            query = st.text_input("Pesquisar no Mercado Livre", placeholder="ex.: power bank, organizador de cozinha, luminária", key="main_search_query")
+            query = st.text_input(f"Pesquisar no {marketplace}", placeholder="ex.: power bank, organizador de cozinha, luminária", key="main_search_query")
             if st.button("📈 BUSCAR PRODUTOS EM ALTA", key="main_trend_button"):
                 try:
                     from trends import obter_tendencias_comerciais
@@ -292,7 +284,7 @@ def exibir_esteira_principal() -> None:
                     values, source = obter_tendencias_comerciais(limit=10)
                     st.session_state.main_trend_values = values
                     st.session_state.main_trend_source = source
-                    st.session_state.main_hot_products = _buscar_produtos_para_tendencias(values)
+                    st.session_state.main_hot_products = _buscar_produtos_para_tendencias(values, marketplace=marketplace)
                     st.success(f"{len(st.session_state.main_hot_products)} produtos encontrados a partir dos sinais comerciais de {source}.")
                 except Exception as exc:
                     st.error(f"Não foi possível carregar tendências: {exc}")
@@ -315,7 +307,7 @@ def exibir_esteira_principal() -> None:
                         image_verified=True,
                         image_source="thumbnail do produto encontrado para sinal comercial",
                         price=hot_selected.get("price"),
-                        marketplace="Mercado Livre",
+                        marketplace=marketplace,
                         trend_term=trend_term,
                         trends=st.session_state.get("main_trend_values", []),
                         keywords=_keywords_for_product(hot_selected.get("title", ""), trend_term),
@@ -323,19 +315,19 @@ def exibir_esteira_principal() -> None:
                     )
                     st.rerun()
             elif st.session_state.get("main_trend_values"):
-                st.warning("Os sinais comerciais foram carregados, mas nenhum anúncio com imagem pública foi devolvido. Configure o token do Mercado Livre ou use a busca manual.")
+                st.warning(f"Os sinais comerciais foram carregados, mas nenhum anúncio com imagem pública foi devolvido no {marketplace}. Tente outra busca ou use a entrada manual.")
             if st.button("🔎 BUSCAR PRODUTOS", type="primary", key="main_search_button"):
                 if not query.strip():
                     st.warning("Digite um produto ou problema para pesquisar.")
                 else:
                     try:
-                        st.session_state.main_search_results = buscar_produtos_mercado_livre(query)
+                        st.session_state.main_search_results = buscar_produtos_marketplace(marketplace, query)
                     except Exception as exc:
                         st.error(f"A busca foi bloqueada: {exc}")
         with auto_col:
             st.markdown("**Ou**")
             if st.button("⛏️ MINERAR AUTOMÁTICO", key="main_auto_mine", use_container_width=True):
-                _mine_one_product(query)
+                _mine_one_product(query, marketplace)
 
         results = st.session_state.get("main_search_results", [])
         if results:
@@ -353,7 +345,7 @@ def exibir_esteira_principal() -> None:
                     image_verified=bool(selected.get("image_url")),
                     image_source="thumbnail do resultado selecionado",
                     price=selected.get("price"),
-                    marketplace="Mercado Livre",
+                    marketplace=marketplace,
                     trend_term=trend_term,
                     trends=st.session_state.get("main_trend_values", []),
                     keywords=_keywords_for_product(selected["title"], trend_term),
