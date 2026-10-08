@@ -27,6 +27,26 @@ finally:
     real_marketplace_engine.buscar_produtos_mercado_livre_web = original_web
 assert hot_products[0]["trend_term"] == "power bank"
 assert hot_products[0]["image_url"].endswith("test.jpg")
+assert hot_products[0]["heat"] == 100
+
+original_search = main_ui.buscar_produtos_marketplace
+try:
+    calls = []
+    def fallback_search(marketplace, term, limit=3):
+        calls.append(term)
+        if term == "organizador de cozinha":
+            return [{
+                "title": "Organizador quente",
+                "permalink": "https://www.mercadolivre.com.br/organizador-quente",
+                "image_url": "https://http2.mlstatic.com/quente.jpg",
+            }]
+        raise RuntimeError("sem resultado")
+    main_ui.buscar_produtos_marketplace = fallback_search
+    fallback_products = main_ui._buscar_produtos_para_tendencias(["notícia sem produto"], per_term=1)
+finally:
+    main_ui.buscar_produtos_marketplace = original_search
+assert "organizador de cozinha" in calls
+assert fallback_products[0]["calor"] >= 60
 
 original = trends._obter_trends
 try:

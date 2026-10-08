@@ -52,11 +52,26 @@ def _keywords_for_product(product_name: str, trend_term: str = "") -> list[str]:
 def _buscar_produtos_para_tendencias(terms: list[str], per_term: int = 3, marketplace: str = "Mercado Livre") -> list[dict[str, Any]]:
     products: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for term in terms[:5]:
+    # O feed geral pode trazer notícias, nomes próprios ou termos pouco úteis
+    # para catálogo. Quando isso ocorrer, ainda tentamos uma pequena fila
+    # comercial determinística em vez de deixar o cartão "em alta" vazio.
+    fallback_terms = [
+        "organizador de cozinha",
+        "power bank carregador portátil",
+        "fone bluetooth",
+        "luminária para monitor",
+        "pistola de massagem muscular",
+    ]
+    queries = list(dict.fromkeys([str(term).strip() for term in terms if str(term).strip()] + fallback_terms))
+    for rank, term in enumerate(queries[:10]):
         candidates: list[dict[str, Any]] = []
         try:
             candidates = buscar_produtos_marketplace(marketplace, term, limit=per_term)
-        except Exception:
+        except Exception as exc:
+            st.session_state.main_trend_errors = [
+                *st.session_state.get("main_trend_errors", []),
+                f"{term}: {exc}",
+            ][-5:]
             candidates = []
         for candidate in candidates:
             permalink = str(candidate.get("permalink") or "").strip()
@@ -64,7 +79,10 @@ def _buscar_produtos_para_tendencias(terms: list[str], per_term: int = 3, market
             if not permalink or not image_url or permalink in seen:
                 continue
             seen.add(permalink)
-            products.append({**candidate, "trend_term": term})
+            heat = max(60, 100 - rank * 5)
+            products.append({**candidate, "trend_term": term, "heat": heat, "calor": heat})
+            if len(products) >= per_term * 5:
+                return products
     return products
 
 
@@ -284,14 +302,17 @@ def exibir_esteira_principal() -> None:
                     values, source = obter_tendencias_comerciais(limit=10)
                     st.session_state.main_trend_values = values
                     st.session_state.main_trend_source = source
+                    st.session_state.main_trend_errors = []
                     st.session_state.main_hot_products = _buscar_produtos_para_tendencias(values, marketplace=marketplace)
                     st.success(f"{len(st.session_state.main_hot_products)} produtos encontrados a partir dos sinais comerciais de {source}.")
+                    if not st.session_state.main_hot_products and st.session_state.get("main_trend_errors"):
+                        st.warning("Nenhum anúncio foi validado. O marketplace bloqueou ou não devolveu imagem pública para as consultas de calor.")
                 except Exception as exc:
                     st.error(f"Não foi possível carregar tendências: {exc}")
             hot_products = st.session_state.get("main_hot_products", [])
             if hot_products:
                 hot_labels = [
-                    f"{item.get('title', 'Produto')} · sinal: {item.get('trend_term', '')}"
+                    f"{item.get('title', 'Produto')} · calor {item.get('heat', 0)} · sinal: {item.get('trend_term', '')}"
                     for item in hot_products
                 ]
                 hot_index = st.selectbox("Escolha um produto em alta", range(len(hot_labels)), format_func=lambda index: hot_labels[index], key="main_hot_product_select")
