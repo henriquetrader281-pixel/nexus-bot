@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import importlib
-
 import streamlit as st
 from auth import check_password as password_matches, configured_password
 
@@ -80,7 +78,6 @@ tabs = st.tabs([
     "🚀 ESTEIRA PRINCIPAL",
     "🎬 MÁQUINA DE VÍDEOS",
     "📈 MÉTRICAS",
-    "📊 MONITOR DE MERCADO",
     "🧠 AVANÇADO",
 ])
 
@@ -94,12 +91,6 @@ with tabs[2]:
     video_machine_metrics_tab.exibir_painel_metricas()
 
 with tabs[3]:
-    import monitor_app
-    # O monitor é um módulo top-level; reload é necessário para que cada rerun
-    # do st_autorefresh recarregue preço, candles e ponteiros no app integrado.
-    importlib.reload(monitor_app)
-
-with tabs[4]:
     st.header("🧠 Ferramentas avançadas")
     st.caption("A operação normal não precisa destas áreas. Use-as apenas para diagnóstico, SEO, backtest, agendamento e configurações específicas.")
     with st.expander("🩺 Diagnóstico de operação", expanded=True):
