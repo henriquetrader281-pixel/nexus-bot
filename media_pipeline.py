@@ -1,8 +1,8 @@
 """Pipeline único de mídia do Nexus.
 
-A entrada é sempre a campanha partilhada. O módulo baixa a imagem pública
-associada ao link oficial, cria a Imagem A e o Vídeo B e devolve os caminhos
-para as restantes abas. Não publica nem cria um link de afiliado novo.
+A entrada é sempre a campanha partilhada. O pipeline tenta usar os dados
+públicos do anúncio; quando a consulta falha, pode continuar com uma imagem
+local enviada pelo usuário. Não publica nem cria um link de afiliado novo.
 """
 
 from __future__ import annotations
@@ -41,6 +41,11 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
     image_url = campaign.get("image_url")
     marketplace = campaign.get("marketplace") or _marketplace_from_url(source_url)
 
+    # A imagem enviada manualmente deve permitir seguir mesmo se o anúncio
+    # estiver bloqueado, fora do ar ou sem metadados públicos.
+    manual_image = campaign.get("source_image_path") or campaign.get("image_path")
+    manual_image_exists = bool(manual_image and Path(str(manual_image)).is_file())
+
     if source_url.startswith(("http://", "https://")):
         try:
             product = fetch_product_data(source_url)
@@ -53,9 +58,10 @@ def _build_product(campaign: dict[str, Any]) -> ProductData:
                 product.image_url = image_url
             return product
         except Exception:
-            manual_image = campaign.get("image_path")
-            if not image_url and not (manual_image and Path(str(manual_image)).is_file()):
+            if not image_url and not manual_image_exists:
                 raise
+            # Se já existe uma imagem local ou uma URL pública fornecida pelo
+            # usuário, não deixar uma falha de scraping bloquear a campanha.
 
     return ProductData(
         official_affiliate_url=official_url or "",
@@ -75,16 +81,17 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
     source_candidate_path = Path(str(source_candidate)) if source_candidate else None
     if source_candidate_path and source_candidate_path.name == "creative_image_a.jpg" and not campaign.get("source_image_path"):
         source_candidate_path = None
-    if not campaign.get("image_url") and not (source_candidate_path and source_candidate_path.is_file()) and not campaign.get("official_affiliate_url") and not campaign.get("product_source_url"):
-        raise ValueError("A campanha precisa de um link oficial, de um produto encontrado ou de uma imagem pública.")
+    has_local_image = bool(source_candidate_path and source_candidate_path.is_file())
+    if not campaign.get("image_url") and not has_local_image and not campaign.get("official_affiliate_url") and not campaign.get("product_source_url"):
+        raise ValueError("Informe o produto e envie uma imagem real ou forneça uma URL pública de imagem. A API do marketplace é opcional.")
 
     product = _build_product(campaign)
-    if not product.image_url and not (source_candidate_path and source_candidate_path.is_file()):
-        raise RuntimeError("O link não forneceu uma imagem pública do produto. Cole uma URL JPG/PNG pública ou suba uma imagem no Modo Simples.")
+    if not product.image_url and not has_local_image:
+        raise RuntimeError("Não foi encontrada imagem pública para este produto. Cole uma URL pública JPG/PNG/WebP ou envie a imagem real no campo de upload; não é necessário usar a API do marketplace.")
 
     output_dir = Path(output_root) / _safe_slug(product.title)
     output_dir.mkdir(parents=True, exist_ok=True)
-    if source_candidate_path and source_candidate_path.is_file():
+    if has_local_image:
         source = source_candidate_path
     else:
         source = download_image(product, output_dir)
@@ -126,10 +133,9 @@ def generate_campaign_media(campaign: dict[str, Any], *, output_root: str | Path
             "image_url": product.image_url,
             "source_image_url": campaign.get("source_image_url") or campaign.get("image_url") or product.image_url,
             "image_verified": campaign.get("image_verified"),
-            "image_source": campaign.get("image_source"),
+            "image_source": campaign.get("image_source") or ("upload manual do usuário" if has_local_image else None),
             "product_source_url": campaign.get("product_source_url") or campaign.get("official_affiliate_url"),
         },
-        "source_image_path": str(source),
         "source_image_sha256": source_digest,
         "caption_lines": caption_lines,
         "image_a": str(image_path),
