@@ -30,22 +30,61 @@ st.set_page_config(
 
 
 def check_password() -> bool:
+    expected_password = configured_password()
+
+    # Sem segredo configurado, não há senha padrão: mostre como configurar
+    # em vez de pedir ao usuário uma senha que ainda não pode funcionar.
+    if expected_password is None:
+        st.title("🔐 Configuração de acesso — Nexus Master")
+        st.error("A senha de acesso ainda não foi configurada neste ambiente.")
+        st.markdown(
+            '''
+            **Para liberar o acesso no Streamlit Cloud:**
+
+            1. Abra o app no [painel do Streamlit Cloud](https://share.streamlit.io/).
+            2. Entre em **Settings → Secrets**.
+            3. Adicione a configuração abaixo, substituindo o texto por uma senha sua:
+
+            NEXUS_PASSWORD = "coloque-sua-senha-forte-aqui"
+
+            4. Salve as configurações e recarregue o app.
+
+            Se estiver executando localmente, coloque a mesma linha em
+            .streamlit/secrets.toml (não envie esse arquivo ao GitHub).
+
+            **Importante:** por segurança, o Nexus não possui uma senha padrão
+            embutida no código. A senha é definida por você nas configurações
+            privadas do Streamlit.
+            '''
+        )
+        st.stop()
+
     def password_entered() -> None:
-        if password_matches(st.session_state["password"]):
+        if password_matches(st.session_state.get("password", ""), expected_password):
             st.session_state["password_correct"] = True
-            del st.session_state["password"]
+            st.session_state.pop("password", None)
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        if configured_password() is None:
-            st.error("NEXUS_PASSWORD não configurada. Defina esse segredo antes de iniciar o Nexus.")
-        st.text_input("🔑 Insira a Chave de Acesso Nexus:", type="password", on_change=password_entered, key="password")
+        st.text_input(
+            "🔑 Insira a senha de acesso do Nexus:",
+            type="password",
+            on_change=password_entered,
+            key="password",
+        )
         return False
+
     if not st.session_state["password_correct"]:
-        st.text_input("🔑 Insira a Chave de Acesso Nexus:", type="password", on_change=password_entered, key="password")
-        st.error("Senha incorreta")
+        st.text_input(
+            "🔑 Insira a senha de acesso do Nexus:",
+            type="password",
+            on_change=password_entered,
+            key="password",
+        )
+        st.error("Senha incorreta. Confira o valor de NEXUS_PASSWORD em Settings → Secrets.")
         return False
+
     return True
 
 
